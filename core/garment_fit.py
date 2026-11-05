@@ -216,15 +216,31 @@ def bell(points, skin, edges, degree):
     return moved
 
 
+def islands(edges, count):
+    """Label of the connected piece of every point: a suit is a shirt and trousers in one asset."""
+    labels = np.arange(count)
+    while True:
+        lowest = np.minimum(labels[edges[:, 0]], labels[edges[:, 1]])
+        before = labels.copy()
+        np.minimum.at(labels, edges[:, 0], lowest)
+        np.minimum.at(labels, edges[:, 1], lowest)
+        labels = labels[labels]
+        if (labels == before).all():
+            return labels
+
+
 def gusset(points, skin, edges, degree):
     """Cloth runs straight from thigh to thigh, and the crotch drops: the thigh no longer drags it into the groin."""
     crotch = skin.crotch
     height = points[:, 2] - crotch[2]
-    above = (height > 0) & (height < HIP_TOP_M + SLICE_M)
-    share = np.clip(height / HIP_FADE_M, 0, 1) * np.clip((HIP_TOP_M - height) / HIP_FADE_M, 0, 1)
+    # Only the piece with legs: the tail of a shirt hanging over it was pulled to the same shell and tore open.
+    labels = islands(edges, len(points))
+    legs = labels == labels[points[:, 2].argmin()]
+    above = legs & (height > 0) & (height < HIP_TOP_M + SLICE_M)
+    share = legs * np.clip(height / HIP_FADE_M, 0, 1) * np.clip((HIP_TOP_M - height) / HIP_FADE_M, 0, 1)
     moved, _ = to_shell(points, above, crotch[2] + HIP_TOP_M, share, HIP_DEEPEST_M)
     near = np.clip(1 - np.linalg.norm((moved - crotch) / GUSSET_REACH_M, axis=1), 0, 1)
-    moved[:, 2] -= GUSSET_DROP_M * near * near * (3 - 2 * near)
+    moved[:, 2] -= GUSSET_DROP_M * near * near * (3 - 2 * near) * legs
     return ease(points, moved, edges, degree)
 
 
