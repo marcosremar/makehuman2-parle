@@ -21,7 +21,7 @@ from scipy import sparse
 from scipy.sparse.linalg import splu
 from scipy.spatial import cKDTree
 
-from core.garment_fit import SKIRT_WORDS, edges_of, to_metres, vertex_normals
+from core.garment_fit import LEGGED_BELOW_CROTCH_M, SKIRT_WORDS, edges_of, to_metres, vertex_normals
 
 # Section 3.1 of the paper: 5% of the bounding box diagonal and 35 degrees.
 MATCH_SHARE = 0.05
@@ -30,6 +30,7 @@ MATCH_COS = float(np.cos(np.radians(35)))
 # 12 torn edges with no mask, 14 with 13 cm and 20 with 18 cm: there the body weights are better than the solve.
 SEAT_HALF_WIDTH_M = 0.06
 SEAT_HEIGHT_M = 0.18
+FRONT_HEIGHT_M = 0.06
 CROTCH_REACH_M = 0.1
 SMOOTH_ROUNDS = 5
 # A skirt hangs from the hips: below the hip joints the leg weight becomes a mix of both legs, by the side the point is on.
@@ -40,6 +41,7 @@ SKIRT_MIDDLE = 0.3
 SKIRT_SIDE = 0.75
 REGULARISE = 1e-8
 WEIGHT_FLOOR = 0.01
+SMALL_PIECE_M = 0.3
 MOST_BONES = 8
 
 
@@ -135,8 +137,12 @@ def matched(points, normals, skin):
 
 def hard_places(points, skin):
     """Vertices the body cannot answer for: between the two legs each side pulls its own way."""
+    # A bikini has no legs and hugs the skin: solved, it fell off the seat. The front of a waistband has to follow the belly the same way.
+    if points[:, 2].min() > skin.crotch[2] - LEGGED_BELOW_CROTCH_M:
+        return np.zeros(len(points), dtype=bool)
     middle = np.abs(points[:, 0] - skin.crotch[0]) < SEAT_HALF_WIDTH_M
-    return middle & (points[:, 2] > skin.crotch[2] - CROTCH_REACH_M) & (points[:, 2] < skin.crotch[2] + SEAT_HEIGHT_M)
+    top = np.where(points[:, 1] > skin.crotch[1], SEAT_HEIGHT_M, FRONT_HEIGHT_M)
+    return middle & (points[:, 2] > skin.crotch[2] - CROTCH_REACH_M) & (points[:, 2] < skin.crotch[2] + top)
 
 
 def hang(points, values, skin):
@@ -250,7 +256,9 @@ def weigh_garments(body, names, source, target, turns_path=None):
         values, solved = weigh(points, faces, skin, skirt)
         print("PESOS", stem, count, "pontos", solved, "resolvidos")
         if turns is not None:
-            values = solve(points, faces, values, skin, turns, skin.joints["LeftUpLeg"][2] - SKIRT_HANGS_M if skirt else None)
+            # A bikini goes where the skin goes: spreading its weights shows the skin at its edge. Tight trousers still need it, or they tear.
+            hugging = np.ptp(points[:, 2]) < SMALL_PIECE_M
+            values = solve(points, faces, values, skin, turns, skin.joints["LeftUpLeg"][2] - SKIRT_HANGS_M if skirt else None, not hugging)
         found[stem + "/points"] = points.astype(np.float32)
         found[stem + "/weights"] = values.astype(np.float16)
     np.savez_compressed(target, **found)

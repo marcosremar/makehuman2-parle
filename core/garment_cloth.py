@@ -267,7 +267,7 @@ def read_turns(path, names):
     return turns
 
 
-def solve(points, faces, weights, source, turns, hanging_below=None):
+def solve(points, faces, weights, source, turns, hanging_below=None, spread=True):
     """`turns` has one 3x4 matrix per weight column in each pose; returns the weights of the garment."""
     cloth = Cloth(points, faces, weights.copy(), source.names, hanging_below)
     zones = np.array([zone_of(name) for name in source.names])[source.weights.argmax(axis=1)]
@@ -285,7 +285,7 @@ def solve(points, faces, weights, source, turns, hanging_below=None):
     targets = np.array(targets)
     cloth.weights = finish(cloth, fit(cloth, turns, targets))
     limb = np.array([zone_of(name) in (1, 2, 3, 4, 5) for name in source.names])
-    left = relax(cloth, turns, np.zeros_like(limb) if hanging_below is not None else limb)
+    left = relax(cloth, turns, np.zeros_like(limb) if hanging_below is not None else limb) if spread else 0
     cloth.weights = finish(cloth, cloth.weights)
     stretched = float(np.mean([np.percentile(cloth.stretch(cloth.pose(pose)), 99.5) for pose in turns]))
     print("PANO", len(turns), "poses", cloth.count, "pontos", "esticão", round(stretched, 2), "arestas sobrando", left)
