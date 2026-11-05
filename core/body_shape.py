@@ -123,8 +123,8 @@ def pectoral(base, delta, joints):
     return -delta * area[:, None] + read_target(PECTORAL, len(base))
 
 
-def moulded(points, faces, sculpt, trunk):
-    """Fine muscle relief of the sculpture on the body, along the normal; `trunk` is the share of each vertex that belongs to the torso bones."""
+def moulded(points, faces, relief, trunk):
+    """Fine muscle relief on the body, along the normal; `relief` comes from relief_map, and `trunk` is the share of each vertex that belongs to the torso bones."""
     merged, twin, _, welded_faces = welded(points, faces)
     marks = landmarks(merged)
     angle, level, _ = chart(merged, marks)
@@ -132,6 +132,6 @@ def moulded(points, faces, sculpt, trunk):
     own[twin] = trunk
     area = smoothstep((own - 0.6) / 0.35) * smoothstep((level - CHART_LOW) / 0.15) * smoothstep((1.0 - level) / 0.12)
     span = marks[3] - marks[2]
-    detail = np.clip(sample(relief_map(sculpt), angle, level) * span * GAIN, -MOST_RELIEF_M, MOST_RELIEF_M) * area
+    detail = np.clip(sample(relief, angle, level) * span * GAIN, -MOST_RELIEF_M, MOST_RELIEF_M) * area
     print("MOLDE marcos", np.round(marks, 3), "relevo", round(float(np.abs(detail).max()) * 1000, 1), "mm")
     return (vertex_normals(merged, welded_faces) * detail[:, None])[twin]
