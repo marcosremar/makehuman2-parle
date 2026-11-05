@@ -32,6 +32,7 @@ SMOOTH_SHARE = 0.3
 PULL_TO_START = 0.02
 # Separate panels of one garment: the seam goes in as an edge, or the gap opens.
 STITCH_M = 0.012
+TIE_ROUNDS = 3
 MOST_CANDIDATES = 6
 MOST_BONES = 4
 WEIGHT_FLOOR = 0.01
@@ -114,7 +115,8 @@ class Cloth:
         self.count = len(points)
         self.weights = weights
         edges = {tuple(pair) for pair in edges_of(faces).tolist()}
-        self.edges = np.array(sorted(edges | self.stitches(edges)), dtype=np.int64)
+        self.sewn = self.stitches(edges)
+        self.edges = np.array(sorted(edges | self.sewn), dtype=np.int64)
         self.lengths = np.linalg.norm(points[self.edges[:, 0]] - points[self.edges[:, 1]], axis=1)
         self.degree = np.maximum(np.bincount(self.edges.ravel(), minlength=self.count), 1)[:, None]
         self.least = np.full(len(self.edges), SQUASH_LEAST)
@@ -122,6 +124,9 @@ class Cloth:
             self.least[(points[self.edges, 2] < hanging_below).all(axis=1)] = HANGING_LEAST
         zones = np.array([zone_of(name) for name in bones])
         self.zone = zones[weights.argmax(axis=1)]
+        # A skirt is one tube around both legs: zone 0 hits both, and the leg stepping forward stops coming through the front.
+        if hanging_below is not None:
+            self.zone[points[:, 2] < hanging_below] = 0
         self.homogeneous = np.concatenate([points, np.ones((self.count, 1))], axis=1)
 
     def stitches(self, edges):
@@ -140,6 +145,15 @@ class Cloth:
             if find(first) != find(second):
                 found.add((min(first, second), max(first, second)))
         return found
+
+    def tie(self, weights):
+        """Both sides of a seam move as one: with different weights the sleeve steps away from the shoulder."""
+        pairs = np.array(sorted(self.sewn), dtype=np.int64).reshape(-1, 2)
+        for _ in range(TIE_ROUNDS):
+            middle = (weights[pairs[:, 0]] + weights[pairs[:, 1]]) / 2
+            weights[pairs[:, 0]] = middle
+            weights[pairs[:, 1]] = middle
+        return weights
 
     def around(self, values):
         total = np.zeros_like(values)
@@ -223,7 +237,7 @@ def finish(cloth, weights):
     keep = np.zeros_like(weights, dtype=bool)
     np.put_along_axis(keep, order[:, :MOST_BONES], True, axis=1)
     weights = np.where(keep, weights, 0)
-    return weights / np.maximum(weights.sum(axis=1, keepdims=True), 1e-6)
+    return cloth.tie(weights / np.maximum(weights.sum(axis=1, keepdims=True), 1e-6))
 
 
 def relax(cloth, turns, limb):
