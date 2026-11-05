@@ -33,12 +33,16 @@ def main():
     names = [str(name) for name in data["names"]]
     torso = np.array([name.startswith(("Spine", "Hips")) for name in names])
     trunk = data["weights"][:, torso].sum(axis=1)
+    moved = base.copy()
+    moved[:len(delta)] += move
     # Under a shirt the relief does not show and only tears the cloth: "-" leaves it out.
     if sculpt_path != "-":
         sculpt = np.load(sculpt_path)["points"].astype(np.float64)
-        shift = shift + moulded(original + shift, data["faces"].astype(np.int64), sculpt, trunk)
-    gaps, near = cKDTree(original).query(base)
-    np.save(base_path, (base + shift[near] * (gaps < 0.02)[:, None]).astype(np.float32))
+        fine = moulded(original + shift, data["faces"].astype(np.int64), sculpt, trunk)
+        shift = shift + fine
+        gaps, near = cKDTree(original).query(base)
+        moved += fine[near] * (gaps < 0.02)[:, None]
+    np.save(base_path, moved.astype(np.float32))
     data["points"] = (original + shift).astype(np.float32)
     np.savez_compressed(path, **data)
     np.save(target, shift.astype(np.float32))
