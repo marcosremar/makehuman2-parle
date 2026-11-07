@@ -36,6 +36,10 @@ HAT_GROW = 1.03
 HAT_LIFT_M = 0.008
 # Through a hole in the forehead the inside of the far wall of the hat shows: pale shards below the rim. Skin only leaves from well inside the crown.
 CROWN_DEEP_M = 0.025
+# Under a cap the hair that goes past the crown's rim pokes through the cloth at the back.
+CAP_RIM_M = 0.012
+HAT_HAIR_FRONT_M = 0.06
+HAT_NAMES = ("Acc_Cap", "Acc_Straw")
 # Crown and brim are two pieces: the forehead shows between them unless the brim goes up to meet the crown.
 BRIM_OVERLAP_M = 0.003
 BRIM_ROOT_PERCENTILE = 25
@@ -221,6 +225,33 @@ def clear_under_crown(body, hats):
         return all(tree.ray_cast(Vector((x, y, point.z - drop)), way, SKULL_REACH_M)[3] is not None for drop in (0, CROWN_DEEP_M))
 
     print("PELE SOB A COPA", delete_faces(body, covered))
+
+
+def wear_hats(worn, body, middle, eye_y):
+    """A game hat on our head: stretched to contain it, brim against the crown, and the hair that would come through it gone."""
+    hats = [obj for obj in worn if obj.name.startswith(HAT_NAMES)]
+    caps = [obj for obj in hats if obj.name in ("Acc_Cap", "Acc_Straw_Hat")]
+    if not caps:
+        return
+    enclose_head(hats, body, middle)
+    rim = min(vertex.co.z for vertex in caps[0].data.vertices) + CAP_RIM_M
+    for obj in (item for item in worn if item.name.startswith("Acc_Hair_")):
+        # Measured on the points as stored, like the hat's rim above.
+        mesh = bmesh.new()
+        mesh.from_mesh(obj.data)
+        bmesh.ops.delete(mesh, geom=[face for face in mesh.faces if all(vert.co.z > rim for vert in face.verts)], context="FACES_ONLY")
+        mesh.to_mesh(obj.data)
+        mesh.free()
+        trim_hair_under_hat(obj, eye_y + HAT_HAIR_FRONT_M)
+
+
+def clear_skin_under_hats(body, meshes):
+    hats = [obj for obj in meshes if obj.name.startswith(HAT_NAMES)]
+    if not hats:
+        return
+    for brim in (obj for obj in hats if obj.name.startswith("Acc_Cap_Brim")):
+        clear_under_cap(body, brim)
+    clear_under_crown(body, hats)
 
 
 def trim_hair_under_hat(obj, forward_y):

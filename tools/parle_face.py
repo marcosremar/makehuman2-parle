@@ -25,13 +25,17 @@ FOREHEAD_HAIR_M = 0.085
 FOREHEAD_HALF_M = 0.06
 FOREHEAD_REACH_M = 0.06
 # The kit's own morphs, baked into the rest shape: eyes open all around and brows pulled down read as anger on everybody (owner's review, 2026-11-07).
-CALM_LOOK = {"faceEyeOpen": -0.45, "faceBrowAngle": 0.6, "browInnerUp": 0.5}
+# The kit rests with the lips a little apart, and the teeth showed through in a white line (owner, 2026-11-07): the jaw rests a quarter closed. Teeth and tongue take it too.
+CALM_LOOK = {"faceEyeOpen": -0.45, "faceBrowAngle": 0.6, "browInnerUp": 0.5, "jawOpen": -0.25}
 BROW_THIN = 0.75
 # Halves of a point split on a UV seam drift apart in the head fit and the background shows through, in a line along the jaw.
 SEAM_REACH_M = 0.008
 SEAM_SAME_MOVE_M = 0.001
 SEAM_TOP_M = 0.05
 SEAM_LOW_M = 0.4
+# Earrings: one pair, smaller, and not the same game pair on every woman (owner, 2026-11-07).
+EARRING_SCALE = 0.6
+GAME_EARRINGS_KEPT_EVERY = 3
 
 
 def skin_tree(body):
@@ -161,6 +165,34 @@ def weld_seams(body):
     print("EMENDA", len(pairs), "pares, maior", round(float(np.linalg.norm(rest[first] - rest[second], axis=1).max()) * 1000, 1), "mm")
 
 
+def shrink_earring(obj):
+    """Each side shrinks around the point that hangs from the lobe."""
+    points = np.array([tuple(obj.matrix_world @ vertex.co) for vertex in obj.data.vertices])
+    middle = points[:, 0].mean()
+    moved = points.copy()
+    for side in (points[:, 0] < middle, points[:, 0] >= middle):
+        if side.any():
+            top = points[side][points[side][:, 2].argmax()]
+            moved[side] = top + (points[side] - top) * EARRING_SCALE
+    inverse = obj.matrix_world.inverted()
+    for vertex, point in zip(obj.data.vertices, moved):
+        vertex.co = inverse @ Vector(point)
+    obj.data.update()
+
+
+def tidy_earrings(meshes, seed):
+    """The look's own earrings win over the game body's; the game pair stays on one woman in three, chosen by name, so it is not on everybody."""
+    chosen = [obj for obj in meshes if not obj.name.startswith(("Acc_", "Earring")) and any(word in obj.name.lower() for word in ("earring", "hoops"))]
+    game = [obj for obj in meshes if obj.name.startswith(("Acc_Earring", "Earring"))]
+    if chosen or sum(map(ord, seed)) % GAME_EARRINGS_KEPT_EVERY:
+        for obj in game:
+            bpy.data.objects.remove(obj, do_unlink=True)
+        game = []
+    for obj in chosen + game:
+        shrink_earring(obj)
+    print("BRINCOS", [obj.name for obj in chosen + game])
+
+
 def set_map(obj, image):
     for node in obj.active_material.node_tree.nodes:
         if node.type == "TEX_IMAGE":
@@ -172,7 +204,7 @@ def clean_face(body, added, job, env):
         added.remove(obj)
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and "eyebrow" in obj.name)])
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))])
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)

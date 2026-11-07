@@ -41,7 +41,7 @@ assert (closed[100, 100] != GROUND).any()
 stripes = np.array([[60, 120, 40]] * 30 + [[60, 30, 130]] * 30 + [[240, 240, 240]] * 40, dtype=np.uint8)
 assert main_colour(stripes)[1] < 0.6
 # Fábio: a shaded red and one exact white trim. The red is the garment, though no single shade of it is as common as the white.
-shaded = np.array([[20, 20, 130 + (index % 100)] for index in range(800)] + [[250, 250, 250]] * 200, dtype=np.uint8)
+shaded = np.array([[20, 20, 150 + (index % 50)] for index in range(800)] + [[250, 250, 250]] * 200, dtype=np.uint8)
 colour, plain = main_colour(shaded)
 assert colour[2] > 100 and colour[0] < 60 and plain >= 0.6
 

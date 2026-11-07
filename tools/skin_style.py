@@ -62,6 +62,10 @@ SCALP_CLOSE_PX = 15
 SCALP_GREY = 0.55
 SCALP_PALE = 0.7
 SCALP_TONE = 20
+# Where the lip is: what the game face drew redder or darker, plus the middle of the mouth. Its colour comes later, in `parle_lips.py`.
+LIP_DRAWN_RED = 3
+LIP_CORE = 0.7
+LIP_DRAWN_DARK = 0.93
 PHILTRUM_HALF_M = 0.012
 PHILTRUM_TOP_M = 0.006
 PHILTRUM_BOTTOM_M = 0.032
@@ -367,6 +371,16 @@ def relief(data, own):
     return painter(data)(np.clip(height / RELIEF_M, -1, 1), 2.5)
 
 
+def own_lip(skin, lips):
+    """Where the game face drew a lip: redder or darker than the skin around it."""
+    lab = cv2.cvtColor(np.clip(skin, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
+    red = lab[:, :, 1] - cv2.GaussianBlur(lab[:, :, 1], (WIDE_PX, WIDE_PX), 0)
+    dark = lab[:, :, 0] / np.maximum(cv2.GaussianBlur(lab[:, :, 0], (WIDE_PX, WIDE_PX), 0), 1)
+    drawn = ((red > LIP_DRAWN_RED) | (dark < LIP_DRAWN_DARK)) & (lips > 0.2)
+    drawn = cv2.morphologyEx(drawn.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
+    return cv2.GaussianBlur(drawn.astype(np.float32), (0, 0), 1.5)
+
+
 def chroma(image):
     lab = cv2.cvtColor(np.clip(image, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
     return np.hypot(lab[:, :, 1] - 128, lab[:, :, 2] - 128)
@@ -423,7 +437,11 @@ def main():
     head = cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
     # O lábio tem cor própria e fica fora do acerto de matiz.
     lips = lips * (1 - beard)
-    head = head * (1 - lips[:, :, None]) + skin * lips[:, :, None]
+    # The zone is a soft patch around the mouth: only what was lip in the game face takes the colour, or it spilled below the lower lip.
+    # The middle of the mouth always counts: where the game drew the lip faintly, it came out patchy.
+    lipped = np.maximum(lips * own_lip(skin, lips), np.clip((lips - LIP_CORE) / (1 - LIP_CORE), 0, 1))[:, :, None]
+    # The lip is a layer of its own: its map goes beside the skin and `parle_lips.py` paints it, as many times as wanted, without redoing the skin.
+    cv2.imwrite(target.replace(".png", ".lips.png"), np.clip(lipped[:, :, 0] * 255, 0, 255).astype(np.uint8))
     clean = body * (1 - face[:, :, None]) + head * face[:, :, None]
     # Em pele escura o mesmo vermelho pesa mais: o rosto do Fábio saiu vermelho com a força cheia.
     share = (blush * strength * min(1.0, (level / 190) ** 2))[:, :, None]
