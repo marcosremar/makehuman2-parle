@@ -49,6 +49,8 @@ SHAVE_DEPTH_M = 0.05
 SHAVE_LIP_TOP_M = 0.041
 SHAVE_LIP_BOTTOM_M = 0.053
 SHAVE_CHIN_M = 0.08
+SHAVE_KEEP_LIGHT = 0.85
+SHAVE_FILL_SOFT = 12
 # The warm lip of a shaved face was measured on light skin; on dark skin the same chroma reads as orange stains.
 SHAVE_WARM_LEVEL = 190
 SCALP_BEHIND_TIP_M = 0.045
@@ -312,11 +314,17 @@ def shave_face(skin, data):
     front = points[:, 1] < tip[1] + SHAVE_DEPTH_M
     above = (points[:, 2] < tip[2] - 0.004) & (points[:, 2] > tip[2] - SHAVE_LIP_TOP_M)
     below = (points[:, 2] < tip[2] - SHAVE_LIP_BOTTOM_M) & (points[:, 2] > tip[2] - SHAVE_CHIN_M)
-    area = painter(data)((side & front & (above | below)).astype(float), 1) > 0.5
+    paint = painter(data)
+    area = paint((side & front & (above | below)).astype(float), 1) > 0.5
     mask = cv2.dilate(area.astype(np.uint8) * 255, np.ones((3, 3), np.uint8))
-    healed = cv2.inpaint(np.clip(skin, 0, 255).astype(np.uint8), mask, 9, cv2.INPAINT_TELEA).astype(np.float32)
+    # Filled from the skin around it, never from the lip or the hair at its edge: pulled from the border, the chin came out with a dark stain (Seu Nelson).
+    lip_zone = paint(((np.abs(points[:, 0] - tip[0]) < SHAVE_LIP_HALF_M) & (points[:, 2] <= tip[2] - SHAVE_LIP_TOP_M + 0.004) & (points[:, 2] >= tip[2] - SHAVE_LIP_BOTTOM_M - 0.004) & front).astype(float), 1) > 0.5
+    gray = skin.mean(axis=2)
+    keep = (~(mask > 0) & ~lip_zone & (gray > SHAVE_KEEP_LIGHT * np.median(gray))).astype(np.float32)
+    weight = cv2.GaussianBlur(keep, (0, 0), SHAVE_FILL_SOFT)[:, :, None]
+    healed = cv2.GaussianBlur(skin * keep[:, :, None], (0, 0), SHAVE_FILL_SOFT) / np.maximum(weight, 1e-3)
     soft = cv2.GaussianBlur(mask.astype(np.float32) / 255, (0, 0), 2)[:, :, None]
-    shaved = skin * (1 - soft) + cv2.GaussianBlur(healed, (0, 0), 3) * soft
+    shaved = skin * (1 - soft) + healed * soft
     # O pelo do bigode descia sobre o lábio, que ficava cinza: mantém a luz dele e volta à cor da pele, mais quente.
     lip = (np.abs(points[:, 0] - tip[0]) < SHAVE_LIP_HALF_M) & (points[:, 2] <= tip[2] - SHAVE_LIP_TOP_M + 0.002) & (points[:, 2] >= tip[2] - SHAVE_LIP_BOTTOM_M - 0.002) & front
     share = cv2.GaussianBlur((painter(data)(lip.astype(float), 1) > 0.5).astype(np.float32), (0, 0), 2)[:, :, None]
