@@ -38,6 +38,9 @@ HAT_LIFT_M = 0.008
 CROWN_DEEP_M = 0.025
 # Crown and brim are two pieces: the forehead shows between them unless the brim goes up to meet the crown.
 BRIM_OVERLAP_M = 0.003
+BRIM_ROOT_PERCENTILE = 25
+BRIM_REACH_M = 0.02
+BRIM_GAP_PERCENTILE = 90
 # A rigid hat around a head of another shape: the skin came through under the rim, in jagged shards on the forehead.
 HAT_MOST = 1.25
 HAT_ENCLOSE = 99.8
@@ -158,11 +161,19 @@ def fit_hat(points, skulls):
 
 
 def close_brim(hats, middle):
+    """Measured where they meet: over the root of the brim, the lowest point of the crown right above it."""
     brims = [obj for obj in hats if "Brim" in obj.name]
-    front = [(obj.matrix_world @ vertex.co).z for obj in hats if "Brim" not in obj.name for vertex in obj.data.vertices if (obj.matrix_world @ vertex.co).y < middle.y]
-    if not brims or not front:
+    crown = np.array([tuple(obj.matrix_world @ vertex.co) for obj in hats if "Brim" not in obj.name for vertex in obj.data.vertices])
+    if not brims or not len(crown):
         return 0.0
-    rise = max(0.0, min(front) + BRIM_OVERLAP_M - max((obj.matrix_world @ vertex.co).z for obj in brims for vertex in obj.data.vertices))
+    brim = np.array([tuple(obj.matrix_world @ vertex.co) for obj in brims for vertex in obj.data.vertices])
+    root = brim[np.linalg.norm(brim[:, :2] - np.array(middle)[:2], axis=1) < np.percentile(np.linalg.norm(brim[:, :2] - np.array(middle)[:2], axis=1), BRIM_ROOT_PERCENTILE)]
+    gaps = []
+    for point in root:
+        above = crown[np.linalg.norm(crown[:, :2] - point[:2], axis=1) < BRIM_REACH_M]
+        if len(above):
+            gaps.append(above[:, 2].min() - point[2])
+    rise = max(0.0, float(np.percentile(gaps, BRIM_GAP_PERCENTILE)) + BRIM_OVERLAP_M) if gaps else 0.0
     for obj in brims:
         for vertex in obj.data.vertices:
             vertex.co.z += rise
