@@ -24,6 +24,10 @@ def main():
     mean = cv2.blur(gray, (BUSY_PX, BUSY_PX))
     spread = np.sqrt(np.maximum(cv2.blur(gray * gray, (BUSY_PX, BUSY_PX)) - mean * mean, 0))
     busy = cv2.GaussianBlur(cv2.morphologyEx((spread > BUSY_SPREAD).astype(np.uint8), cv2.MORPH_CLOSE, np.ones((EDGE_PX, EDGE_PX), np.uint8)).astype(np.float32), (EDGE_PX, EDGE_PX), 0)
+    # What the bake did not reach is part of the same cloth: the skirt, longer than the game's.
+    unreached = cv2.imread(baked_path.replace(".png", ".hole.png"), cv2.IMREAD_GRAYSCALE)
+    if unreached is not None:
+        busy = np.maximum(busy, cv2.GaussianBlur(unreached.astype(np.float32) / 255, (EDGE_PX, EDGE_PX), 0))
     side = max(8, round(size / repeats))
     tile = cv2.resize(pattern, (side, side), interpolation=cv2.INTER_AREA)
     tiled = np.tile(tile, (size // side + 2, size // side + 2, 1))[:size, :size]

@@ -34,7 +34,16 @@ SKULL_SAMPLE = 0.04
 # Rigid: a little bigger than the skull, and raised so that the rim does not cut the eyebrow.
 HAT_GROW = 1.03
 HAT_LIFT_M = 0.008
-CAP_SEAM_M = 0.015
+# Through a hole in the forehead the inside of the far wall of the hat shows: pale shards below the rim. Skin only leaves from well inside the crown.
+CROWN_DEEP_M = 0.025
+# Crown and brim are two pieces: the forehead shows between them unless the brim goes up to meet the crown.
+BRIM_OVERLAP_M = 0.003
+# A rigid hat around a head of another shape: the skin came through under the rim, in jagged shards on the forehead.
+HAT_MOST = 1.25
+HAT_ENCLOSE = 99.8
+# Rim standing a little off the skin: on the skin, the low-poly edge and the forehead cross each other in a zigzag.
+HAT_GAP = (1.03, 1.05)
+HAIR_ROUGH = 0.8
 
 CLEAR_REACH_M = 0.09
 CLEAR_GAP_M = 0.012
@@ -51,6 +60,8 @@ SHOULDER_BACK_M = 0.07
 # The short game cut has pale patches in its map at the sideburn: a grey plate on the temple.
 CALM_PERCENTILE = 60
 CALM_MOST = 1.1
+# Grey hair in this map is static on a screen: strand against strand, a smaller difference.
+CALM_CONTRAST = 0.4
 COARSE_HAIR_POINTS = 300
 SIDEBURN_ABOVE_EYE_M = 0.045
 
@@ -146,6 +157,77 @@ def fit_hat(points, skulls):
     return [middle + (point - middle) * ratio + up * HAT_LIFT_M for point in points]
 
 
+def close_brim(hats, middle):
+    brims = [obj for obj in hats if "Brim" in obj.name]
+    front = [(obj.matrix_world @ vertex.co).z for obj in hats if "Brim" not in obj.name for vertex in obj.data.vertices if (obj.matrix_world @ vertex.co).y < middle.y]
+    if not brims or not front:
+        return 0.0
+    rise = max(0.0, min(front) + BRIM_OVERLAP_M - max((obj.matrix_world @ vertex.co).z for obj in brims for vertex in obj.data.vertices))
+    for obj in brims:
+        for vertex in obj.data.vertices:
+            vertex.co.z += rise
+        obj.data.update()
+    return rise
+
+
+def enclose_head(hats, body, middle):
+    """Stretches the hat as one piece, sideways and front to back, until the head fits inside it. Only the crown counts: the skin always passes under a brim."""
+    crown = [obj for obj in hats if "Brim" not in obj.name]
+    if not crown:
+        return
+    tree = surface_tree(crown)
+    rim = min((obj.matrix_world @ vertex.co).z for obj in crown for vertex in obj.data.vertices)
+    need = {0: [1.0], 1: [1.0]}
+    for vertex in body.data.vertices:
+        point = body.matrix_world @ vertex.co
+        if point.z > rim:
+            way = point - middle
+            reach = way.length
+            hit = tree.ray_cast(middle, way.normalized(), SKULL_REACH_M)[3]
+            if hit is not None and reach > hit:
+                need[0 if abs(way.x) > abs(way.y) else 1].append(reach / hit)
+    scale = [min(HAT_MOST, float(np.percentile(need[axis], HAT_ENCLOSE)) * HAT_GAP[axis]) for axis in (0, 1)]
+    for obj in hats:
+        for vertex in obj.data.vertices:
+            vertex.co.x = middle.x + (vertex.co.x - middle.x) * scale[0]
+            vertex.co.y = middle.y + (vertex.co.y - middle.y) * scale[1]
+        obj.data.update()
+    print("CHAPEU", [round(value, 3) for value in scale], [obj.name for obj in hats], "aba subiu", round(close_brim(hats, middle) * 1000, 1), "mm")
+
+
+def clear_under_crown(body, hats):
+    """Skin that a hat of another shape does not contain comes through its top and back. Looked at from the hat's own axis, what the crown covers, and still covers a little further down, is not seen."""
+    crown = [obj for obj in hats if "Brim" not in obj.name]
+    points = [obj.matrix_world @ vertex.co for obj in crown for vertex in obj.data.vertices]
+    x, y = sum(point.x for point in points) / len(points), sum(point.y for point in points) / len(points)
+    tree = surface_tree(crown)
+
+    def covered(point):
+        way = Vector((point.x - x, point.y - y, 0))
+        if way.length < 1e-6:
+            return True
+        way.normalize()
+        return all(tree.ray_cast(Vector((x, y, point.z - drop)), way, SKULL_REACH_M)[3] is not None for drop in (0, CROWN_DEEP_M))
+
+    print("PELE SOB A COPA", delete_faces(body, covered))
+
+
+def trim_hair_under_hat(obj, forward_y):
+    """In front of the ears, hair under a hat is a patch on the forehead or nothing at all."""
+    print("CABELO NA TESTA", obj.name, delete_faces(obj, lambda point: point.y < forward_y, "FACES"))
+
+
+def matte_hair(obj):
+    """Game hair came with the shine of a plastic toy next to the matte skin."""
+    for slot in obj.material_slots:
+        tree = slot.material.node_tree if slot.material and slot.material.use_nodes else None
+        shader = next((node for node in tree.nodes if node.type == "BSDF_PRINCIPLED"), None) if tree else None
+        if shader:
+            for link in list(shader.inputs["Roughness"].links):
+                tree.links.remove(link)
+            shader.inputs["Roughness"].default_value = max(HAIR_ROUGH, shader.inputs["Roughness"].default_value)
+
+
 def trim_sideburn(obj, eye_z):
     """The coarsest short cut ends in a flap beside the ear, which stuck out of the narrower head as a plate. The hair painted on the skin is the sideburn."""
     if len(obj.data.vertices) < COARSE_HAIR_POINTS:
@@ -161,6 +243,9 @@ def calm_map(obj):
                 light = pixels[:, :3].mean(axis=1)
                 most = float(np.percentile(light, CALM_PERCENTILE)) * CALM_MOST
                 pixels[:, :3] *= np.minimum(1, most / np.maximum(light, 1e-4))[:, None]
+                shown = pixels[:, 3] > COIF_CUTOFF
+                centre = pixels[shown, :3].mean(axis=0) if shown.any() else pixels[:, :3].mean(axis=0)
+                pixels[:, :3] = centre + (pixels[:, :3] - centre) * CALM_CONTRAST
                 calm = bpy.data.images.new(f"{node.image.name}_calmo", *node.image.size, alpha=True)
                 calm.pixels[:] = pixels.ravel()
                 calm.pack()
@@ -227,7 +312,7 @@ def trim_chest_hair(obj, neck):
 def clear_under_cap(body, brim):
     """The crown and the brim do not meet, and the forehead showed through the gap in a skin-coloured line. Under the crown there is nothing to see."""
     top = max((brim.matrix_world @ vertex.co).z for vertex in brim.data.vertices)
-    print("PELE SOB O BONE", delete_faces(body, lambda point: point.z > top - CAP_SEAM_M))
+    print("PELE SOB O BONE", delete_faces(body, lambda point: point.z > top))
 
 
 def surface_tree(objects):
