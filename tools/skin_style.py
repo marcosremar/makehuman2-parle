@@ -4,7 +4,7 @@
 O rosto vem do NPC do jogo (`cast-heads.py`), com barba e marcas de cada pessoa, e fica: é identidade. O corpo só recebe o tom, e a emenda virava colar no pescoço.
 Aqui o corpo limpa, o pescoço faz a transição, e a barba cinza do rosto escuro ganha o matiz da pele. A malha é a mesma em todo o elenco, então as zonas saem de um mapa só.
 
-    skin_style.py <pele.png> <uvpos.npz> <corpo.npz> <saída.png> [força-do-blush] [--shave]
+    skin_style.py <pele.png> <uvpos.npz> <corpo.npz> <saída.png> [força-do-blush] [--shave] [--no-beard]
 """
 import sys
 
@@ -49,6 +49,17 @@ SHAVE_DEPTH_M = 0.05
 SHAVE_LIP_TOP_M = 0.041
 SHAVE_LIP_BOTTOM_M = 0.053
 SHAVE_CHIN_M = 0.08
+# The warm lip of a shaved face was measured on light skin; on dark skin the same chroma reads as orange stains.
+SHAVE_WARM_LEVEL = 190
+SCALP_BEHIND_TIP_M = 0.045
+SCALP_ABOVE_TIP_M = 0.02
+SCALP_DARK = 0.45
+SCALP_LEAST_PX = 400
+SCALP_REACH_PX = 41
+SCALP_CLOSE_PX = 15
+SCALP_GREY = 0.55
+SCALP_PALE = 0.7
+SCALP_TONE = 20
 PHILTRUM_HALF_M = 0.012
 PHILTRUM_TOP_M = 0.006
 PHILTRUM_BOTTOM_M = 0.032
@@ -163,6 +174,33 @@ def trim_lip_corners(skin, data):
     return cv2.inpaint(np.clip(skin, 0, 255).astype(np.uint8), mask, 6, cv2.INPAINT_TELEA).astype(np.float32), int(paint.sum())
 
 
+def clear_painted_scalp(skin, data):
+    """The bake of the scalp leaves grey plates and specks beside the temple, where the game hair ended (h19, Marcelo). They take the colour of the painted hair next to them."""
+    points = data["pos"]
+    top = points[:, 2].max()
+    head = points[points[:, 2] > top - 0.26]
+    middle = float(np.median(head[:, 0]))
+    tip = head[np.abs(head[:, 0] - middle) < 0.01]
+    tip = tip[tip[:, 1].argmin()]
+    zone = (points[:, 1] > tip[1] + SCALP_BEHIND_TIP_M) & (points[:, 2] > tip[2] + SCALP_ABOVE_TIP_M)
+    area = painter(data)(zone.astype(float), 1) > 0.5
+    gray = skin.mean(axis=2)
+    dark = area & (gray < SCALP_DARK * float(np.median(gray)))
+    if dark.sum() < SCALP_LEAST_PX:
+        return skin, 0
+    closed = cv2.morphologyEx(dark.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((SCALP_CLOSE_PX, SCALP_CLOSE_PX), np.uint8)) > 0
+    near = cv2.dilate(dark.astype(np.uint8), np.ones((SCALP_REACH_PX, SCALP_REACH_PX), np.uint8)) > 0
+    own = float(chroma(np.median(skin.reshape(-1, 3), axis=0)[None, None, :])[0, 0])
+    grey = area & near & (chroma(skin) < SCALP_GREY * own) & ~dark
+    # Painted hair in two greys reads as a plate next to the hair mesh: one colour, the dark one.
+    pale = area & near & (gray < SCALP_PALE * float(np.median(gray)))
+    plate = (closed | grey | pale) & area
+    if not plate.any():
+        return skin, 0
+    soft = cv2.GaussianBlur(cv2.dilate(plate.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(np.float32), (0, 0), 1.5)[:, :, None]
+    return skin * (1 - soft) + np.percentile(skin[dark], SCALP_TONE, axis=0) * soft, int(plate.sum())
+
+
 def shave_face(skin, data):
     """Tira o bigode e a barbicha assados: o que difere da pele em volta, no sulco e abaixo do lábio, com a cor vinda de fora deles."""
     points = data["pos"]
@@ -185,6 +223,7 @@ def shave_face(skin, data):
     share = cv2.GaussianBlur((painter(data)(lip.astype(float), 1) > 0.5).astype(np.float32), (0, 0), 2)[:, :, None]
     lab = cv2.cvtColor(np.clip(shaved, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
     tone = cv2.cvtColor(np.median(skin.reshape(-1, 3), axis=0)[None, None, :].astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)[0, 0]
+    share = share * min(1.0, (float(np.median(skin)) / SHAVE_WARM_LEVEL) ** 2)
     lab[:, :, 1:] = lab[:, :, 1:] * (1 - share) + (tone[1:] + np.array(SHAVE_LIP_WARM)) * share
     return cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
 
@@ -227,12 +266,13 @@ def chroma(image):
 
 
 def main():
-    words = [word for word in sys.argv[1:] if word != "--shave"]
+    words = [word for word in sys.argv[1:] if word not in ("--shave", "--no-beard")]
     source, map_path, shape_path, target = words[:4]
     strength = float(words[4]) if len(words) > 4 else 0.8
     skin, cleared = clear_philtrum(cv2.imread(source).astype(np.float32), np.load(map_path))
     skin, brows = clear_painted_brows(skin, np.load(map_path))
     skin, corners = trim_lip_corners(skin, np.load(map_path))
+    skin, scalp = clear_painted_scalp(skin, np.load(map_path))
     if "--shave" in sys.argv:
         skin = shave_face(skin, np.load(map_path))
     gray = skin.mean(axis=2)
@@ -249,7 +289,8 @@ def main():
     beard = cv2.GaussianBlur(np.clip((own - chroma(skin)) / (own * 0.4), 0, 1), (0, 0), 1) * beard_zone
     # Sem barba, o que perde cor no rosto é o lábio: a boca da Dona Rosa ficava da cor da pele.
     covered = float(beard.sum() / max(beard_zone.sum(), 1))
-    if covered < BEARD_LEAST:
+    # Face less saturated than the body is not a beard: Ivone came out with a dark jaw.
+    if covered < BEARD_LEAST or "--no-beard" in sys.argv:
         beard[:] = 0
     hair = tone * (np.minimum(gray / level, 1) * (1 - BEARD_DARK))[:, :, None]
     head = skin * (1 - beard[:, :, None]) + hair * beard[:, :, None]
@@ -270,7 +311,7 @@ def main():
     # A sombra da pele é quente: o azul cai mais que o vermelho.
     clean = clean * np.where(shape < 0, 1 + SHADOW * shape * SHADOW_TINT, 1 + LIGHT * shape)
     cv2.imwrite(target, np.clip(clean, 0, 255).astype(np.uint8))
-    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "sobrancelha", brows, "batom", corners)
+    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "sobrancelha", brows, "batom", corners, "couro", scalp)
 
 
 main()
