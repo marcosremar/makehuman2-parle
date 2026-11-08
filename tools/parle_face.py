@@ -43,6 +43,9 @@ MOUTH_BACK = {"female": 0.003, "male": 0.0}
 # forward part (-y) of the rounded visemes keeps 40% on women. The vowel still reads as round.
 POUT_FORWARD = {"female": 0.4, "male": 1.0}
 POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
+# Seen as the player frames her (front, eye level), the women's mouth still read as a pout: it was short and the lips round. The
+# kit's own faceMouthWidth +0.8 lengthens it; thinning the lips further opened a gap between them (owner, 2026-11-08, pharmacy).
+MOUTH_WIDE = {"female": 0.8, "male": 0.0}
 MOUTH_CORE_M = 0.006
 MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035
@@ -185,13 +188,14 @@ def soften_pout(body, forward):
     body.data.update()
 
 
-def calm_look(meshes, lip_thin=0.0, back=0.0):
+def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0):
+    look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {})}
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
         if not keys:
             continue
         rest = key_points(keys[0])
-        move = sum(((key_points(keys[name]) - rest) * value for name, value in CALM_LOOK.items() if name in keys), np.zeros_like(rest))
+        move = sum(((key_points(keys[name]) - rest) * value for name, value in look.items() if name in keys), np.zeros_like(rest))
         if obj.name == "Body" and lip_thin:
             move = move + lip_thinning(keys, rest, lip_thin)
         if obj.name == "Body" and back:
@@ -303,7 +307,7 @@ def clean_face(body, added, job, env):
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex])
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex])
     soften_pout(body, POUT_FORWARD[sex])
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
