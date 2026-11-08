@@ -35,6 +35,12 @@ BROW_THIN = 0.75
 # big). The kit's own `faceLipVolume`, on the lip that follows the jaw and fading 4 mm around it: -1 on women, -0.5 on men; -2 creased.
 LIP_THIN = {"female": -1.0, "male": -0.5}
 LIP_FADE_M = 0.004
+# Thinner, the women's lips still stood out in profile like a beak and the lower one hung forward (owner, 2026-11-08, pharmacy). The
+# whole mouth goes 3 mm back: lips and what lies 6 mm around them fully, fading over 20 mm more, teeth and tongue with them. Only the
+# lower lip back opened a gap between the lips; 4 mm flattened the face.
+MOUTH_BACK = {"female": 0.003, "male": 0.0}
+MOUTH_CORE_M = 0.006
+MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035
 TONGUE_DOWN_M = 0.0065
 # Halves of a point split on a UV seam drift apart in the head fit and the background shows through, in a line along the jaw.
@@ -144,7 +150,26 @@ def lip_thinning(keys, rest, amount):
     return (key_points(keys["faceLipVolume"]) - rest) * (weight * amount)[:, None]
 
 
-def calm_look(meshes, lip_thin=0.0):
+def mouth_back(keys, rest, amount):
+    """The lips and the skin around them, back (+y, the face looks to -y), with a smooth edge."""
+    lip_moves = [np.linalg.norm(key_points(keys[name]) - rest, axis=1) for name in ("viseme_U", "viseme_PP") if name in keys]
+    if not lip_moves or not amount:
+        return np.zeros_like(rest)
+    moved = np.maximum.reduce(lip_moves)
+    lip = np.where(moved >= moved.max() * 0.45)[0]
+    tree = KDTree(len(lip))
+    for index in lip:
+        tree.insert(rest[index], int(index))
+    tree.balance()
+    move = np.zeros_like(rest)
+    reach = MOUTH_CORE_M + MOUTH_FADE_M
+    for index in np.where(np.linalg.norm(rest - rest[lip].mean(axis=0), axis=1) < 0.08)[0]:
+        t = min(1.0, max(0.0, 1 - (tree.find(rest[index])[2] - MOUTH_CORE_M) / MOUTH_FADE_M)) if tree.find(rest[index])[2] < reach else 0.0
+        move[index, 1] = amount * t * t * (3 - 2 * t)
+    return move
+
+
+def calm_look(meshes, lip_thin=0.0, back=0.0):
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
         if not keys:
@@ -153,6 +178,10 @@ def calm_look(meshes, lip_thin=0.0):
         move = sum(((key_points(keys[name]) - rest) * value for name, value in CALM_LOOK.items() if name in keys), np.zeros_like(rest))
         if obj.name == "Body" and lip_thin:
             move = move + lip_thinning(keys, rest, lip_thin)
+        if obj.name == "Body" and back:
+            move = move + mouth_back(keys, rest, back)
+        if back and ("teeth" in obj.name or "tongue" in obj.name):
+            move[:, 1] += back
         if "eyebrow" in obj.name:
             move = move + brow_line_move(rest + move)
         if "teeth" in obj.name or "tongue" in obj.name:
@@ -257,8 +286,8 @@ def clean_face(body, added, job, env):
         added.remove(obj)
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
-    lip_thin = LIP_THIN["female" if str(job.get("kit", "")).startswith("female") else "male"]
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], lip_thin)
+    sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex])
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
