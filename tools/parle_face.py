@@ -39,6 +39,10 @@ LIP_FADE_M = 0.004
 # whole mouth goes 3 mm back: lips and what lies 6 mm around them fully, fading over 20 mm more, teeth and tongue with them. Only the
 # lower lip back opened a gap between the lips; 4 mm flattened the face.
 MOUTH_BACK = {"female": 0.003, "male": 0.0}
+# Speaking, the rounded vowels pushed the full lips forward into a big beak, and the player mostly shows her mid-sentence: the
+# forward part (-y) of the rounded visemes keeps 40% on women. The vowel still reads as round.
+POUT_FORWARD = {"female": 0.4, "male": 1.0}
+POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
 MOUTH_CORE_M = 0.006
 MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035
@@ -169,6 +173,18 @@ def mouth_back(keys, rest, amount):
     return move
 
 
+def soften_pout(body, forward):
+    keys = body.data.shape_keys.key_blocks if body.data.shape_keys else None
+    if not keys or forward == 1.0:
+        return
+    rest = key_points(keys[0])
+    for name in (name for name in POUT_VISEMES if name in keys):
+        delta = key_points(keys[name]) - rest
+        delta[:, 1] = np.where(delta[:, 1] < 0, delta[:, 1] * forward, delta[:, 1])
+        keys[name].data.foreach_set("co", (rest + delta).ravel())
+    body.data.update()
+
+
 def calm_look(meshes, lip_thin=0.0, back=0.0):
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
@@ -288,6 +304,7 @@ def clean_face(body, added, job, env):
     weld_seams(body)
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
     calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex])
+    soften_pout(body, POUT_FORWARD[sex])
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
