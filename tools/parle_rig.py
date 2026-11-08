@@ -8,10 +8,15 @@
     - The clavicle points front to back as in the game: the MakeHuman one points forward, and standing
       still the shoulders sat 2 cm in front of the neck (owner, 2026-11-07). In height it goes only half
       way, because all the way the shoulders came up 2.5 cm and the person looked hunched.
+    - Each finger phalanx points as in the game: MakeHuman rests with the fingers half curled and spread, the
+      game (Mixamo) with them straight, and the clip's curl came on top of ours. Pointing, the hand closed into a
+      claw: 64 degrees of curl against 38, and the index and little finger 52 degrees apart against 18 (2026-11-08,
+      measured in the Unity player on Dona Rosa). The tip (Thumb4, Index4...) has no child and follows its parent.
 """
 from mathutils import Vector
 
-ALIGNED = ("Shoulder", "Arm", "ForeArm", "UpLeg", "Leg")
+FINGERS = tuple(f"Hand{finger}{joint}" for finger in ("Thumb", "Index", "Middle", "Ring", "Pinky") for joint in (1, 2, 3))
+ALIGNED = ("Shoulder", "Arm", "ForeArm", "UpLeg", "Leg") + FINGERS
 SHOULDER_HEIGHT_SHARE = 0.5
 
 
