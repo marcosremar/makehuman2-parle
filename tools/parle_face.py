@@ -19,6 +19,9 @@ from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
+sys.path.insert(0, str(Path(__file__).parent))
+import parle_tongue  # noqa: E402
+
 EYE_TUCK_REACH_M = 0.02
 EYE_TUCK_BEHIND_M = 0.001
 FOREHEAD_HAIR_M = 0.085
@@ -210,6 +213,26 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0):
             move_rest(obj, move)
 
 
+def tongue_follows_jaw(meshes):
+    """Runs after the rest-shape rules, so the moves it reads are the ones the game plays."""
+    teeth = next((obj for obj in meshes if "teeth" in obj.name), None)
+    tongue = next((obj for obj in meshes if "tongue" in obj.name), None)
+    if teeth is None or tongue is None or "jawOpen" not in teeth.data.shape_keys.key_blocks:
+        return
+    teeth_keys, tongue_keys = teeth.data.shape_keys.key_blocks, tongue.data.shape_keys.key_blocks
+    teeth_rest, tongue_rest = key_points(teeth_keys[0]), key_points(tongue_keys[0])
+    lower = parle_tongue.lower_teeth(key_points(teeth_keys["jawOpen"]) - teeth_rest)
+    carried = 0
+    for block in tongue_keys[1:]:
+        if not parle_tongue.is_mouth_key(block.name) or block.name not in teeth_keys:
+            continue
+        move = parle_tongue.carried(tongue_rest, key_points(teeth_keys[block.name]) - teeth_rest, lower)
+        if move is not None:
+            block.data.foreach_set("co", (key_points(block) + move).ravel())
+            carried += 1
+    print("LINGUA segue a mandibula em", carried, "formas")
+
+
 def weld_seams(body):
     """Mutual nearest open points on the head and neck that move together when the jaw and the lids move: those are one point, and lips and eyelids never qualify."""
     keys = body.data.shape_keys.key_blocks
@@ -309,6 +332,7 @@ def clean_face(body, added, job, env):
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
     calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex])
     soften_pout(body, POUT_FORWARD[sex])
+    tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
