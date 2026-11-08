@@ -41,8 +41,8 @@ FRONT_M = 0.006
 SIZE = 1024
 
 
-def lip_zone(data, points):
-    """The lip on the UV map, from the cast mesh (`uvpos.npz`) and this person's own points."""
+def lip_points(data, points):
+    """Which points of this person's mesh are lip."""
     top = points[:, 2].max()
     head = points[points[:, 2] > top - 0.26]
     middle = float(np.median(head[:, 0]))
@@ -59,7 +59,13 @@ def lip_zone(data, points):
     across = np.sqrt(np.clip(1 - ((points[:, 0] - middle) / half) ** 2, 0, 1))
     height = points[:, 2] - np.interp(points[:, 0], slit[:, 0], slit[:, 2])
     front = points[:, 1] < np.interp(points[:, 0], slit[:, 0], slit[:, 1]) + FRONT_M
-    lip = front & (np.abs(points[:, 0] - middle) < half) & (height < LIP_UP_M * across) & (height > -LIP_LOW_M * across)
+    return front & (np.abs(points[:, 0] - middle) < half) & (height < LIP_UP_M * across) & (height > -LIP_LOW_M * across)
+
+
+def lip_zone(data, points):
+    """The lip on the UV map, from the cast mesh (`uvpos.npz`) and this person's own points."""
+    lip = lip_points(data, points)
+    triangles = data["tri"]
     corners = np.stack([data["uv"][:, :, 0] * SIZE, (1 - data["uv"][:, :, 1]) * SIZE], axis=2).round().astype(np.int32)
     canvas = np.zeros((SIZE, SIZE), np.float32)
     for corner, triangle in zip(corners, triangles):

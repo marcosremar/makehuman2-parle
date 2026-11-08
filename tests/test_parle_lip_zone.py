@@ -54,3 +54,12 @@ assert at(0, SLIT_Z + 0.012) < 0.05
 # The lip narrows to nothing past the mouth's corner.
 assert at(0.039, SLIT_Z - 0.004) < 0.05
 print("ok")
+
+# The shaved chin uses the same measured lip (Seu Nelson, 2026-11-08): the old fixed band 41-53 mm under the nose sat on the lower
+# lip and the chin below it, and its warm tone read as a dark stain under the mouth.
+from parle_lips import lip_points  # noqa: E402
+
+lip = lip_points({"tri": triangles, "uv": uv}, points)
+below_mouth = (np.abs(points[:, 0]) < 0.01) & (points[:, 2] < SLIT_Z - 0.012) & (points[:, 2] > SLIT_Z - 0.026)
+assert not lip[below_mouth].any()
+print("ok raspado")

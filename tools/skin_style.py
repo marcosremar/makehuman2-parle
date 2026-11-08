@@ -11,7 +11,7 @@ import sys
 import cv2
 import numpy as np
 
-from parle_lips import lip_zone
+from parle_lips import lip_points, lip_zone
 
 SIZE = 1024
 WIDE_PX = 61
@@ -45,11 +45,8 @@ LIP_RED = 4.0
 LIP_DARK = 0.86
 LIP_BEARD_SHARE = 0.2
 SHAVE_HALF_M = 0.05
-SHAVE_LIP_HALF_M = 0.04
 SHAVE_LIP_WARM = (10.0, 3.0)
 SHAVE_DEPTH_M = 0.05
-SHAVE_LIP_TOP_M = 0.041
-SHAVE_LIP_BOTTOM_M = 0.053
 SHAVE_CHIN_M = 0.08
 SHAVE_KEEP_LIGHT = 0.85
 SHAVE_FILL_SOFT = 12
@@ -317,9 +314,14 @@ def clear_painted_scalp(skin, data):
     return skin * (1 - soft) + tone * soft, int(plate.sum())
 
 
-def shave_face(skin, data):
-    """Tira o bigode e a barbicha assados: o que difere da pele em volta, no sulco e abaixo do lábio, com a cor vinda de fora deles."""
-    points = data["pos"]
+def shave_face(skin, data, own):
+    """Tira o bigode e a barbicha assados: o que difere da pele em volta, no sulco e abaixo do lábio, com a cor vinda de fora deles.
+
+    O lábio é o medido pela fenda da boca (`parle_lips.lip_points`). A faixa fixa de 41 a 53 mm abaixo do nariz caía na metade de baixo
+    do lábio inferior e no queixo logo abaixo, e o tom quente dela virou uma mancha escura embaixo da boca (Seu Nelson, dono, 08/11/2026).
+    """
+    points = own
+    mouth = lip_points(data, points)
     top = points[:, 2].max()
     head = points[points[:, 2] > top - 0.26]
     middle = float(np.median(head[:, 0]))
@@ -327,13 +329,12 @@ def shave_face(skin, data):
     tip = tip[tip[:, 1].argmin()]
     side = np.abs(points[:, 0] - tip[0]) < SHAVE_HALF_M
     front = points[:, 1] < tip[1] + SHAVE_DEPTH_M
-    above = (points[:, 2] < tip[2] - 0.004) & (points[:, 2] > tip[2] - SHAVE_LIP_TOP_M)
-    below = (points[:, 2] < tip[2] - SHAVE_LIP_BOTTOM_M) & (points[:, 2] > tip[2] - SHAVE_CHIN_M)
+    around = (points[:, 2] < tip[2] - 0.004) & (points[:, 2] > tip[2] - SHAVE_CHIN_M) & ~mouth
     paint = painter(data)
-    area = paint((side & front & (above | below)).astype(float), 1) > 0.5
+    area = paint((side & front & around).astype(float), 1) > 0.5
     mask = cv2.dilate(area.astype(np.uint8) * 255, np.ones((3, 3), np.uint8))
     # Filled from the skin around it, never from the lip or the hair at its edge: pulled from the border, the chin came out with a dark stain (Seu Nelson).
-    lip_zone = paint(((np.abs(points[:, 0] - tip[0]) < SHAVE_LIP_HALF_M) & (points[:, 2] <= tip[2] - SHAVE_LIP_TOP_M + 0.004) & (points[:, 2] >= tip[2] - SHAVE_LIP_BOTTOM_M - 0.004) & front).astype(float), 1) > 0.5
+    lip_zone = paint(mouth.astype(float), 1) > 0.5
     gray = skin.mean(axis=2)
     keep = (~(mask > 0) & ~lip_zone & (gray > SHAVE_KEEP_LIGHT * np.median(gray))).astype(np.float32)
     weight = cv2.GaussianBlur(keep, (0, 0), SHAVE_FILL_SOFT)[:, :, None]
@@ -341,8 +342,7 @@ def shave_face(skin, data):
     soft = cv2.GaussianBlur(mask.astype(np.float32) / 255, (0, 0), 2)[:, :, None]
     shaved = skin * (1 - soft) + healed * soft
     # O pelo do bigode descia sobre o lábio, que ficava cinza: mantém a luz dele e volta à cor da pele, mais quente.
-    lip = (np.abs(points[:, 0] - tip[0]) < SHAVE_LIP_HALF_M) & (points[:, 2] <= tip[2] - SHAVE_LIP_TOP_M + 0.002) & (points[:, 2] >= tip[2] - SHAVE_LIP_BOTTOM_M - 0.002) & front
-    share = cv2.GaussianBlur((painter(data)(lip.astype(float), 1) > 0.5).astype(np.float32), (0, 0), 2)[:, :, None]
+    share = cv2.GaussianBlur(lip_zone.astype(np.float32), (0, 0), 2)[:, :, None]
     lab = cv2.cvtColor(np.clip(shaved, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
     tone = cv2.cvtColor(np.median(skin.reshape(-1, 3), axis=0)[None, None, :].astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)[0, 0]
     share = share * min(1.0, (float(np.median(skin)) / SHAVE_WARM_LEVEL) ** 2)
@@ -484,7 +484,7 @@ def main():
     skin, thread = clear_hair_thread(skin, np.load(map_path))
     skin, scalp = clear_painted_scalp(skin, np.load(map_path))
     if "--shave" in sys.argv:
-        skin = shave_face(skin, np.load(map_path))
+        skin = shave_face(skin, np.load(map_path), np.load(shape_path)["points"])
     gray = skin.mean(axis=2)
     tone = np.median(skin.reshape(-1, 3), axis=0)
     level = float(np.median(gray))
