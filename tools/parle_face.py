@@ -28,11 +28,22 @@ FOREHEAD_REACH_M = 0.06
 # The kit rests with the lips a little apart, and the teeth showed through in a white line (owner, 2026-11-07): the jaw rests a quarter closed. Teeth and tongue take it too.
 CALM_LOOK = {"faceEyeOpen": -0.45, "faceBrowAngle": 0.6, "browInnerUp": 0.5, "jawOpen": -0.25}
 BROW_THIN = 0.75
+# With the jaw a quarter closed, the upper teeth sat wholly behind the upper lip: speaking, the mouth showed the lower teeth and the
+# tongue under a bare lip, and read as a snarl (owner, 2026-11-08). Measured on the pharmacy's attendant at the player's widest "a"
+# (`viseme_aa` 0.55): incisor tip 1 mm above the lip's edge. Teeth go 3.5 mm down and the tongue 3 mm more, behind the lower teeth.
+TEETH_DOWN_M = 0.0035
+TONGUE_DOWN_M = 0.0065
 # Halves of a point split on a UV seam drift apart in the head fit and the background shows through, in a line along the jaw.
 SEAM_REACH_M = 0.008
 SEAM_SAME_MOVE_M = 0.001
 SEAM_TOP_M = 0.05
 SEAM_LOW_M = 0.4
+# Brows were one flat dark colour with a hard edge and read as painted on (owner, 2026-11-08): a little way to the skin, and the
+# strands' edge fades. A third of the way made the restaurant attendant's brows almost vanish.
+BROW_TOWARD_SKIN = 0.15
+BROW_ALPHA = 0.95
+# A matte eye (roughness 0.7) had no catchlight and looked dead; the cornea is wet.
+EYE_ROUGHNESS = 0.15
 # Earrings: one pair, smaller, and not the same game pair on every woman (owner, 2026-11-07).
 EARRING_SCALE = 0.6
 GAME_EARRINGS_KEPT_EVERY = 3
@@ -120,6 +131,8 @@ def calm_look(meshes):
         move = sum(((key_points(keys[name]) - rest) * value for name, value in CALM_LOOK.items() if name in keys), np.zeros_like(rest))
         if "eyebrow" in obj.name:
             move = move + brow_line_move(rest + move)
+        if "teeth" in obj.name or "tongue" in obj.name:
+            move[:, 2] -= TEETH_DOWN_M if "teeth" in obj.name else TONGUE_DOWN_M
         if move.any():
             move_rest(obj, move)
 
@@ -193,6 +206,22 @@ def tidy_earrings(meshes, seed):
     print("BRINCOS", [obj.name for obj in chosen + game])
 
 
+def soften_brows(obj, skin):
+    """`skin` is the skin's median colour in the map's own (sRGB) values."""
+    for material in obj.data.materials:
+        for node in material.node_tree.nodes:
+            if node.type != "TEX_IMAGE" or not node.image:
+                continue
+            width, height = node.image.size
+            pixels = np.array(node.image.pixels[:], dtype=np.float32).reshape(height, width, 4)
+            pixels[:, :, :3] = pixels[:, :, :3] * (1 - BROW_TOWARD_SKIN) + np.asarray(skin[:3], np.float32) * BROW_TOWARD_SKIN
+            alpha = pixels[:, :, 3]
+            soft = sum(np.roll(np.roll(alpha, dy, 0), dx, 1) for dy in (-1, 0, 1) for dx in (-1, 0, 1)) / 9
+            pixels[:, :, 3] = np.minimum(alpha, soft) * BROW_ALPHA
+            node.image.pixels[:] = pixels.ravel()
+            node.image.pack()
+
+
 def set_map(obj, image):
     for node in obj.active_material.node_tree.nodes:
         if node.type == "TEX_IMAGE":
@@ -224,6 +253,9 @@ def clean_face(body, added, job, env):
         for obj in added:
             if obj.type == "MESH" and "low-poly" in obj.name:
                 set_map(obj, eye_map)
+                shader = obj.active_material.node_tree.nodes.get("Principled BSDF")
+                if shader:
+                    shader.inputs["Roughness"].default_value = EYE_ROUGHNESS
                 for polygon in obj.data.polygons:
                     polygon.use_smooth = True
 

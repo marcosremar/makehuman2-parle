@@ -11,6 +11,8 @@ import sys
 import cv2
 import numpy as np
 
+from parle_lips import lip_zone
+
 SIZE = 1024
 WIDE_PX = 61
 # Abaixo disso é mancha e emenda; acima é sobrancelha, barba, lábio e mamilo.
@@ -62,10 +64,6 @@ SCALP_CLOSE_PX = 15
 SCALP_GREY = 0.55
 SCALP_PALE = 0.7
 SCALP_TONE = 20
-# Where the lip is: what the game face drew redder or darker, plus the middle of the mouth. Its colour comes later, in `parle_lips.py`.
-LIP_DRAWN_RED = 3
-LIP_CORE = 0.7
-LIP_DRAWN_DARK = 0.93
 PHILTRUM_HALF_M = 0.012
 PHILTRUM_TOP_M = 0.006
 PHILTRUM_BOTTOM_M = 0.032
@@ -89,6 +87,20 @@ EVEN_SIDE = (0.035, 0.07)
 EVEN_BIN_M = 0.005
 EVEN_SOFT_BINS = 1.5
 EVEN_LEAST, EVEN_MOST = 0.8, 1.25
+# The blush came out as a pink ball on each cheek, like make-up (owner, 2026-11-08): weaker and wider.
+BLUSH_STRENGTH = 0.5
+BLUSH_REACH_M = 0.042
+# The eyelash cards are gone (parle_face): a thin darker line on the upper lid's rim stands in for them, as on the Rafa.
+LASH_DARK = 0.5
+LASH_SOFT = 1.2
+# The head and neck are two islands of the map, and the game face and the body tone met in a coloured line under the jaw. Each side
+# of a seam moves halfway to the other, fading out over SEAM_SOFT_PX.
+SEAM_SOFT_PX = 10
+SEAM_SAMPLE_PX = 3
+SEAM_FADE = 3
+SEAM_REACH_M = 0.0015
+PAD_PX = 6
+RIM_PX = 1
 # Painted scalp that is not attached to the big one is a speck the bake left on the temple, and it heals to skin.
 SCALP_KEEP_PX = 2500
 SCALP_EDGE_PX = 15
@@ -131,7 +143,7 @@ def zones(data):
     near = lambda spot, reach: np.exp(-(((points - np.array(spot)) ** 2).sum(axis=1)) / (2 * reach * reach))
     blush = np.zeros(len(points))
     for side in (-1, 1):
-        blush = np.maximum(blush, near((middle + side * wide * 0.55, tip[1] + 0.035, tip[2] - 0.005), 0.032))
+        blush = np.maximum(blush, near((middle + side * wide * 0.55, tip[1] + 0.035, tip[2] - 0.005), BLUSH_REACH_M))
         blush = np.maximum(blush, 0.7 * near((middle + side * wide * 0.98, tip[1] + 0.11, tip[2] + 0.015), 0.03))
     blush = np.maximum(blush, 0.7 * near(tip, 0.022))
     blush = np.maximum(blush, 0.35 * near((tip[0], tip[1] + 0.012, tip[2] - 0.085), 0.022))
@@ -141,9 +153,8 @@ def zones(data):
     face = np.clip((points[:, 2] - (chin - NECK_FADE_M)) / NECK_FADE_M, 0, 1)
     beard = (points[:, 2] > chin) * np.clip((tip[2] - BEARD_TOP_M - points[:, 2]) / BEARD_FADE_M, 0, 1)
     lower = (points[:, 2] < tip[2] + JAW_ABOVE_TIP_M).astype(float)
-    lips = np.exp(-((points[:, 0] - tip[0]) ** 2 / (2 * 0.024 ** 2) + (points[:, 2] - tip[2] + 0.046) ** 2 / (2 * 0.012 ** 2))) * (points[:, 1] < tip[1] + 0.05)
     paint = painter(data)
-    return paint(blush, 3), paint(face, 6), paint(nose, 2), paint(beard, 3), np.clip(paint(lips, 1.5) * 2, 0, 1), paint(lower, 4)
+    return paint(blush, 3), paint(face, 6), paint(nose, 2), paint(beard, 3), paint(lower, 4)
 
 
 def clear_philtrum(skin, data):
@@ -371,25 +382,102 @@ def relief(data, own):
     return painter(data)(np.clip(height / RELIEF_M, -1, 1), 2.5)
 
 
-def own_lip(skin, lips):
-    """Where the game face drew a lip: redder or darker than the skin around it."""
-    lab = cv2.cvtColor(np.clip(skin, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
-    red = lab[:, :, 1] - cv2.GaussianBlur(lab[:, :, 1], (WIDE_PX, WIDE_PX), 0)
-    dark = lab[:, :, 0] / np.maximum(cv2.GaussianBlur(lab[:, :, 0], (WIDE_PX, WIDE_PX), 0), 1)
-    drawn = ((red > LIP_DRAWN_RED) | (dark < LIP_DRAWN_DARK)) & (lips > 0.2)
-    drawn = cv2.morphologyEx(drawn.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-    return cv2.GaussianBlur(drawn.astype(np.float32), (0, 0), 1.5)
-
-
 def chroma(image):
     lab = cv2.cvtColor(np.clip(image, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
     return np.hypot(lab[:, :, 1] - 128, lab[:, :, 2] - 128)
 
 
+def open_points(data):
+    triangles = data["tri"]
+    edges = np.sort(np.concatenate([triangles[:, [0, 1]], triangles[:, [1, 2]], triangles[:, [2, 0]]]), axis=1)
+    unique, count = np.unique(edges, axis=0, return_counts=True)
+    return np.unique(unique[count == 1])
+
+
+def lash_line(skin, data, points):
+    """Darkens the triangles on the upper rim of each eye's hole."""
+    top = points[:, 2].max()
+    head = points[points[:, 2] > top - 0.26]
+    middle = float(np.median(head[:, 0]))
+    tip = head[np.abs(head[:, 0] - middle) < 0.01]
+    tip = tip[tip[:, 1].argmin()]
+    rim = open_points(data)
+    side = np.abs(points[rim, 0] - middle)
+    rim = rim[(side > 0.01) & (side < 0.06) & (points[rim, 2] > tip[2] + 0.01) & (points[rim, 2] < tip[2] + 0.07) & (points[rim, 1] < tip[1] + 0.05)]
+    upper = np.zeros(len(points), bool)
+    for half in (points[rim, 0] < middle, points[rim, 0] >= middle):
+        ring = rim[half]
+        if len(ring):
+            upper[ring[points[ring, 2] > points[ring, 2].mean()]] = True
+    value = upper.astype(np.float32)
+    shade = np.clip(painter(data)(value, LASH_SOFT) * 3, 0, 1)[:, :, None]
+    return skin * (1 - shade * (1 - LASH_DARK)), int(upper.sum())
+
+
+def even_seams(image, data, points):
+    """Each side of a head or neck seam moves halfway to the colour of the other side."""
+    top = points[:, 2].max()
+    corners = np.stack([data["uv"][:, :, 0] * SIZE, (1 - data["uv"][:, :, 1]) * SIZE], axis=2)
+    triangles = data["tri"]
+    flat = corners.reshape(-1, 2)
+    owner = triangles.ravel()
+    # Sampled from inside the islands only: at the border the blur took in the padding around them.
+    inside = np.zeros(image.shape[:2], np.float32)
+    for corner in corners.round().astype(np.int32):
+        cv2.fillConvexPoly(inside, corner, 1.0)
+    inside = cv2.erode(inside, np.ones((3, 3), np.uint8))
+    sample = cv2.GaussianBlur(image * inside[:, :, None], (0, 0), SEAM_SAMPLE_PX) / np.maximum(cv2.GaussianBlur(inside, (0, 0), SEAM_SAMPLE_PX), 1e-6)[:, :, None]
+    # The glTF splits a point on a seam into one index per side: the sides are the indices at the same place.
+    spot = {}
+    for vertex, (u, v) in zip(owner, flat):
+        spot[int(vertex)] = (int(round(u)), int(round(v)))
+    # Seam halves sit on the open edge of the mesh and need not land on exactly the same point: the nearest edge point within reach.
+    edge = open_points(data)
+    edge = edge[points[edge, 2] > top - 0.35]
+    places = {}
+    for index, vertex in enumerate(edge):
+        gap = np.linalg.norm(points[edge] - points[vertex], axis=1)
+        gap[index] = np.inf
+        other = edge[int(gap.argmin())]
+        if gap.min() < SEAM_REACH_M:
+            places.setdefault(tuple(sorted((int(vertex), int(other)))), set()).update({spot[int(vertex)], spot[int(other)]})
+    push = np.zeros_like(image)
+    weight = np.zeros(image.shape[:2], np.float32)
+    seams = 0
+    for spots in places.values():
+        spots = [(min(max(u, 0), SIZE - 1), min(max(v, 0), SIZE - 1)) for u, v in spots]
+        if len(spots) < 2 or max(abs(a[0] - b[0]) + abs(a[1] - b[1]) for a in spots for b in spots) < 4:
+            continue
+        seams += 1
+        colours = np.array([sample[v, u] for u, v in spots])
+        middle = colours.mean(axis=0)
+        for (u, v), colour in zip(spots, colours):
+            cv2.circle(push, (u, v), 2, (middle - colour).tolist(), -1)
+            cv2.circle(weight, (u, v), 2, 1.0, -1)
+    spread = cv2.GaussianBlur(weight, (0, 0), SEAM_SOFT_PX)
+    field = cv2.GaussianBlur(push, (0, 0), SEAM_SOFT_PX) / np.maximum(spread, 1e-6)[:, :, None]
+    fade = np.clip(spread / max(float(spread.max()), 1e-6) * SEAM_FADE, 0, 1)[:, :, None]
+    return image + field * fade, seams
+
+
+def pad_islands(image, data, rim=0):
+    """The texture filter reads a few texels past an island's border, and the relief's shadow there drew a thin dark line on the seam.
+
+    With `rim`, the island's own outer texels go too: the bake left them darker, a line along the jaw seam (Léo, rooftop).
+    """
+    corners = np.stack([data["uv"][:, :, 0] * SIZE, (1 - data["uv"][:, :, 1]) * SIZE], axis=2).round().astype(np.int32)
+    covered = np.zeros(image.shape[:2], np.uint8)
+    for corner in corners:
+        cv2.fillConvexPoly(covered, corner, 1)
+    covered = cv2.erode(covered, np.ones((3 + 2 * rim, 3 + 2 * rim), np.uint8))
+    band = ((cv2.dilate(covered, np.ones((PAD_PX * 2 + 1 + 2 * rim, PAD_PX * 2 + 1 + 2 * rim), np.uint8)) > 0) & (covered == 0)).astype(np.uint8)
+    return cv2.inpaint(np.clip(image, 0, 255).astype(np.uint8), band, PAD_PX, cv2.INPAINT_TELEA).astype(np.float32)
+
+
 def main():
     words = [word for word in sys.argv[1:] if word not in ("--shave", "--no-beard")]
     source, map_path, shape_path, target = words[:4]
-    strength = float(words[4]) if len(words) > 4 else 0.8
+    strength = float(words[4]) if len(words) > 4 else BLUSH_STRENGTH
     skin, cleared = clear_philtrum(cv2.imread(source).astype(np.float32), np.load(map_path))
     skin, brows = clear_painted_brows(skin, np.load(map_path))
     skin, corners = trim_lip_corners(skin, np.load(map_path))
@@ -400,7 +488,8 @@ def main():
     gray = skin.mean(axis=2)
     tone = np.median(skin.reshape(-1, 3), axis=0)
     level = float(np.median(gray))
-    blush, face, nose, beard_zone, lips, lower = zones(np.load(map_path))
+    blush, face, nose, beard_zone, lower = zones(np.load(map_path))
+    lips = lip_zone(np.load(map_path), np.load(shape_path)["points"])
     ratio = gray / np.maximum(cv2.GaussianBlur(gray, (WIDE_PX, WIDE_PX), 0), 1)
     keep = np.clip((np.abs(ratio - 1) - QUIET) / (LOUD - QUIET), 0, 1)
     keep = cv2.GaussianBlur(keep, (0, 0), 1.2)[:, :, None]
@@ -437,12 +526,11 @@ def main():
     head = cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
     # O lábio tem cor própria e fica fora do acerto de matiz.
     lips = lips * (1 - beard)
-    # The zone is a soft patch around the mouth: only what was lip in the game face takes the colour, or it spilled below the lower lip.
-    # The middle of the mouth always counts: where the game drew the lip faintly, it came out patchy.
-    lipped = np.maximum(lips * own_lip(skin, lips), np.clip((lips - LIP_CORE) / (1 - LIP_CORE), 0, 1))[:, :, None]
-    # The lip is a layer of its own: its map goes beside the skin and `parle_lips.py` paints it, as many times as wanted, without redoing the skin.
-    cv2.imwrite(target.replace(".png", ".lips.png"), np.clip(lipped[:, :, 0] * 255, 0, 255).astype(np.uint8))
+    # The lip is a layer of its own, measured on the mesh (`parle_lips.lip_zone`): its map goes beside the skin and `parle_lips.py` paints it, as many times as wanted, without redoing the skin.
+    cv2.imwrite(target.replace(".png", ".lips.png"), np.clip(lips * 255, 0, 255).astype(np.uint8))
     clean = body * (1 - face[:, :, None]) + head * face[:, :, None]
+    own_points = np.load(shape_path)["points"]
+    clean, seams = even_seams(pad_islands(clean, np.load(map_path), RIM_PX), np.load(map_path), own_points)
     # Em pele escura o mesmo vermelho pesa mais: o rosto do Fábio saiu vermelho com a força cheia.
     share = (blush * strength * min(1.0, (level / 190) ** 2))[:, :, None]
     clean = clean * (1 - share) + clean * WARM * share
@@ -450,8 +538,10 @@ def main():
     shape = (relief(np.load(map_path), shape_path) * face)[:, :, None]
     # A sombra da pele é quente: o azul cai mais que o vermelho.
     clean = clean * np.where(shape < 0, 1 + SHADOW * shape * SHADOW_TINT, 1 + LIGHT * shape)
+    clean, lashes = lash_line(clean, np.load(map_path), own_points)
+    clean = pad_islands(clean, np.load(map_path))
     cv2.imwrite(target, np.clip(clean, 0, 255).astype(np.uint8))
-    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "fio", thread, "sobrancelha", brows, "batom", corners, "couro", scalp)
+    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "fio", thread, "sobrancelha", brows, "batom", corners, "couro", scalp, "costura", seams, "cílio", lashes)
 
 
 main()

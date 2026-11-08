@@ -305,6 +305,39 @@ def dye_scalp(obj, colour, roughness):
     obj.data.materials.append(material)
 
 
+# The game scalp is a few big faces: its edge on the forehead went up and down in square teeth (owner, 2026-11-08, restaurant). The
+# open edge walks along itself towards the mean of its neighbours, keeping each point's distance from the skull's middle.
+HAIRLINE_PASSES = 12
+HAIRLINE_STEP = 0.5
+
+
+def smooth_hairline(obj):
+    mesh = bmesh.new()
+    mesh.from_mesh(obj.data)
+    mesh.verts.ensure_lookup_table()
+    rim = [vert for vert in mesh.verts if any(edge.is_boundary for edge in vert.link_edges)]
+    if not rim:
+        mesh.free()
+        return
+    middle = sum((vert.co for vert in mesh.verts), Vector()) / len(mesh.verts)
+    ring = {vert.index: [other.index for edge in vert.link_edges if edge.is_boundary for other in edge.verts if other is not vert] for vert in rim}
+    start = {index: mesh.verts[index].co.copy() for index in ring}
+    points = dict(start)
+    for _ in range(HAIRLINE_PASSES):
+        points = {index: points[index].lerp(sum((points[other] for other in near), Vector()) / len(near), HAIRLINE_STEP) if near else points[index] for index, near in ring.items()}
+    keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else []
+    for index, point in points.items():
+        reach = (start[index] - middle).length
+        point = middle + (point - middle).normalized() * reach
+        step = point - start[index]
+        obj.data.vertices[index].co += step
+        for key in keys:
+            key.data[index].co += step
+    mesh.free()
+    obj.data.update()
+    print("LINHA DO CABELO", obj.name, len(points), "pontos")
+
+
 def delete_faces(obj, wanted, context="FACES_ONLY"):
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
