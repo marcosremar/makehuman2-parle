@@ -95,7 +95,7 @@ def shaded_image(doc, binary, primitive, shade, gums=False, only=None, base=None
     uv = accessor(doc, binary, primitive["attributes"]["TEXCOORD_0"]).astype(np.float64)
     triangles = accessor(doc, binary, primitive["indices"]).reshape(-1, 3)
     if only is not None:
-        triangles = triangles[only[triangles].all(axis=1)]
+        triangles = triangles[parle_mouth.body_triangles(triangles, only, uv)]
     canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv[triangles], shade[triangles]), fill=None if only is None else 1.0)
     rgba = np.dstack((image[:, :, ::-1].astype(np.float32) / 255, np.ones(image.shape[:2], np.float32)))
     out = (parle_mouth.darken(rgba, canvas, gums, wine)[:, :, 2::-1] * 255).clip(0, 255).round().astype(np.uint8)
@@ -147,7 +147,7 @@ def patch(source, out):
     tongue_rest = to_mouth_space(accessor(doc, binary, tongue["attributes"]["POSITION"]).astype(np.float64))
     swapped.update((shaded_image(doc, binary, tongue, parle_mouth.tongue_shade(tongue_rest)),))
     skin_uv = accessor(doc, binary, skin["attributes"]["TEXCOORD_0"]).astype(np.float64)
-    inside = parle_mouth.body_inside(body_rest, skin_uv, rest)
+    inside = parle_mouth.body_inside(body_rest, skin_uv, rest, accessor(doc, binary, skin["indices"]).reshape(-1, 3))
     swapped.update((shaded_image(doc, binary, skin, np.full(len(body_rest), parle_mouth.BODY_INSIDE, np.float64), only=inside, wine=True),))
     doc["asset"].setdefault("extras", {})[MARK] = 2
     write_glb(out, doc, binary, swapped)

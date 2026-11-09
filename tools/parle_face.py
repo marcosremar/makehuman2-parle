@@ -450,7 +450,10 @@ def shade_map_of(obj, shade, gums=False, only=None, wine=False):
     uv = np.array([[loops[index].uv[:] for index in triangle] for triangle in triangles], np.float64)
     points = np.array([[obj.data.loops[index].vertex_index for index in triangle] for triangle in triangles])
     if only is not None:
-        kept = only[points].all(axis=1)
+        vertex_uv = np.zeros((len(obj.data.vertices), 2))
+        for corner, point in zip(uv.reshape(-1, 2), points.ravel()):
+            vertex_uv[point] = corner[0], 1 - corner[1]
+        kept = parle_mouth.body_triangles(points, only, vertex_uv)
         uv, points = uv[kept], points[kept]
     canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv, shade[points]), fill=None if only is None else 1.0)
     pixels = np.empty(width * height * 4, np.float32)
@@ -478,7 +481,8 @@ def shade_inside_of_mouth(body, teeth_rest):
     uv = np.zeros((len(body.data.vertices), 2))
     for loop in body.data.loops:
         uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
-    shade_map_of(body, np.full(len(rest), parle_mouth.BODY_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest), wine=True)
+    triangles = np.array([(polygon.vertices[0], second, third) for polygon in body.data.polygons for second, third in zip(polygon.vertices[1:], polygon.vertices[2:])])
+    shade_map_of(body, np.full(len(rest), parle_mouth.BODY_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest, triangles), wine=True)
 
 
 def weld_seams(body):

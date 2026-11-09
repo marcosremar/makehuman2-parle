@@ -50,13 +50,29 @@ wet = mouth.darken(black, np.full((4, 4), 0.2, np.float32), wine=True)
 assert abs(wet[0, 0, 0] - mouth.WINE[0]) < 1e-3, "a shaded dark texel must rise to the colour of a wet mouth"
 assert abs(mouth.darken(black, np.ones((4, 4), np.float32), wine=True)[0, 0, 0] - 51 / 255) < 1e-3, "an unshaded texel must not change"
 
+deep_tooth = mouth.darken(ivory, np.full((4, 4), 0.3, np.float32), gums=True)
+assert deep_tooth[0, 0, 0] > deep_tooth[0, 0, 2], "a shaded tooth must stay warm, or it reads teal"
+
 # The body's inside of the mouth: in the island and behind the teeth, not the cheek beside them or the lip in front.
 inner_teeth = np.array([[-0.03, -0.12, 1.36], [0.03, -0.06, 1.40]], float)
 inner_body = np.array([[0.0, -0.1, 1.38], [0.0, -0.13, 1.38], [0.0, -0.1, 1.5], [0.05, -0.1, 1.38], [0.0, -0.1, 1.38]], float)
 inner_uv = np.array([[0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.5, 0.5]], float)
-assert mouth.body_inside(inner_body, inner_uv, inner_teeth).tolist() == [True, False, False, False, False], "wrong points taken as the inside of the mouth"
-nape = np.array([[0.0, inner_teeth[0, 1] + 0.13, 1.38]], float)
-assert not mouth.body_inside(nape, np.array([[0.8, 0.9]], float), inner_teeth)[0], "the nape shares the island of the map and must not go dark"
+# Two pieces of one island: the mouth (a strip of points joined front to back, of any depth) and the nape, not joined to it.
+inner_box = np.array([[-0.03, -0.12, 1.36], [0.03, -0.06, 1.40]], float)
+depths = [0.01 * step for step in range(1, 11)]
+mouth_strip = [[0.0, inner_box[0, 1] + d, 1.38] for d in depths] + [[0.01, inner_box[0, 1] + d, 1.38] for d in depths]
+points = np.array(mouth_strip + [[0.0, inner_box[0, 1] + 0.125, 1.38], [0.01, inner_box[0, 1] + 0.125, 1.38], [0.0, inner_box[0, 1] + 0.14, 1.38]], float)
+strip = [[i, i + 1, 10 + i] for i in range(9)] + [[i + 1, 10 + i, 11 + i] for i in range(9)]
+nape_triangle = [[20, 21, 22]]
+all_triangles = np.array(strip + nape_triangle)
+piece_uv = np.full((len(points), 2), (0.8, 0.9), float)
+inside_of = mouth.body_inside(points, piece_uv, inner_box, all_triangles)
+assert inside_of[:20].all() and not inside_of[20:].any(), "the mouth is its own piece of the island: all of it, of any depth, and not the nape"
+assert not mouth.body_inside(points, np.full((len(points), 2), (0.5, 0.5), float), inner_box, all_triangles).any(), "outside the island nothing is the inside of the mouth"
+assert abs(mouth.grow(np.full((3, 3), np.nan, np.float32), 1, fill=1.0)[0, 0] - 1.0) < 1e-6, "an uncovered map must stay as it was"
+tri_inside = np.array([True, False, False, False, False])
+tri_uv = np.array([[0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.5, 0.5]], float)
+assert mouth.body_triangles(np.array([[0, 1, 2], [0, 1, 4], [1, 2, 3]]), tri_inside, tri_uv).tolist() == [True, False, False], "any corner inside takes the shade; a corner off the island does not"
 assert abs(mouth.grow(np.full((3, 3), np.nan, np.float32), 1, fill=1.0)[0, 0] - 1.0) < 1e-6, "an uncovered map must stay as it was"
 
 print("ok")

@@ -23,14 +23,16 @@ GUM_PINK_FULL = 0.42
 # plain luma floor, so a deep molar does not turn red.
 LUMA_FLOOR = 48.0 / 255.0
 WINE = np.array((0.46, 0.22, 0.21), np.float32)
+# A shaded tooth lit only by the cool room read teal at the corners of the mouth: the deeper, the warmer.
+WARM_DEEP = np.array((1.0, 0.9, 0.78), np.float32)
 LUMA = np.array((0.2126, 0.7152, 0.0722), np.float32)
 # The orange-red arc behind the teeth is not gum: it is the body's own inside of the mouth, on the island of the skin map the lips' inner
-# band and palate share, lit like the cheek. Those points are behind the front of the teeth and inside their extent, no deeper than the
-# molars and the throat: the same island of the map also holds the nape, 120 mm behind the incisors, and it went dark (critic, #2896).
+# band and palate share, lit like the cheek. The same island of the map holds the nape, and how deep the back wall lies changes from body to body;
+# a fixed depth darkened the nape or left the back of the mouth orange (critic, #2896). The nape is another piece of the mesh, so the mouth is the
+# piece of the island the teeth sit in front of.
 BODY_INSIDE = 0.3
 BODY_BOX_M = 0.01
 BODY_BEHIND_M = 0.001
-BODY_DEEPEST_M = 0.08
 BODY_ISLAND_U = 0.7
 BODY_ISLAND_V = 0.8
 TONGUE_FRONT = 0.72
@@ -83,12 +85,44 @@ def shade_map(width, height, uv_triangles, shade_triangles):
     return canvas
 
 
-def body_inside(body, uv, teeth):
-    """Which skin points are the inside of the mouth. `uv` in glTF convention (v from the top); a point must be in the island and in the box."""
+def skin_island(uv):
+    """The island of the skin map that holds the inside of the mouth, and the nape. `uv` in glTF convention (v from the top)."""
+    return (uv[:, 0] > BODY_ISLAND_U) & (uv[:, 1] > BODY_ISLAND_V)
+
+
+def connected(count, triangles):
+    """A label for each point: points joined through `triangles` share it."""
+    label = np.arange(count)
+    while True:
+        lowest = label[triangles].min(axis=1)
+        grown = label.copy()
+        for corner in range(3):
+            np.minimum.at(grown, triangles[:, corner], lowest)
+        if (grown == label).all():
+            return label
+        label = grown
+
+
+def body_inside(body, uv, teeth, triangles):
+    """Which skin points are the inside of the mouth: in the box of the teeth, behind their front, on the piece of the island that holds the
+    largest patch of those points. No depth limit: the piece of the mesh ends where the mouth does."""
+    front = teeth[:, 1].min()
     near = (body[:, 0] > teeth[:, 0].min()) & (body[:, 0] < teeth[:, 0].max())
     near &= (body[:, 2] > teeth[:, 2].min() - BODY_BOX_M) & (body[:, 2] < teeth[:, 2].max() + BODY_BOX_M)
-    near &= (body[:, 1] > teeth[:, 1].min() + BODY_BEHIND_M) & (body[:, 1] < teeth[:, 1].min() + BODY_DEEPEST_M)
-    return near & (uv[:, 0] > BODY_ISLAND_U) & (uv[:, 1] > BODY_ISLAND_V)
+    near &= (body[:, 1] > front + BODY_BEHIND_M) & skin_island(uv)
+    if not near.any():
+        return near
+    patches = connected(len(body), triangles[near[triangles].all(axis=1)])
+    labels, counts = np.unique(patches[near], return_counts=True)
+    seed = np.where(near & (patches == labels[counts.argmax()]))[0][0]
+    pieces = connected(len(body), triangles[skin_island(uv)[triangles].all(axis=1)])
+    return near & (pieces == pieces[seed])
+
+
+def body_triangles(triangles, inside, uv):
+    """Triangles that take the shade: any corner inside the mouth, none outside its island. With all three corners required, the triangle
+    behind the incisors with one point off the box stayed an orange block; the island keeps it from reaching the outer skin."""
+    return inside[triangles].any(axis=1) & skin_island(uv)[triangles].all(axis=1)
 
 
 def grow(canvas, steps=FILL_PX, fill=None):
@@ -125,6 +159,8 @@ def darken(pixels, shade, gums=False, wine=False):
     luma = rgb @ LUMA
     kept = np.minimum(1.0, LUMA_FLOOR / np.maximum(luma, 1e-3))
     shaded = rgb * np.maximum(shade, kept)[:, :, None]
+    if gums:
+        shaded = shaded * (1 + (WARM_DEEP - 1) * (1 - np.clip(shade, 0, 1))[:, :, None])
     if wine:
         share = (gum if gums else (shade < 1.0).astype(np.float32))[:, :, None]
         shaded = shaded + (np.maximum(shaded, WINE) - shaded) * share
