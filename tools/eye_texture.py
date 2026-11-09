@@ -3,8 +3,8 @@
     License information: data/licenses/makehuman_license.txt
 
     Paints the eye map of the low-poly eye for the Parle cast, in the style of the two characters
-    the owner likes (Rafa and the player): a light warm iris against a black pupil of about half
-    its width, a thin dark ring and fine radial fibres. The stock map has a dark muddy iris, so at
+    the owner likes (Rafa and the player): a light warm iris against a black pupil about a third
+    of its width, a thin dark ring and fine radial fibres. The stock map has a dark muddy iris, so at
     game distance pupil and iris merge and the eye reads as a hole. Same UV layout as stock: one
     iris per eye. The highlight comes from the renderer, like theirs.
 
@@ -22,7 +22,14 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 IRIS_RADIUS = 0.115
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 GAZE_DOWN = 0.2
-PUPIL_SHARE = 0.48
+# 0.48 read as a dilated eye in the player's interior close-ups (2026-11-09); 0.36 is the top of the light-adapted range below plus a small margin, chosen by eye.
+PUPIL_SHARE = 0.36
+# Bounds the regression test holds the painted pupil to, as shares of the iris radius. Light-adapted pupils under interior
+# light are about 3 to 4 mm across on an iris of about 11.7 mm, so 0.26 to 0.34 (Watson & Yellott 2012, "A unified formula for
+# light-adapted pupil size", Journal of Vision 12(10):12, DOI 10.1167/12.10.12). The top is 0.42, the share the game's eye
+# already authored as a design choice between that and the larger pupil people read as attractive (map/copacabana/npc/npc-eyes.lua).
+PUPIL_MIN_SHARE = 0.26
+PUPIL_MAX_SHARE = 0.42
 LIMBUS_SHARE = 0.90
 # BGR, 0-1. Measured on the player's iris for the middle one, then 20% lighter with a darker limbus and a whiter sclera: next to her and Rafa the eye read as dull (owner, 2026-11-08).
 IRISES = {
