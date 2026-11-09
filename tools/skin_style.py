@@ -11,7 +11,9 @@ import sys
 import cv2
 import numpy as np
 
-from parle_lips import lip_points, lip_zone
+from parle_bald import bare_crown
+from parle_beard import beard_hair, beard_shape, inside_mouth
+from parle_lips import lip_maps, lip_points, lip_zone
 
 SIZE = 1024
 WIDE_PX = 61
@@ -26,7 +28,8 @@ RELIEF_M = 0.006
 SHADOW = 0.3
 LIGHT = 0.04
 SHADOW_TINT = np.array([1.25, 1.1, 0.8])  # BGR
-BEARD_LEAST = 0.25
+# A beard too light to have a border stayed as a smudge on the jaw once the skin around it was clean (carioca-h22).
+BEARD_LEAST = 0.3
 HUE_SHARE = 0.8
 CHIN_M = 0.1
 NECK_FADE_M = 0.07
@@ -105,14 +108,32 @@ SCALP_EDGE_SOFT = 3
 # The beard starts on the lip line, not in a straight cut across the cheeks.
 BEARD_TOP_M = 0.008
 BEARD_FADE_M = 0.022
-BEARD_EDGE_PX = 11
-BEARD_EDGE_SOFT = 3
+# At 1024 the face is about 1.2 px per mm: the border is rounded over 12 mm and the halo reaches 8 mm out on each side of it.
+BEARD_ROUND_PX = 15
+BEARD_KEEP_PX = 400
+BEARD_SOFT = 3
+# A light beard has no border of its own: tidied, carioca-h22 kept only a dark patch on the jaw.
+BEARD_TIDY = 0.3
+BEARD_RING_PX = 21
+HALO_LEAST = 0.75
+HALO_SAMPLE_SOFT = 18
+# The scalp keeps its painted hair a little above the cut of the hair mesh: a razor-straight mesh border reads as a sticker on bare skin.
+CROWN_SOFT = 6
+CROWN_ABOVE_M = 0.008
 # The game face has grey-green bruises on the jaw: below the eyes the skin never goes greener or bluer than this.
 JAW_ABOVE_TIP_M = 0.02
 # The game face changes colour in a step across the cheeks: two faces, one over the other (André). Light keeps the features; colour alone may melt.
 FACE_COLOUR_SOFT = 15
 GREEN_MOST = 2
 BLUE_MOST = 3
+# Rafa's skin is one clean tone (owner, 2026-11-08). The game face, enlarged, brought blotches and a red band across the cheeks (Carlos): only its broad light stays, beard and painted hair kept.
+PLAIN_SOFT = 35
+PAINTED_HAIR_ABOVE_TIP_M = 0.04
+PAINTED_HAIR_DARK = 0.62
+PLAIN_LEAST = 0.75
+# The player has no occlusion inside the mouth: lit like the face, its lining read orange (owner, 2026-11-09). Darker as it goes in.
+MOUTH_RIM = 0.6
+MOUTH_DEEP = 0.2
 
 
 def painter(data):
@@ -474,8 +495,64 @@ def pad_islands(image, data, rim=0):
     return cv2.inpaint(np.clip(image, 0, 255).astype(np.uint8), band, PAD_PX, cv2.INPAINT_TELEA).astype(np.float32)
 
 
+def clear_crown(skin, data):
+    """A balding man's scalp is skin up to the line where the hair mesh is cut (`parle_bald`): the bake had painted hair there."""
+    bare = painter(data)(bare_crown(data["pos"] - np.array([0, 0, CROWN_ABOVE_M]), data["pos"]).astype(float), CROWN_SOFT)[:, :, None]
+    tone = np.median(skin.reshape(-1, 3), axis=0)
+    return skin * (1 - bare) + tone * bare
+
+
+def dark_mouth(image, data):
+    area, deep = inside_mouth(data, SIZE)
+    factor = (MOUTH_RIM + (MOUTH_DEEP - MOUTH_RIM) * deep).astype(np.float32)
+    image = image.copy()
+    image[area] *= factor[area][:, None]
+    return image, int(area.sum())
+
+
+def plain_face(head, face, beard, lips, data):
+    """One clean tone on the bare skin of the head: its broad light stays, blotches go. Beard, lip and the painted hair stay."""
+    points = data["pos"]
+    top = points[:, 2].max()
+    around = points[points[:, 2] > top - 0.26]
+    middle = float(np.median(around[:, 0]))
+    tip = around[np.abs(around[:, 0] - middle) < 0.01]
+    tip = tip[tip[:, 1].argmin()]
+    gray = head.mean(axis=2)
+    level = float(np.median(gray[face > 0.5]))
+    high = painter(data)((points[:, 2] > tip[2] + PAINTED_HAIR_ABOVE_TIP_M).astype(float), 1) > 0.5
+    hair = cv2.dilate(cv2.morphologyEx((high & (gray < PAINTED_HAIR_DARK * level)).astype(np.uint8), cv2.MORPH_OPEN, np.ones((5, 5), np.uint8)), np.ones((5, 5), np.uint8))
+    # A sideburn the hair mesh does not reach is a loose dark patch beside the ear (Carlos, Marcelo): only what joins the big scalp stays.
+    _, labels, stats, _ = cv2.connectedComponentsWithStats(hair)
+    hair = ((stats[labels, cv2.CC_STAT_AREA] >= SCALP_KEEP_PX) & (labels > 0)).astype(np.float32)
+    plain = ((face > 0.5) & (beard < 0.05) & (lips < 0.05) & (hair == 0) & (gray > PLAIN_LEAST * level)).astype(np.float32)
+    weight = np.maximum(cv2.GaussianBlur(plain, (0, 0), PLAIN_SOFT), 1e-3)[:, :, None]
+    smooth = cv2.GaussianBlur(head * plain[:, :, None], (0, 0), PLAIN_SOFT) / weight
+    share = (face * (1 - beard) * (1 - lips) * (1 - cv2.GaussianBlur(hair, (0, 0), 3)))[:, :, None]
+    return head * (1 - share) + smooth * share
+
+
+def tidy_beard(skin, beard, lips, shape=None):
+    """The mask comes from the bake's noise: rounds its border, drops the loose specks and heals the dark halo left on the skin outside it.
+
+    With `shape`, the beard drawn on the head (`parle_beard`) takes over, and all of the baked one outside it heals.
+    """
+    solid = cv2.medianBlur((beard > 0.5).astype(np.uint8) * 255, BEARD_ROUND_PX)
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(solid)
+    solid = ((stats[labels, cv2.CC_STAT_AREA] >= BEARD_KEEP_PX) & (labels > 0)).astype(np.uint8) * 255
+    soft = cv2.GaussianBlur(solid.astype(np.float32) / 255, (0, 0), BEARD_SOFT) if shape is None else shape
+    grown = cv2.dilate(solid, np.ones((BEARD_RING_PX, BEARD_RING_PX), np.uint8))
+    gray = skin.mean(axis=2)
+    # What the healed skin is made of: nothing from the halo, the lip or the painted hair.
+    plain = ((grown == 0) & (lips < 0.05) & (gray > HALO_LEAST * float(np.median(gray)))).astype(np.float32)
+    weight = np.maximum(cv2.GaussianBlur(plain, (0, 0), HALO_SAMPLE_SOFT), 1e-3)[:, :, None]
+    healed = cv2.GaussianBlur(skin * plain[:, :, None], (0, 0), HALO_SAMPLE_SOFT) / weight
+    halo = (cv2.GaussianBlur(grown.astype(np.float32) / 255, (0, 0), BEARD_SOFT) * (1 - soft) * (1 - np.clip(lips, 0, 1)))[:, :, None]
+    return skin * (1 - halo) + healed * halo, soft
+
+
 def main():
-    words = [word for word in sys.argv[1:] if word not in ("--shave", "--no-beard")]
+    words =[word for word in sys.argv[1:] if word not in ("--shave", "--no-beard", "--bald")]
     source, map_path, shape_path, target = words[:4]
     strength = float(words[4]) if len(words) > 4 else BLUSH_STRENGTH
     skin, cleared = clear_philtrum(cv2.imread(source).astype(np.float32), np.load(map_path))
@@ -485,6 +562,8 @@ def main():
     skin, scalp = clear_painted_scalp(skin, np.load(map_path))
     if "--shave" in sys.argv:
         skin = shave_face(skin, np.load(map_path), np.load(shape_path)["points"])
+    if "--bald" in sys.argv:
+        skin = clear_crown(skin, np.load(map_path))
     gray = skin.mean(axis=2)
     tone = np.median(skin.reshape(-1, 3), axis=0)
     level = float(np.median(gray))
@@ -504,14 +583,14 @@ def main():
     if covered < BEARD_LEAST or "--no-beard" in sys.argv:
         beard[:] = 0
         skin = even_face(skin, np.load(map_path))
+    elif covered >= BEARD_TIDY:
+        baked = beard
+        skin, beard = tidy_beard(skin, beard, lips, beard_shape(np.load(map_path), lips, SIZE))
+        gray = skin.mean(axis=2)
     hair = tone * (np.minimum(gray / level, 1) * (1 - BEARD_DARK))[:, :, None]
-    head = skin * (1 - beard[:, :, None]) + hair * beard[:, :, None]
     if beard.any():
-        # A beard painted with a hard border reads as a sticker: the border itself melts into the skin.
-        solid = (beard > 0.5).astype(np.uint8)
-        border = cv2.morphologyEx(solid, cv2.MORPH_GRADIENT, np.ones((BEARD_EDGE_PX, BEARD_EDGE_PX), np.uint8)).astype(np.float32)
-        melt = cv2.GaussianBlur(border, (0, 0), BEARD_EDGE_SOFT)[:, :, None]
-        head = head * (1 - melt) + cv2.GaussianBlur(head, (0, 0), BEARD_EDGE_SOFT) * melt
+        hair = beard_hair(hair, baked, lips, SIZE)
+    head = skin * (1 - beard[:, :, None]) + hair * beard[:, :, None]
     # O rosto cinza ao lado do corpo quente: matiz da pele do corpo, com a luz do rosto.
     cheek = blush > 0.5
     lab = cv2.cvtColor(np.clip(head, 0, 255).astype(np.uint8), cv2.COLOR_BGR2LAB).astype(np.float32)
@@ -526,8 +605,11 @@ def main():
     head = cv2.cvtColor(np.clip(lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
     # O lábio tem cor própria e fica fora do acerto de matiz.
     lips = lips * (1 - beard)
+    head = plain_face(head, face, beard, lips, np.load(map_path))
     # The lip is a layer of its own, measured on the mesh (`parle_lips.lip_zone`): its map goes beside the skin and `parle_lips.py` paints it, as many times as wanted, without redoing the skin.
     cv2.imwrite(target.replace(".png", ".lips.png"), np.clip(lips * 255, 0, 255).astype(np.uint8))
+    _, line, upper = lip_maps(np.load(map_path), np.load(shape_path)["points"])
+    cv2.imwrite(target.replace(".png", ".line.png"), np.clip(np.dstack([line, upper, np.zeros_like(line)]) * 255, 0, 255).astype(np.uint8))
     clean = body * (1 - face[:, :, None]) + head * face[:, :, None]
     own_points = np.load(shape_path)["points"]
     clean, seams = even_seams(pad_islands(clean, np.load(map_path), RIM_PX), np.load(map_path), own_points)
@@ -539,9 +621,11 @@ def main():
     # A sombra da pele é quente: o azul cai mais que o vermelho.
     clean = clean * np.where(shape < 0, 1 + SHADOW * shape * SHADOW_TINT, 1 + LIGHT * shape)
     clean, lashes = lash_line(clean, np.load(map_path), own_points)
+    clean, inside = dark_mouth(clean, np.load(map_path))
     clean = pad_islands(clean, np.load(map_path))
     cv2.imwrite(target, np.clip(clean, 0, 255).astype(np.uint8))
-    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "fio", thread, "sobrancelha", brows, "batom", corners, "couro", scalp, "costura", seams, "cílio", lashes)
+    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "fio", thread, "sobrancelha", brows, "batom", corners, "couro", scalp, "costura", seams, "cílio", lashes, "boca", inside)
 
 
-main()
+if __name__ == "__main__":
+    main()

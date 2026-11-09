@@ -31,29 +31,58 @@ FOREHEAD_REACH_M = 0.06
 # The kit's own morphs, baked into the rest shape: eyes open all around and brows pulled down read as anger on everybody (owner's review, 2026-11-07).
 # The kit rests with the lips a little apart, and the teeth showed through in a white line (owner, 2026-11-07): the jaw rests a quarter closed. Teeth and tongue take it too.
 CALM_LOOK = {"faceEyeOpen": -0.45, "faceBrowAngle": 0.6, "browInnerUp": 0.5, "jawOpen": -0.25}
+# The reference women have about twice the height from the lips to the chin as from the nose to the lips; ours was nearly one to one (owner, 2026-11-09).
+CHIN_LONGER = {"female": 0.3, "male": 0.0}
 BROW_THIN = 0.75
 # With the jaw a quarter closed, the upper teeth sat wholly behind the upper lip: speaking, the mouth showed the lower teeth and the
 # tongue under a bare lip, and read as a snarl (owner, 2026-11-08). Measured on the pharmacy's attendant at the player's widest "a"
 # (`viseme_aa` 0.55): incisor tip 1 mm above the lip's edge. Teeth go 3.5 mm down and the tongue 3 mm more, behind the lower teeth.
 # The women's kit has full lips that bulged like a sausage in the player's perspective and light (owner, 2026-11-08: lower lip too
 # big). The kit's own `faceLipVolume`, on the lip that follows the jaw and fading 4 mm around it: -1 on women, -0.5 on men; -2 creased.
-LIP_THIN = {"female": -1.0, "male": -0.5}
+# Next to four reference heads (owner, 2026-11-09) thinning was the wrong way: their lips are two full forms and hers a thin band. The shape comes from `full_lips`.
+LIP_THIN = {"female": 0.0, "male": -0.5}
+# The lower lip read as two, a crumpled ridge over the hollow under it: three lips with the upper one (owner, 2026-11-09, pharmacy). Thinner
+# only creased it and filling the hollow made a band of its own. The outer skin of its lower half and of the hollow relaxes into one form.
+UNDER_LIP_ROUNDS = {"female": 0, "male": 0}
+UNDER_LIP_NEAR_M = 0.01
+UNDER_LIP_FAR_M = 0.018
+UNDER_LIP_SHARE = 0.45
+# What lies this far behind the lip is the inside of the mouth, which the relaxing would pull out of place.
+UNDER_LIP_BEHIND_M = 0.012
+# The mouth went 3 mm back and the chin stayed: in profile it stuck out (owner, 2026-11-09, pharmacy). It goes back as much, fading towards the jaw and under it.
+# In three reference women the chin sits about 3% of the head's height (6 mm) behind the lower lip; on the women's kit it was 2 mm ahead of it.
+CHIN_BACK = {"female": 0.0035, "male": 0.0}
+# Each lip a form of its own, as on the reference heads: forward at the middle of its height, the lower one taller, and a soft hollow under it. All in metres; the lips' meeting line stays.
+LIPS_FULL = {"female": {"upper_forward": 0.0, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0005, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028}, "male": None}
+LIPS_KEEP_LINE_M = 0.0012
+LIPS_CUPID = {"female": 0.8, "male": 0.0}
+# In the wide-open vowels the lining of the mouth came out through the cheek in two cuts (owner, 2026-11-09).
+MOUTH_LINING_REACH_M = 0.08
+GUM_TOOTH_MOST_POINTS = 60
+GUM_KEEP_M = 0.009
+GUM_TORN_M = 0.005
+# Held still, the cheek's skin still closed over it when the jaw dropped: it also sits further in, past 2 cm from the middle.
+MOUTH_LINING_INSET_M = 0.009
+MOUTH_LINING_INSET_FROM_M = 0.02
+MOUTH_LINING_INSET_FADE_M = 0.02
 LIP_FADE_M = 0.004
 # Thinner, the women's lips still stood out in profile like a beak and the lower one hung forward (owner, 2026-11-08, pharmacy). The
 # whole mouth goes 3 mm back: lips and what lies 6 mm around them fully, fading over 20 mm more, teeth and tongue with them. Only the
 # lower lip back opened a gap between the lips; 4 mm flattened the face.
-MOUTH_BACK = {"female": 0.003, "male": 0.0}
+# Next to photographs in profile, at 3 mm the lips no longer stood out from the face (owner, 2026-11-09): 1.5 mm.
+MOUTH_BACK = {"female": 0.0052, "male": 0.0}
 # Speaking, the rounded vowels pushed the full lips forward into a big beak, and the player mostly shows her mid-sentence: the
 # forward part (-y) of the rounded visemes keeps 40% on women. The vowel still reads as round.
 POUT_FORWARD = {"female": 0.4, "male": 1.0}
 POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
 # Seen as the player frames her (front, eye level), the women's mouth still read as a pout: it was short and the lips round. The
 # kit's own faceMouthWidth +0.8 lengthens it; thinning the lips further opened a gap between them (owner, 2026-11-08, pharmacy).
-MOUTH_WIDE = {"female": 0.8, "male": 0.0}
+# At +0.8 it read as a long flat band next to photographs (owner, 2026-11-09): +0.4.
+MOUTH_WIDE = {"female": 0.4, "male": 0.0}
 MOUTH_CORE_M = 0.006
 MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035
-TONGUE_DOWN_M = 0.0065
+TONGUE_DOWN_M = 0.009
 # Halves of a point split on a UV seam drift apart in the head fit and the background shows through, in a line along the jaw.
 SEAM_REACH_M = 0.008
 SEAM_SAME_MOVE_M = 0.001
@@ -161,6 +190,178 @@ def lip_thinning(keys, rest, amount):
     return (key_points(keys["faceLipVolume"]) - rest) * (weight * amount)[:, None]
 
 
+def full_lips(keys, rest, shape):
+    """Sculpts both lips and the hollow under the lower one on the outer skin."""
+    move = np.zeros_like(rest)
+    if not shape:
+        return move
+    moves = [np.linalg.norm(key_points(keys[name]) - rest, axis=1) for name in ("viseme_U", "viseme_PP") if name in keys]
+    moved = np.maximum.reduce(moves)
+    lips = np.where(moved >= moved.max() * 0.45)[0]
+    jaw = (key_points(keys["jawOpen"]) - rest)[:, 2] < -0.001
+    lower, upper = lips[jaw[lips]], lips[~jaw[lips]]
+    middle = rest[lips, 0].mean()
+    half = np.ptp(rest[lips, 0]) / 2
+    x_lower, x_upper = rest[lower, 0] - middle, rest[upper, 0] - middle
+    edges = np.linspace(-half, half, 15)
+    centres, line = [], []
+    for start, stop in zip(edges[:-1], edges[1:]):
+        low, up = rest[lower[(x_lower >= start) & (x_lower < stop)], 2], rest[upper[(x_upper >= start) & (x_upper < stop)], 2]
+        if len(low) and len(up):
+            centres.append((start + stop) / 2)
+            line.append((low.max() + up.min()) / 2)
+    curve = np.polyfit(centres, line, 4)
+    x = rest[:, 0] - middle
+    height = rest[:, 2] - np.polyval(curve, np.clip(x, -half, half))
+    across = np.sqrt(np.clip(1 - (x / (half * 1.05)) ** 2, 0, 1))
+    outer = rest[:, 1] < rest[lips, 1].mean() + 0.012
+    gauss = lambda value, at, wide: np.exp(-(((value - at) / wide) ** 2))
+    keep = np.clip(np.abs(height) / LIPS_KEEP_LINE_M, 0, 1)
+    up = height > 0
+    move[:, 1] -= (shape["upper_forward"] * gauss(height, shape["upper_at"] * across, shape["upper_wide"]) * across * keep * up + shape["lower_forward"] * gauss(height, -shape["lower_at"] * across, shape["lower_wide"]) * across * keep * ~up)
+    move[:, 1] += shape["hollow_back"] * gauss(height, -shape["hollow_at"], shape["hollow_wide"]) * np.clip(across * 1.6, 0, 1) * ~up
+    # The kit's lips are furthest forward right at the line where they meet, a beak in profile; real ones roll in towards it. Both sides move alike, so they still touch.
+    move[:, 1] += shape["roll_back"] * gauss(height, 0.0, shape["roll_wide"]) * across ** 2
+    move[:, 2] += shape["upper_grow"] * np.clip(height / 0.008, 0, 1) * gauss(height, 0.008, 0.008) * across * up
+    move[:, 2] -= shape["lower_grow"] * np.clip(-height / 0.01, 0, 1) * gauss(height, -0.01, 0.01) * across * ~up
+    move[~outer] = 0
+    return move
+
+
+def chin_back(rest, lip, amount):
+    """The move, backwards (+y), of the chin: starts under the lip, fades out to the sides, behind the jawbone's front and on the neck."""
+    move = np.zeros_like(rest)
+    if not amount or not len(lip):
+        return move
+    low, middle = rest[lip, 2].min(), rest[lip, 0].mean()
+    below = rest[:, 2] < low
+    front = rest[below & (np.abs(rest[:, 0] - middle) < 0.01), 1].min()
+    start = np.clip((low - 0.004 - rest[:, 2]) / 0.012, 0, 1)
+    across = np.clip((0.06 - np.abs(rest[:, 0] - middle)) / 0.03, 0, 1)
+    deep = np.clip((front + 0.075 - rest[:, 1]) / 0.03, 0, 1)
+    floor = np.clip((rest[:, 2] - (low - 0.075)) / 0.02, 0, 1)
+    move[:, 1] = amount * start * start * (3 - 2 * start) * across * deep * floor
+    return move
+
+
+def relaxed_under_lip(obj, rest, move, lip, rounds):
+    """`move` after relaxing the outer skin from the middle of the lower lip down through the hollow under it. The lips' meeting line and the inside of the mouth stay."""
+    if not rounds or not len(lip):
+        return move
+    tree = KDTree(len(lip))
+    for index in lip:
+        tree.insert(rest[index], int(index))
+    tree.balance()
+    share = np.zeros(len(rest))
+    for index in np.where(np.linalg.norm(rest - rest[lip].mean(axis=0), axis=1) < 0.07)[0]:
+        share[index] = np.clip((UNDER_LIP_FAR_M - tree.find(rest[index])[2]) / (UNDER_LIP_FAR_M - UNDER_LIP_NEAR_M), 0, 1)
+    low, high = rest[lip, 2].min(), rest[lip, 2].max()
+    share *= np.clip((low + (high - low) * UNDER_LIP_SHARE - rest[:, 2]) / 0.002, 0, 1)
+    share *= np.clip((rest[lip, 1].mean() + UNDER_LIP_BEHIND_M - rest[:, 1]) / 0.004, 0, 1)
+    edges = np.empty(len(obj.data.edges) * 2, int)
+    obj.data.edges.foreach_get("vertices", edges)
+    edges = edges.reshape(-1, 2)
+    placed = rest + move
+    count = np.maximum(np.bincount(edges.ravel(), minlength=len(placed)), 1)[:, None]
+    for _ in range(rounds):
+        total = np.zeros_like(placed)
+        np.add.at(total, edges[:, 0], placed[edges[:, 1]])
+        np.add.at(total, edges[:, 1], placed[edges[:, 0]])
+        placed = placed + (total / count - placed) * (share * 0.5)[:, None]
+    return placed - rest
+
+
+def lining_points(rest, polygons, lip):
+    """The points that line the inside of the mouth: there is skin ahead of them and skin beside them. Only ahead also caught the jaw and the neck, under the chin."""
+    tree = BVHTree.FromPolygons(rest.tolist(), polygons)
+    middle = rest[lip, 0].mean()
+    near = np.where((np.linalg.norm(rest - rest[lip].mean(axis=0), axis=1) < MOUTH_LINING_REACH_M) & (rest[:, 1] > rest[lip, 1].mean()))[0]
+
+    def hidden(index, direction):
+        return tree.ray_cast(Vector(rest[index]) + direction * 0.0005, direction, MOUTH_LINING_REACH_M * 2)[0] is not None
+
+    return np.array([index for index in near if hidden(index, Vector((0, -1, 0))) and hidden(index, Vector((1 if rest[index, 0] >= middle else -1, 0, 0)))], int)
+
+
+def held_in(rest, delta, lining, middle):
+    """`delta` with the lining never going forward or out to the side, the two ways it can come through the cheek."""
+    delta = delta.copy()
+    delta[lining, 1] = np.maximum(delta[lining, 1], 0.0)
+    outward = np.sign(rest[lining, 0] - middle) * delta[lining, 0] > 0
+    delta[lining[outward], 0] = 0.0
+    return delta
+
+
+def keep_lining_inside(body):
+    keys = body.data.shape_keys.key_blocks
+    rest = key_points(keys[0])
+    lip = carried_lip(keys, rest)
+    if not len(lip):
+        return
+    lining = lining_points(rest, [list(polygon.vertices) for polygon in body.data.polygons], lip)
+    for block in keys[1:]:
+        if parle_tongue.is_mouth_key(block.name):
+            block.data.foreach_set("co", (rest + held_in(rest, key_points(block) - rest, lining, rest[lip, 0].mean())).ravel())
+    body.data.update()
+    side = rest[lining, 0] - rest[lip, 0].mean()
+    move = np.zeros_like(rest)
+    move[lining, 0] = -np.sign(side) * MOUTH_LINING_INSET_M * np.clip((np.abs(side) - MOUTH_LINING_INSET_FROM_M) / MOUTH_LINING_INSET_FADE_M, 0, 1)
+    move_rest(body, move)
+    print("FORRO DA BOCA", len(lining), "pontos")
+
+
+def trim_gums(teeth):
+    """Drops the parts of the denture nobody should see: gum far from any tooth (the broken palate and floor) and the faces stretched between the two arches."""
+    keys = teeth.data.shape_keys.key_blocks
+    rest = key_points(keys[0])
+    jaw = np.linalg.norm(key_points(keys["jawOpen"]) - rest, axis=1)
+    mesh = bmesh.new()
+    mesh.from_mesh(teeth.data)
+    mesh.verts.ensure_lookup_table()
+    seen, crowns = set(), []
+    for start in mesh.verts:
+        if start.index in seen:
+            continue
+        part, stack = [], [start]
+        seen.add(start.index)
+        while stack:
+            vertex = stack.pop()
+            part.append(vertex.index)
+            for edge in vertex.link_edges:
+                other = edge.other_vert(vertex)
+                if other.index not in seen:
+                    seen.add(other.index)
+                    stack.append(other)
+        if len(part) <= GUM_TOOTH_MOST_POINTS:
+            crowns += part
+    tree = KDTree(len(crowns))
+    for index in crowns:
+        tree.insert(rest[index], index)
+    tree.balance()
+    crown = set(crowns)
+    def useless(face):
+        points = [vertex.index for vertex in face.verts]
+        if any(index in crown for index in points):
+            return False
+        moves = jaw[points]
+        return moves.max() - moves.min() > GUM_TORN_M or all(tree.find(rest[index])[2] > GUM_KEEP_M for index in points)
+    doomed = [face for face in mesh.faces if useless(face)]
+    bmesh.ops.delete(mesh, geom=doomed, context="FACES_ONLY")
+    bmesh.ops.delete(mesh, geom=[vertex for vertex in mesh.verts if not vertex.link_faces], context="VERTS")
+    mesh.to_mesh(teeth.data)
+    mesh.free()
+    teeth.data.update()
+    print("GENGIVA aparada:", len(doomed), "faces")
+
+
+def carried_lip(keys, rest):
+    moves = [np.linalg.norm(key_points(keys[name]) - rest, axis=1) for name in ("viseme_U", "viseme_PP") if name in keys]
+    if not moves or "jawOpen" not in keys:
+        return np.array([], int)
+    moved = np.maximum.reduce(moves)
+    return np.where((moved >= moved.max() * 0.45) & ((key_points(keys["jawOpen"]) - rest)[:, 2] < -0.001))[0]
+
+
 def mouth_back(keys, rest, amount):
     """The lips and the skin around them, back (+y, the face looks to -y), with a smooth edge."""
     lip_moves = [np.linalg.norm(key_points(keys[name]) - rest, axis=1) for name in ("viseme_U", "viseme_PP") if name in keys]
@@ -192,8 +393,8 @@ def soften_pout(body, forward):
     body.data.update()
 
 
-def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0):
-    look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {})}
+def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0):
+    look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {}), **({"faceCupidBow": bow} if bow else {}), **({"faceVChin": longer} if longer else {})}
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
         if not keys:
@@ -202,8 +403,14 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0):
         move = sum(((key_points(keys[name]) - rest) * value for name, value in look.items() if name in keys), np.zeros_like(rest))
         if obj.name == "Body" and lip_thin:
             move = move + lip_thinning(keys, rest, lip_thin)
+        if obj.name == "Body" and chin:
+            move = move + chin_back(rest, carried_lip(keys, rest), chin)
+        if obj.name == "Body" and lips:
+            move = move + full_lips(keys, rest, lips)
         if obj.name == "Body" and back:
             move = move + mouth_back(keys, rest, back)
+        if obj.name == "Body":
+            move = relaxed_under_lip(obj, rest, move, carried_lip(keys, rest), rounds)
         if back and ("teeth" in obj.name or "tongue" in obj.name):
             move[:, 1] += back
         if "eyebrow" in obj.name:
@@ -371,9 +578,12 @@ def clean_face(body, added, job, env):
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex])
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex])
     soften_pout(body, POUT_FORWARD[sex])
+    keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
+    for obj in [item for item in added if item.type == "MESH" and "teeth" in item.name]:
+        trim_gums(obj)
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
