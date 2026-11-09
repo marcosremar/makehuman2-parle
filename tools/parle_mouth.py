@@ -8,6 +8,8 @@
 
     Numbers calibrated by eye in the player, no source: a design choice to pilot.
 """
+from pathlib import Path
+
 import numpy as np
 
 # Depth back from the front of the teeth (m) -> multiplier. The shade starts just behind the incisors: from 12 mm on the side teeth came out
@@ -39,6 +41,12 @@ TONGUE_FRONT = 0.72
 TONGUE_DEEP = 0.52
 TONGUE_DARK_M = 0.045
 FILL_PX = 8
+
+
+def clean_teeth(path):
+    """The shade multiplies, so it must start from the clean map: `parle_teeth.png` itself has carried a shade since the lash work (b1147bb)."""
+    clean = Path(path).with_name("parle_teeth_clean.png")
+    return str(clean) if clean.exists() else str(path)
 
 
 def smoothstep(low, high, value):

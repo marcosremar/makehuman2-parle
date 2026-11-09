@@ -75,4 +75,7 @@ tri_uv = np.array([[0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.5, 0.5]], 
 assert mouth.body_triangles(np.array([[0, 1, 2], [0, 1, 4], [1, 2, 3]]), tri_inside, tri_uv).tolist() == [True, False, False], "any corner inside takes the shade; a corner off the island does not"
 assert abs(mouth.grow(np.full((3, 3), np.nan, np.float32), 1, fill=1.0)[0, 0] - 1.0) < 1e-6, "an uncovered map must stay as it was"
 
+repo_map = Path(__file__).parent.parent / "data/eyes/hm08/materials/parle_teeth.png"
+assert Path(mouth.clean_teeth(repo_map)).name == "parle_teeth_clean.png", "the shade must start from the clean map"
+
 print("ok")

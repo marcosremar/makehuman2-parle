@@ -25,7 +25,7 @@ import parle_mouth  # noqa: E402
 JPEG_QUALITY = 85
 MARK = "parleMouthShade"
 # The teeth map starts from the fork's clean map, not from the body: a body rebuilt with an earlier shade in its map would be shaded twice.
-TEETH_MAP = Path(__file__).parent.parent / "data/eyes/hm08/materials/parle_teeth.png"
+TEETH_MAP = Path(__file__).parent.parent / "data/eyes/hm08/materials/parle_teeth_clean.png"
 TREATED_TONGUE_LUMA = 120.0
 COMPONENTS = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 TYPES = {5126: np.float32, 5125: np.uint32, 5123: np.uint16, 5121: np.uint8}

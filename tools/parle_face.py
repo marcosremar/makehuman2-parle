@@ -592,7 +592,7 @@ def clean_face(body, added, job, env):
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
     if env.get("CAST_TEETH"):
-        teeth_map = bpy.data.images.load(env["CAST_TEETH"])
+        teeth_map = bpy.data.images.load(parle_mouth.clean_teeth(env["CAST_TEETH"]))
         teeth_map.pack()
         for obj in added:
             if obj.type == "MESH" and "teeth" in obj.name:
