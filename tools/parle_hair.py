@@ -17,6 +17,8 @@ import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
+from parle_bald import bare_crown, line_planes
+
 MH_HAIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local/mhd/data/hair/hm08")
 # Strand cards keep their edges solid and let the player sort them as opaque.
 COIF_CUTOFF = 0.4
@@ -336,6 +338,23 @@ def smooth_hairline(obj):
     mesh.free()
     obj.data.update()
     print("LINHA DO CABELO", obj.name, len(points), "pontos")
+
+
+def bald_crown(body, hairs):
+    """Cuts the hair at the balding line of `parle_bald`, the one that clears the scalp on the skin map: first along the line, so the border is
+    the line itself and not the teeth of this hair's few large faces, then whatever stayed above it."""
+    head = np.array([tuple(body.matrix_world @ vert.co) for vert in body.data.vertices])
+    for hair in hairs:
+        back = hair.matrix_world.inverted()
+        mesh = bmesh.new()
+        mesh.from_mesh(hair.data)
+        for point, normal in line_planes(head):
+            geometry = list(mesh.verts) + list(mesh.edges) + list(mesh.faces)
+            bmesh.ops.bisect_plane(mesh, geom=geometry, plane_co=back @ Vector(point), plane_no=hair.matrix_world.to_3x3().transposed() @ Vector(normal))
+        mesh.to_mesh(hair.data)
+        mesh.free()
+        hair.data.update()
+        delete_faces(hair, lambda point: bool(bare_crown(np.array([tuple(point)]), head)[0]), "FACES")
 
 
 def delete_faces(obj, wanted, context="FACES_ONLY"):

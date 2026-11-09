@@ -19,4 +19,8 @@ for joint in (1, 2, 3):
 assert rest_turn("LeftHandIndex4", game, ours) is None
 # The hand and the head keep their own rest.
 assert rest_turn("LeftHand", {"LeftHand": Vector((1, 0, 0))}, {"LeftHand": Vector((0, 1, 0))}) is None
+# The clavicle ends further back than the game's: standing still, the tips of the shoulders curved forward (owner, 2026-11-09).
+game = {"LeftShoulder": Vector((1, 0, 0))}
+ours = {"LeftShoulder": Vector((1, -0.2, 0)).normalized()}
+assert (rest_turn("LeftShoulder", game, ours) @ ours["LeftShoulder"]).y > 0.1
 print("ok")

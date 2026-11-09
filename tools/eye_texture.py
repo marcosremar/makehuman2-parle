@@ -24,15 +24,15 @@ IRIS_RADIUS = 0.115
 GAZE_DOWN = 0.2
 PUPIL_SHARE = 0.48
 LIMBUS_SHARE = 0.90
-# BGR, 0-1, measured on the player's iris for the middle one.
+# BGR, 0-1. Measured on the player's iris for the middle one, then 20% lighter with a darker limbus and a whiter sclera: next to her and Rafa the eye read as dull (owner, 2026-11-08).
 IRISES = {
-    "castanho-escuro": (0.17, 0.27, 0.42),
-    "castanho": (0.23, 0.36, 0.56),
-    "mel": (0.25, 0.46, 0.68),
+    "castanho-escuro": (0.204, 0.324, 0.504),
+    "castanho": (0.276, 0.432, 0.672),
+    "mel": (0.30, 0.552, 0.816),
 }
-LIMBUS = np.array((0.20, 0.16, 0.05))
+LIMBUS = np.array((0.09, 0.07, 0.03))
 PUPIL = np.array((0.0, 0.0, 0.0))
-SCLERA = np.array((0.86, 0.89, 0.97))
+SCLERA = np.array((0.93, 0.95, 0.99))
 
 
 def fibres(angle, seed):

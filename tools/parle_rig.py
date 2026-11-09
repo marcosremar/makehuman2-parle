@@ -7,7 +7,8 @@
     - Arms and legs point exactly as in the game: otherwise the clip opened the legs and crossed the hands.
     - The clavicle points front to back as in the game: the MakeHuman one points forward, and standing
       still the shoulders sat 2 cm in front of the neck (owner, 2026-11-07). In height it goes only half
-      way, because all the way the shoulders came up 2.5 cm and the person looked hunched.
+      way, because all the way the shoulders came up 2.5 cm and the person looked hunched. It also turns back a little more than the
+      game's: seen from above the tips of the shoulders still curved forward, standing still, on a body that has a deeper chest (owner, 2026-11-09).
     - Each finger phalanx points as in the game: MakeHuman rests with the fingers half curled and spread, the
       game (Mixamo) with them straight, and the clip's curl came on top of ours. Pointing, the hand closed into a
       claw: 64 degrees of curl against 38, and the index and little finger 52 degrees apart against 18 (2026-11-08,
@@ -18,6 +19,8 @@ from mathutils import Vector
 FINGERS = tuple(f"Hand{finger}{joint}" for finger in ("Thumb", "Index", "Middle", "Ring", "Pinky") for joint in (1, 2, 3))
 ALIGNED = ("Shoulder", "Arm", "ForeArm", "UpLeg", "Leg") + FINGERS
 SHOULDER_HEIGHT_SHARE = 0.5
+# Added to the clavicle's direction towards the back (+y): about 9 degrees, 2 cm at the tip of a 14 cm clavicle.
+SHOULDER_BACK = 0.16
 
 
 def rest_turn(name, old_dir, new_dir):
@@ -26,5 +29,5 @@ def rest_turn(name, old_dir, new_dir):
         return None
     wanted = old_dir[name]
     if name.endswith("Shoulder"):
-        wanted = Vector((wanted.x, wanted.y, new_dir[name].z + (wanted.z - new_dir[name].z) * SHOULDER_HEIGHT_SHARE)).normalized()
+        wanted = Vector((wanted.x, wanted.y + SHOULDER_BACK, new_dir[name].z + (wanted.z - new_dir[name].z) * SHOULDER_HEIGHT_SHARE)).normalized()
     return new_dir[name].rotation_difference(wanted)
