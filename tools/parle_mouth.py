@@ -14,25 +14,32 @@ import numpy as np
 
 # Depth back from the front of the teeth (m) -> multiplier. The shade starts just behind the incisors: from 12 mm on the side teeth came out
 # brighter than the map already published and floated white in the dark (critic, #2896).
-TEETH_DEPTHS = (0.0, 0.005, 0.009, 0.016, 0.025, 0.045)
-TEETH_SHADES = (1.0, 1.0, 0.76, 0.56, 0.42, 0.26)
+TEETH_DEPTHS = (0.0, 0.004, 0.008, 0.012, 0.016, 0.025, 0.045)
+TEETH_SHADES = (1.0, 0.95, 0.82, 0.72, 0.58, 0.4, 0.24)
 # Gums are wet flesh behind the lip's shadow. Read off the painted pink in the map, not from the points: the arc behind the upper incisors
 # is shallow and stayed bright orange, read as braces (critic, #2896). Pink is red well above blue, in the map's own (sRGB) values.
 GUM_SHADE = 0.24
 GUM_PINK_FROM = 0.28
 GUM_PINK_FULL = 0.42
-# The floor is a colour on the wet parts: at luma 48 in the map the inside of the mouth came out black on screen, luma 10 (critic, #2896). Teeth keep a
-# plain luma floor, so a deep molar does not turn red.
+# The floor is a colour on the wet parts: at luma 48 in the map the inside of the mouth came out black on screen, luma 10 (critic, #2896). It scales
+# with the body's own lip, or on dark skin the inside of the mouth came up as bright as the lip (critic, #2896). Teeth keep a plain luma floor, so a
+# deep molar does not turn red.
 LUMA_FLOOR = 48.0 / 255.0
 WINE = np.array((0.46, 0.22, 0.21), np.float32)
 # A shaded tooth lit only by the cool room read teal at the corners of the mouth: the deeper, the warmer.
 WARM_DEEP = np.array((1.0, 0.9, 0.78), np.float32)
 LUMA = np.array((0.2126, 0.7152, 0.0722), np.float32)
+LIP_MOVE_SHARE = 0.45
+LIP_SHARE = 0.8
+# The body's inside of the mouth is never as light as the map it had: on dark skin it was already dark and must stay below it.
+BODY_CEILING = 0.85
+# A gum is a wide area of the map. The small pink marks painted on the incisors are not, and shaded as gum they read as wine flecks on the teeth.
+GUM_OPEN_PX = 10
+MARK_INSIDE = 0.5
 # The orange-red arc behind the teeth is not gum: it is the body's own inside of the mouth, on the island of the skin map the lips' inner
 # band and palate share, lit like the cheek. The same island of the map holds the nape, and how deep the back wall lies changes from body to body;
 # a fixed depth darkened the nape or left the back of the mouth orange (critic, #2896). The nape is another piece of the mesh, so the mouth is the
 # piece of the island the teeth sit in front of.
-BODY_INSIDE = 0.3
 BODY_BOX_M = 0.01
 BODY_BEHIND_M = 0.001
 BODY_ISLAND_U = 0.7
@@ -151,16 +158,51 @@ def grow(canvas, steps=FILL_PX, fill=None):
     return grown
 
 
+def lip_luma(image, uv, moves):
+    """Median luma of the lip in the skin map: the points that move most in the closed-lips visemes. `image` rows from the top, `uv` v from the top."""
+    moved = np.maximum.reduce([np.linalg.norm(move, axis=1) for move in moves])
+    lip = moved >= moved.max() * LIP_MOVE_SHARE
+    height, width = image.shape[:2]
+    rows = np.clip((uv[lip, 1] * height).astype(int), 0, height - 1)
+    columns = np.clip((uv[lip, 0] * width).astype(int), 0, width - 1)
+    return float(np.median(image[rows, columns] @ LUMA))
+
+
+def wine_for(lip):
+    """The wet floor of this body: `WINE`, no lighter than a share of its lip."""
+    return WINE * min(1.0, LIP_SHARE * lip / float(WINE @ LUMA))
+
+
+def wide(mask, radius=GUM_OPEN_PX):
+    """`mask` without the parts narrower than the radius (a morphological opening over the four neighbours)."""
+    def grown(values, keep):
+        around = [np.roll(values, 1, 0), np.roll(values, -1, 0), np.roll(values, 1, 1), np.roll(values, -1, 1)]
+        return np.logical_and.reduce([values, *around]) if keep else np.logical_or.reduce([values, *around])
+
+    out = mask.copy()
+    for _ in range(radius):
+        out = grown(out, True)
+    for _ in range(radius):
+        out = grown(out, False)
+    return out & mask
+
+
 def gum_of(rgb):
-    """How much of each texel is painted gum: `rgb` in 0..1."""
-    return smoothstep(GUM_PINK_FROM, GUM_PINK_FULL, (rgb[:, :, 0] - rgb[:, :, 2]) / np.maximum(rgb[:, :, 0], 1e-3))
+    """How much of each texel is painted gum: `rgb` in 0..1. Only wide areas of pink count."""
+    pink = smoothstep(GUM_PINK_FROM, GUM_PINK_FULL, (rgb[:, :, 0] - rgb[:, :, 2]) / np.maximum(rgb[:, :, 0], 1e-3))
+    return pink * wide(pink > 0.5).astype(np.float32)
 
 
-def darken(pixels, shade, gums=False, wine=False):
+def darken(pixels, shade, gums=False, wine=None, inside=False):
     """`pixels` is the map as rows x columns x RGBA, 0..1, in its own (sRGB) values. `gums`: painted gums go down too.
-    `wine`: the floor of the shaded texels is the colour of a wet mouth; with `gums`, only of the painted ones."""
+    `wine`: the floor of the wet texels, a colour. `inside`: the texels with shade under 1 take the colour of the body's inside of the mouth
+    (the floor, or the map they had, a little darker, whichever is darker); `shade` only says which texels."""
     out = pixels.copy()
     rgb = out[:, :, :3]
+    if inside:
+        covered = (shade < 1.0)[:, :, None]
+        out[:, :, :3] = np.where(covered, np.minimum(rgb * BODY_CEILING, wine), rgb)
+        return out
     gum = gum_of(rgb) if gums else None
     if gums:
         shade = shade * (1 - (1 - GUM_SHADE) * gum)
@@ -169,8 +211,7 @@ def darken(pixels, shade, gums=False, wine=False):
     shaded = rgb * np.maximum(shade, kept)[:, :, None]
     if gums:
         shaded = shaded * (1 + (WARM_DEEP - 1) * (1 - np.clip(shade, 0, 1))[:, :, None])
-    if wine:
-        share = (gum if gums else (shade < 1.0).astype(np.float32))[:, :, None]
-        shaded = shaded + (np.maximum(shaded, WINE) - shaded) * share
+    if wine is not None and gums:
+        shaded = shaded + (np.maximum(shaded, wine) - shaded) * gum[:, :, None]
     out[:, :, :3] = shaded
     return out

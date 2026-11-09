@@ -441,7 +441,7 @@ def tongue_follows_jaw(meshes):
     print("LINGUA segue a mandibula em", carried, "formas")
 
 
-def shade_map_of(obj, shade, gums=False, only=None, wine=False):
+def shade_map_of(obj, shade, gums=False, only=None, wine=None, inside=False):
     """Multiplies the object's colour map by `shade`, one value per point, through its UV islands. `only`: a map the mesh shares; see parle_mouth."""
     image = next(node.image for node in obj.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image)
     width, height = image.size
@@ -458,23 +458,39 @@ def shade_map_of(obj, shade, gums=False, only=None, wine=False):
     canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv, shade[points]), fill=None if only is None else 1.0)
     pixels = np.empty(width * height * 4, np.float32)
     image.pixels.foreach_get(pixels)
-    image.pixels.foreach_set(parle_mouth.darken(pixels.reshape(height, width, 4), canvas, gums, wine).ravel())
+    image.pixels.foreach_set(parle_mouth.darken(pixels.reshape(height, width, 4), canvas, gums, wine, inside).ravel())
     image.pack()
 
 
-def shade_mouth(meshes):
+def body_wine(body):
+    """The wet floor of this body, from the lip in its own skin map."""
+    keys = body.data.shape_keys.key_blocks
+    rest = key_points(keys[0])
+    moves = [key_points(keys[name]) - rest for name in ("viseme_U", "viseme_PP") if name in keys]
+    image = next(node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image and node.image.colorspace_settings.name != "Non-Color")
+    width, height = image.size
+    pixels = np.empty(width * height * 4, np.float32)
+    image.pixels.foreach_get(pixels)
+    loops = body.data.uv_layers.active.data
+    uv = np.zeros((len(body.data.vertices), 2))
+    for loop in body.data.loops:
+        uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
+    return parle_mouth.wine_for(parle_mouth.lip_luma(pixels.reshape(height, width, 4)[::-1, :, :3], uv, moves))
+
+
+def shade_mouth(meshes, wine):
     """Runs on the maps the export takes, after the teeth map went in, and on the rest shape the game plays."""
     teeth = next((obj for obj in meshes if "teeth" in obj.name), None)
     tongue = next((obj for obj in meshes if "tongue" in obj.name), None)
     if teeth is not None and teeth.data.shape_keys:
         rest = key_points(teeth.data.shape_keys.key_blocks[0])
-        shade_map_of(teeth, parle_mouth.teeth_shade(rest), gums=True, wine=True)
+        shade_map_of(teeth, parle_mouth.teeth_shade(rest), gums=True, wine=wine)
     if tongue is not None:
         shade_map_of(tongue, parle_mouth.tongue_shade(key_points(tongue.data.shape_keys.key_blocks[0])))
     print("BOCA escurecida", bool(teeth), bool(tongue))
 
 
-def shade_inside_of_mouth(body, teeth_rest):
+def shade_inside_of_mouth(body, teeth_rest, wine):
     """The body's own inside of the mouth, on the skin map."""
     rest = key_points(body.data.shape_keys.key_blocks[0])
     loops = body.data.uv_layers.active.data
@@ -482,7 +498,7 @@ def shade_inside_of_mouth(body, teeth_rest):
     for loop in body.data.loops:
         uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
     triangles = np.array([(polygon.vertices[0], second, third) for polygon in body.data.polygons for second, third in zip(polygon.vertices[1:], polygon.vertices[2:])])
-    shade_map_of(body, np.full(len(rest), parle_mouth.BODY_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest, triangles), wine=True)
+    shade_map_of(body, np.full(len(rest), parle_mouth.MARK_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest, triangles), wine=wine, inside=True)
 
 
 def weld_seams(body):
@@ -601,10 +617,11 @@ def clean_face(body, added, job, env):
                 for link in [link for link in material.node_tree.links if link.to_socket.name == "Alpha"]:
                     material.node_tree.links.remove(link)
                 set_map(obj, teeth_map)
-    shade_mouth([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
+    wine = body_wine(body)
+    shade_mouth([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys], wine)
     teeth_for_inside = next((obj for obj in added if obj.type == "MESH" and "teeth" in obj.name), None)
     if teeth_for_inside is not None and body.data.shape_keys:
-        shade_inside_of_mouth(body, key_points(teeth_for_inside.data.shape_keys.key_blocks[0]))
+        shade_inside_of_mouth(body, key_points(teeth_for_inside.data.shape_keys.key_blocks[0]), wine)
     if env.get("CAST_EYE"):
         eye_map = bpy.data.images.load(env["CAST_EYE"])
         eye_map.pack()

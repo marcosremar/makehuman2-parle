@@ -46,9 +46,25 @@ assert (mouth.darken(gum, lit, gums=True)[:, :, :3] @ mouth.LUMA).max() < (gum[:
 assert abs(mouth.darken(ivory, lit, gums=True)[0, 0, 0] - 245 / 255) < 1e-3, "a tooth is not a gum"
 
 # Shaded wet parts bottom out on the wine colour, not on black; a lit texel is left alone.
-wet = mouth.darken(black, np.full((4, 4), 0.2, np.float32), wine=True)
+wet = mouth.darken(black, np.full((4, 4), 0.2, np.float32), gums=True, wine=mouth.WINE)
 assert abs(wet[0, 0, 0] - mouth.WINE[0]) < 1e-3, "a shaded dark texel must rise to the colour of a wet mouth"
-assert abs(mouth.darken(black, np.ones((4, 4), np.float32), wine=True)[0, 0, 0] - 51 / 255) < 1e-3, "an unshaded texel must not change"
+
+# The floor scales with the lip; a light lip keeps it whole.
+assert abs((mouth.wine_for(0.1) @ mouth.LUMA) - mouth.LIP_SHARE * 0.1) < 1e-6, "a dark lip must scale the floor"
+assert np.allclose(mouth.wine_for(0.9), mouth.WINE), "a light lip keeps the floor"
+
+# The body's inside of the mouth: never lighter than the map it had, and at most the floor; lit texels unchanged.
+dark_skin = np.dstack([np.full((4, 4), v, np.float32) for v in (0.2, 0.15, 0.13, 1.0)])
+inside = mouth.darken(dark_skin, np.full((4, 4), 0.5, np.float32), wine=mouth.WINE, inside=True)
+assert (inside[:, :, :3] < dark_skin[:, :, :3]).all(), "dark skin must stay below the map it had"
+light_skin = np.dstack([np.full((4, 4), v, np.float32) for v in (0.8, 0.5, 0.4, 1.0)])
+assert np.allclose(mouth.darken(light_skin, np.full((4, 4), 0.5, np.float32), wine=mouth.WINE, inside=True)[0, 0, :3], np.minimum(light_skin[0, 0, :3] * mouth.BODY_CEILING, mouth.WINE)), "the floor applies"
+assert np.allclose(mouth.darken(light_skin, np.ones((4, 4), np.float32), wine=mouth.WINE, inside=True), light_skin), "an uncovered texel must not change"
+
+# A small pink mark on an incisor is not a gum.
+wide_gum = np.zeros((64, 64), bool); wide_gum[10:50, 10:50] = True; wide_gum[56:59, 56:59] = True
+opened = mouth.wide(wide_gum, 6)
+assert opened[30, 30] and not opened[57, 57], "only wide areas of pink count as gum"
 
 deep_tooth = mouth.darken(ivory, np.full((4, 4), 0.3, np.float32), gums=True)
 assert deep_tooth[0, 0, 0] > deep_tooth[0, 0, 2], "a shaded tooth must stay warm, or it reads teal"

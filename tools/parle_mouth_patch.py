@@ -85,7 +85,7 @@ def base_image(doc, binary, primitive):
     return view, cv2.imdecode(np.frombuffer(view_of(doc, binary, view), np.uint8), cv2.IMREAD_COLOR)
 
 
-def shaded_image(doc, binary, primitive, shade, gums=False, only=None, base=None, wine=False):
+def shaded_image(doc, binary, primitive, shade, gums=False, only=None, base=None, wine=None, inside=False):
     """`only`: the points whose triangles take the shade, for a map the mesh shares with the rest of the body; elsewhere the map stays.
     `base`: a clean map to start from instead of the one in the body."""
     view, image = base_image(doc, binary, primitive)
@@ -98,7 +98,7 @@ def shaded_image(doc, binary, primitive, shade, gums=False, only=None, base=None
         triangles = triangles[parle_mouth.body_triangles(triangles, only, uv)]
     canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv[triangles], shade[triangles]), fill=None if only is None else 1.0)
     rgba = np.dstack((image[:, :, ::-1].astype(np.float32) / 255, np.ones(image.shape[:2], np.float32)))
-    out = (parle_mouth.darken(rgba, canvas, gums, wine)[:, :, 2::-1] * 255).clip(0, 255).round().astype(np.uint8)
+    out = (parle_mouth.darken(rgba, canvas, gums, wine, inside)[:, :, 2::-1] * 255).clip(0, 255).round().astype(np.uint8)
     return view, cv2.imencode(".jpg", out, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])[1].tobytes()
 
 
@@ -143,12 +143,15 @@ def patch(source, out):
     rest = to_mouth_space(accessor(doc, binary, teeth["attributes"]["POSITION"]).astype(np.float64))
     skin = body["primitives"][0]
     body_rest = to_mouth_space(accessor(doc, binary, skin["attributes"]["POSITION"]).astype(np.float64))
-    swapped = dict((shaded_image(doc, binary, teeth, parle_mouth.teeth_shade(rest), gums=True, base=TEETH_MAP, wine=True),))
+    _, skin_image = base_image(doc, binary, skin)
+    skin_uv = accessor(doc, binary, skin["attributes"]["TEXCOORD_0"]).astype(np.float64)
+    moves = [accessor(doc, binary, target_of(body, skin, name)).astype(np.float64) for name in ("viseme_U", "viseme_PP")]
+    wine = parle_mouth.wine_for(parle_mouth.lip_luma(skin_image[:, :, ::-1].astype(np.float32) / 255, skin_uv, moves))
+    swapped = dict((shaded_image(doc, binary, teeth, parle_mouth.teeth_shade(rest), gums=True, base=TEETH_MAP, wine=wine),))
     tongue_rest = to_mouth_space(accessor(doc, binary, tongue["attributes"]["POSITION"]).astype(np.float64))
     swapped.update((shaded_image(doc, binary, tongue, parle_mouth.tongue_shade(tongue_rest)),))
-    skin_uv = accessor(doc, binary, skin["attributes"]["TEXCOORD_0"]).astype(np.float64)
     inside = parle_mouth.body_inside(body_rest, skin_uv, rest, accessor(doc, binary, skin["indices"]).reshape(-1, 3))
-    swapped.update((shaded_image(doc, binary, skin, np.full(len(body_rest), parle_mouth.BODY_INSIDE, np.float64), only=inside, wine=True),))
+    swapped.update((shaded_image(doc, binary, skin, np.full(len(body_rest), parle_mouth.MARK_INSIDE, np.float64), only=inside, wine=wine, inside=True),))
     doc["asset"].setdefault("extras", {})[MARK] = 2
     write_glb(out, doc, binary, swapped)
     print(Path(source).name, "bytes", Path(source).stat().st_size, "->", Path(out).stat().st_size)
