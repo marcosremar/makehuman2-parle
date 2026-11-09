@@ -20,6 +20,7 @@ from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).parent))
+import parle_mouth  # noqa: E402
 import parle_tongue  # noqa: E402
 
 EYE_TUCK_REACH_M = 0.02
@@ -233,6 +234,53 @@ def tongue_follows_jaw(meshes):
     print("LINGUA segue a mandibula em", carried, "formas")
 
 
+def shade_map_of(obj, shade):
+    """Multiplies the object's colour map by `shade`, one value per point, through its UV islands."""
+    image = next(node.image for node in obj.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image)
+    width, height = image.size
+    loops = obj.data.uv_layers.active.data
+    triangles = [(polygon.loop_indices[0], second, third) for polygon in obj.data.polygons for second, third in zip(polygon.loop_indices[1:], polygon.loop_indices[2:])]
+    uv = np.array([[loops[index].uv[:] for index in triangle] for triangle in triangles], np.float64)
+    points = np.array([[obj.data.loops[index].vertex_index for index in triangle] for triangle in triangles])
+    canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv, shade[points]))
+    pixels = np.empty(width * height * 4, np.float32)
+    image.pixels.foreach_get(pixels)
+    image.pixels.foreach_set(parle_mouth.darken(pixels.reshape(height, width, 4), canvas).ravel())
+    image.pack()
+
+
+def shade_mouth(meshes):
+    """Runs on the maps the export takes, after the teeth map went in, and on the rest shape the game plays."""
+    teeth = next((obj for obj in meshes if "teeth" in obj.name), None)
+    tongue = next((obj for obj in meshes if "tongue" in obj.name), None)
+    if teeth is not None and teeth.data.shape_keys and "jawOpen" in teeth.data.shape_keys.key_blocks:
+        keys = teeth.data.shape_keys.key_blocks
+        rest = key_points(keys[0])
+        shade_map_of(teeth, parle_mouth.teeth_shade(rest, parle_tongue.lower_teeth(key_points(keys["jawOpen"]) - rest)))
+    if tongue is not None:
+        shade_map_of(tongue, parle_mouth.tongue_shade(key_points(tongue.data.shape_keys.key_blocks[0])))
+    print("BOCA escurecida", bool(teeth), bool(tongue))
+
+
+def show_incisors(body, meshes):
+    """The widest "a" lowers the upper arch just enough to show the teeth under the lip. `meshes` are those with shape keys."""
+    teeth = next((obj for obj in meshes if "teeth" in obj.name), None)
+    keys = teeth.data.shape_keys.key_blocks if teeth is not None and teeth.data.shape_keys else None
+    body_keys = body.data.shape_keys.key_blocks if body.data.shape_keys else None
+    if not keys or not body_keys or any(name not in keys or name not in body_keys for name in ("viseme_aa", "jawOpen")):
+        return
+    rest, body_rest = key_points(keys[0]), key_points(body_keys[0])
+    jaw = key_points(keys["jawOpen"]) - rest
+    lower = parle_tongue.lower_teeth(jaw)
+    show = parle_mouth.incisor_show(rest, key_points(keys["viseme_aa"]) - rest, jaw, lower, body_rest, key_points(body_keys["viseme_aa"]) - body_rest, key_points(body_keys["jawOpen"]) - body_rest)
+    drop = parle_mouth.incisor_drop(show)
+    if drop:
+        points = key_points(keys["viseme_aa"])
+        points[~lower, 2] -= drop / parle_mouth.AA_WEIGHT
+        keys["viseme_aa"].data.foreach_set("co", points.ravel())
+    print("INCISIVO", None if show is None else round(show * 1000, 1), "mm, desce", round(drop * 1000, 1))
+
+
 def weld_seams(body):
     """Mutual nearest open points on the head and neck that move together when the jaw and the lids move: those are one point, and lips and eyelids never qualify."""
     keys = body.data.shape_keys.key_blocks
@@ -333,6 +381,7 @@ def clean_face(body, added, job, env):
     calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex])
     soften_pout(body, POUT_FORWARD[sex])
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
+    show_incisors(body, [obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
@@ -346,6 +395,7 @@ def clean_face(body, added, job, env):
                 for link in [link for link in material.node_tree.links if link.to_socket.name == "Alpha"]:
                     material.node_tree.links.remove(link)
                 set_map(obj, teeth_map)
+    shade_mouth([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
     if env.get("CAST_EYE"):
         eye_map = bpy.data.images.load(env["CAST_EYE"])
         eye_map.pack()
