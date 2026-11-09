@@ -10,28 +10,31 @@
 """
 import numpy as np
 
-# Depth is measured back from the front of the teeth: the incisors stay lit, and by the molars the mouth is almost closed off.
-TEETH_LIT_M = 0.012
-TEETH_DARK_M = 0.045
-TEETH_DEEP = 0.32
+# Depth back from the front of the teeth (m) -> multiplier. The shade starts just behind the incisors: from 12 mm on the side teeth came out
+# brighter than the map already published and floated white in the dark (critic, #2896).
+TEETH_DEPTHS = (0.0, 0.005, 0.009, 0.016, 0.025, 0.045)
+TEETH_SHADES = (1.0, 1.0, 0.76, 0.56, 0.42, 0.26)
 # Gums are wet flesh behind the lip's shadow. Read off the painted pink in the map, not from the points: the arc behind the upper incisors
 # is shallow and stayed bright orange, read as braces (critic, #2896). Pink is red well above blue, in the map's own (sRGB) values.
 GUM_SHADE = 0.24
 GUM_PINK_FROM = 0.28
 GUM_PINK_FULL = 0.42
-# The black painted between the teeth (luma 33) went to luma 9 and read as missing teeth at the player's size (critic, #2896): shade
-# never takes a texel below this luma, and a texel darker than it is left alone.
+# The floor is a colour on the wet parts: at luma 48 in the map the inside of the mouth came out black on screen, luma 10 (critic, #2896). Teeth keep a
+# plain luma floor, so a deep molar does not turn red.
 LUMA_FLOOR = 48.0 / 255.0
+WINE = np.array((0.46, 0.22, 0.21), np.float32)
 LUMA = np.array((0.2126, 0.7152, 0.0722), np.float32)
 # The orange-red arc behind the teeth is not gum: it is the body's own inside of the mouth, on the island of the skin map the lips' inner
-# band and palate share, lit like the cheek. Those points are behind the front of the teeth and inside their extent.
+# band and palate share, lit like the cheek. Those points are behind the front of the teeth and inside their extent, no deeper than the
+# molars and the throat: the same island of the map also holds the nape, 120 mm behind the incisors, and it went dark (critic, #2896).
 BODY_INSIDE = 0.3
 BODY_BOX_M = 0.01
 BODY_BEHIND_M = 0.001
+BODY_DEEPEST_M = 0.08
 BODY_ISLAND_U = 0.7
 BODY_ISLAND_V = 0.8
-TONGUE_FRONT = 0.62
-TONGUE_DEEP = 0.3
+TONGUE_FRONT = 0.72
+TONGUE_DEEP = 0.52
 TONGUE_DARK_M = 0.045
 FILL_PX = 8
 
@@ -48,7 +51,7 @@ def depth(rest):
 
 def teeth_shade(rest):
     """Multiplier of the teeth map at each point."""
-    return 1 - (1 - TEETH_DEEP) * smoothstep(TEETH_LIT_M, TEETH_DARK_M, depth(rest))
+    return np.interp(depth(rest), TEETH_DEPTHS, TEETH_SHADES)
 
 
 def tongue_shade(rest):
@@ -84,7 +87,7 @@ def body_inside(body, uv, teeth):
     """Which skin points are the inside of the mouth. `uv` in glTF convention (v from the top); a point must be in the island and in the box."""
     near = (body[:, 0] > teeth[:, 0].min()) & (body[:, 0] < teeth[:, 0].max())
     near &= (body[:, 2] > teeth[:, 2].min() - BODY_BOX_M) & (body[:, 2] < teeth[:, 2].max() + BODY_BOX_M)
-    near &= body[:, 1] > teeth[:, 1].min() + BODY_BEHIND_M
+    near &= (body[:, 1] > teeth[:, 1].min() + BODY_BEHIND_M) & (body[:, 1] < teeth[:, 1].min() + BODY_DEEPEST_M)
     return near & (uv[:, 0] > BODY_ISLAND_U) & (uv[:, 1] > BODY_ISLAND_V)
 
 
@@ -111,13 +114,19 @@ def gum_of(rgb):
     return smoothstep(GUM_PINK_FROM, GUM_PINK_FULL, (rgb[:, :, 0] - rgb[:, :, 2]) / np.maximum(rgb[:, :, 0], 1e-3))
 
 
-def darken(pixels, shade, gums=False):
-    """`pixels` is the map as rows x columns x RGBA, 0..1, in its own (sRGB) values. `gums`: the map has painted gums to take down too."""
+def darken(pixels, shade, gums=False, wine=False):
+    """`pixels` is the map as rows x columns x RGBA, 0..1, in its own (sRGB) values. `gums`: painted gums go down too.
+    `wine`: the floor of the shaded texels is the colour of a wet mouth; with `gums`, only of the painted ones."""
     out = pixels.copy()
     rgb = out[:, :, :3]
+    gum = gum_of(rgb) if gums else None
     if gums:
-        shade = shade * (1 - (1 - GUM_SHADE) * gum_of(rgb))
+        shade = shade * (1 - (1 - GUM_SHADE) * gum)
     luma = rgb @ LUMA
     kept = np.minimum(1.0, LUMA_FLOOR / np.maximum(luma, 1e-3))
-    out[:, :, :3] = rgb * np.maximum(shade, kept)[:, :, None]
+    shaded = rgb * np.maximum(shade, kept)[:, :, None]
+    if wine:
+        share = (gum if gums else (shade < 1.0).astype(np.float32))[:, :, None]
+        shaded = shaded + (np.maximum(shaded, WINE) - shaded) * share
+    out[:, :, :3] = shaded
     return out

@@ -234,7 +234,7 @@ def tongue_follows_jaw(meshes):
     print("LINGUA segue a mandibula em", carried, "formas")
 
 
-def shade_map_of(obj, shade, gums=False, only=None):
+def shade_map_of(obj, shade, gums=False, only=None, wine=False):
     """Multiplies the object's colour map by `shade`, one value per point, through its UV islands. `only`: a map the mesh shares; see parle_mouth."""
     image = next(node.image for node in obj.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image)
     width, height = image.size
@@ -248,7 +248,7 @@ def shade_map_of(obj, shade, gums=False, only=None):
     canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv, shade[points]), fill=None if only is None else 1.0)
     pixels = np.empty(width * height * 4, np.float32)
     image.pixels.foreach_get(pixels)
-    image.pixels.foreach_set(parle_mouth.darken(pixels.reshape(height, width, 4), canvas, gums).ravel())
+    image.pixels.foreach_set(parle_mouth.darken(pixels.reshape(height, width, 4), canvas, gums, wine).ravel())
     image.pack()
 
 
@@ -258,7 +258,7 @@ def shade_mouth(meshes):
     tongue = next((obj for obj in meshes if "tongue" in obj.name), None)
     if teeth is not None and teeth.data.shape_keys:
         rest = key_points(teeth.data.shape_keys.key_blocks[0])
-        shade_map_of(teeth, parle_mouth.teeth_shade(rest), gums=True)
+        shade_map_of(teeth, parle_mouth.teeth_shade(rest), gums=True, wine=True)
     if tongue is not None:
         shade_map_of(tongue, parle_mouth.tongue_shade(key_points(tongue.data.shape_keys.key_blocks[0])))
     print("BOCA escurecida", bool(teeth), bool(tongue))
@@ -271,7 +271,7 @@ def shade_inside_of_mouth(body, teeth_rest):
     uv = np.zeros((len(body.data.vertices), 2))
     for loop in body.data.loops:
         uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
-    shade_map_of(body, np.full(len(rest), parle_mouth.BODY_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest))
+    shade_map_of(body, np.full(len(rest), parle_mouth.BODY_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest), wine=True)
 
 
 def weld_seams(body):
