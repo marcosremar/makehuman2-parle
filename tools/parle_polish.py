@@ -34,6 +34,7 @@ LASH_SHIFT_M = 0.002
 LASH_BAND_M = 0.0014
 LASH_COLOUR = (0.018, 0.013, 0.011, 1)
 LASH_MOVES_M = 1e-5
+LASH_FIT_DEGREE = 2
 NORMAL_PX = 512
 
 
@@ -156,7 +157,7 @@ def lash_mesh(body, centres, eye_radius, sex, name="Lid_Lash"):
         own = (world[rim] - centre) * np.array([side, 1, 1])
         spots[:, 2] += float(np.clip(np.median(own[:, 2] - np.polyval(height_fit, own[:, 0])), -LASH_SHIFT_M, LASH_SHIFT_M))
         across = spots[:, 0]
-        eyes.append((rim, across, world[rim, 0]))
+        eyes.append((rim, across, world[rim, 0], centre))
         rim = rim[np.abs(world[rim, 0][:, None] - across).argmin(axis=0)]
         span = np.ptp(spots[:, 0])
         outward = np.abs(spots[:, 0] - middle)
@@ -209,12 +210,55 @@ def wear_body_motion(lash, body, sources, eyes):
     keys = body.data.shape_keys.key_blocks
     basis = read(keys[0])
     rest = read(lash.data.vertices)
+    half = len(rest) // 2
+    world_rest = to_world(lash, rest)
     lash.shape_key_add(name=keys[0].name)
     for block in keys[1:]:
         moved = read(block) - basis
-        delta = np.concatenate([np.stack([np.polyval(np.polyfit(x, moved[rim, axis], 2), across) for axis in range(3)], axis=1) for rim, across, x in eyes])
+        if block.name.startswith("eyeBlink"):
+            closed = to_world(body, basis + moved)
+            start = to_world(body, basis)
+            placed = world_rest.copy()
+            for side, (rim, across, x, centre) in enumerate(eyes):
+                part = np.arange(half) + side * half
+                placed[part] = turned_about_eye(world_rest[part], centre, lid_turn(start[rim], closed[rim], centre, x, across).repeat(3))
+            delta = to_local(lash, placed) - rest
+        else:
+            delta = np.concatenate([lid_curve(moved[rim], x, across) for rim, across, x, _ in eyes]).repeat(3, axis=0)
         if np.linalg.norm(delta, axis=1).max() > LASH_MOVES_M:
-            lash.shape_key_add(name=block.name).data.foreach_set("co", (rest + delta.repeat(3, axis=0)).ravel())
+            lash.shape_key_add(name=block.name).data.foreach_set("co", (rest + delta).ravel())
+
+
+def lid_curve(moved, x, across):
+    """The lid's move along the arc as a smooth curve, read only inside the part of the arc the lid has: past it, the fitted curve flew out and a tip of the strip left the eye."""
+    inside = np.clip(across, x.min(), x.max())
+    return np.stack([np.polyval(np.polyfit(x, moved[:, axis], LASH_FIT_DEGREE), inside) for axis in range(3)], axis=1)
+
+
+def elevation(points, centre):
+    """Angle of each point seen from the side of the eye: front is -Y, up is +Z."""
+    away = points - centre
+    return np.arctan2(away[:, 2], -away[:, 1])
+
+
+def lid_turn(start, closed, centre, x, across):
+    """How far the lid turns around the eye at each point of the strip: a smooth curve along the arc, read only inside the part the lid has."""
+    turn = elevation(closed, centre) - elevation(start, centre)
+    # Even in the distance from the eye's middle: with a slanted term the strip closed tilted and crossed the lid.
+    along = x - centre[0]
+    fitted = np.linalg.lstsq(np.stack([np.ones_like(along), along**2], axis=1), turn, rcond=None)[0]
+    reach = np.minimum(np.abs(across - centre[0]), np.abs(along).max())
+    return fitted[0] + fitted[1] * reach**2
+
+
+def turned_about_eye(points, centre, turn):
+    """The strip turns around the eye as the lid does, so it stays on the globe and in one piece. Moved point by point it cut through the closing lid and showed in black pieces (owner, 2026-11-09)."""
+    away = points - centre
+    cos, sin = np.cos(turn), np.sin(turn)
+    out = points.copy()
+    out[:, 1] = centre[1] + away[:, 1] * cos + away[:, 2] * sin
+    out[:, 2] = centre[2] + away[:, 2] * cos - away[:, 1] * sin
+    return out
 
 
 def garment_normal(name):
