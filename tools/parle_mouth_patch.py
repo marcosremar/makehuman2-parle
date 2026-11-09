@@ -2,11 +2,14 @@
 """
     License information: data/licenses/makehuman_license.txt
 
-    Applies `parle_mouth` to a finished cast GLB, changing nothing else: the colour maps of teeth and tongue and, where the tooth does
-    not show, the teeth's `viseme_aa`. A rebuild also picks up whatever the skin inputs hold at that moment; this one can run on the cast
+    Applies `parle_mouth` to a finished cast GLB, changing nothing else: the colour maps of teeth, tongue and the skin's inside of the
+    mouth. A rebuild also picks up whatever the skin inputs hold at that moment; this one can run on the cast
     as it was published.
 
       python tools/parle_mouth_patch.py <in.glb> <out.glb>
+
+    Not idempotent: the shade multiplies, so <in.glb> must be the body as published before any patch. A body already patched is refused, by
+    the mark this script leaves in `asset.extras`, or by a tongue already dark (the #2896 bodies carry no mark).
 """
 import json
 import struct
@@ -18,9 +21,12 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent))
 import parle_mouth  # noqa: E402
-import parle_tongue  # noqa: E402
 
 JPEG_QUALITY = 85
+MARK = "parleMouthShade"
+# The teeth map starts from the fork's clean map, not from the body: a body rebuilt with an earlier shade in its map would be shaded twice.
+TEETH_MAP = Path(__file__).parent.parent / "data/eyes/hm08/materials/parle_teeth.png"
+TREATED_TONGUE_LUMA = 120.0
 COMPONENTS = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
 TYPES = {5126: np.float32, 5125: np.uint32, 5123: np.uint16, 5121: np.uint8}
 
@@ -73,17 +79,35 @@ def target_of(mesh, primitive, name):
     return primitive["targets"][mesh["extras"]["targetNames"].index(name)]["POSITION"]
 
 
-def shaded_image(doc, binary, primitive, shade):
+def base_image(doc, binary, primitive):
     source = doc["textures"][doc["materials"][primitive["material"]]["pbrMetallicRoughness"]["baseColorTexture"]["index"]]["source"]
     view = doc["images"][source]["bufferView"]
-    image = cv2.imdecode(np.frombuffer(view_of(doc, binary, view), np.uint8), cv2.IMREAD_COLOR)
+    return view, cv2.imdecode(np.frombuffer(view_of(doc, binary, view), np.uint8), cv2.IMREAD_COLOR)
+
+
+def shaded_image(doc, binary, primitive, shade, gums=False, only=None, base=None):
+    """`only`: the points whose triangles take the shade, for a map the mesh shares with the rest of the body; elsewhere the map stays.
+    `base`: a clean map to start from instead of the one in the body."""
+    view, image = base_image(doc, binary, primitive)
+    if base is not None:
+        image = cv2.resize(cv2.imread(str(base), cv2.IMREAD_COLOR), (image.shape[1], image.shape[0]), interpolation=cv2.INTER_AREA)
     height, width = image.shape[:2]
     uv = accessor(doc, binary, primitive["attributes"]["TEXCOORD_0"]).astype(np.float64)
     triangles = accessor(doc, binary, primitive["indices"]).reshape(-1, 3)
-    canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv[triangles], shade[triangles]))
-    pixels = np.dstack((image.astype(np.float32), np.zeros(image.shape[:2], np.float32)))
-    out = np.clip(parle_mouth.darken(pixels, canvas)[:, :, :3], 0, 255).round().astype(np.uint8)
+    if only is not None:
+        triangles = triangles[only[triangles].all(axis=1)]
+    canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv[triangles], shade[triangles]), fill=None if only is None else 1.0)
+    rgba = np.dstack((image[:, :, ::-1].astype(np.float32) / 255, np.ones(image.shape[:2], np.float32)))
+    out = (parle_mouth.darken(rgba, canvas, gums)[:, :, 2::-1] * 255).clip(0, 255).round().astype(np.uint8)
     return view, cv2.imencode(".jpg", out, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])[1].tobytes()
+
+
+def tongue_luma(doc, binary, primitive):
+    _, image = base_image(doc, binary, primitive)
+    uv = accessor(doc, binary, primitive["attributes"]["TEXCOORD_0"])
+    rows = np.clip((uv[:, 1] * image.shape[0]).astype(int), 0, image.shape[0] - 1)
+    columns = np.clip((uv[:, 0] * image.shape[1]).astype(int), 0, image.shape[1] - 1)
+    return float((image[rows, columns, ::-1].astype(np.float32) @ parle_mouth.LUMA).mean())
 
 
 def body_mesh(doc):
@@ -91,7 +115,7 @@ def body_mesh(doc):
     return max(speaking, key=lambda mesh: doc["accessors"][mesh["primitives"][0]["attributes"]["POSITION"]]["count"])
 
 
-def write_glb(path, doc, binary, swapped, extra):
+def write_glb(path, doc, binary, swapped):
     out = bytearray()
     old = binary
     for index, view in enumerate(doc["bufferViews"]):
@@ -101,12 +125,6 @@ def write_glb(path, doc, binary, swapped, extra):
         view["byteOffset"] = len(out)
         view["byteLength"] = len(chunk)
         out += chunk
-    for view, chunk in extra:
-        out += b"\0" * (-len(out) % 4)
-        view["byteOffset"] = len(out)
-        view["byteLength"] = len(chunk)
-        doc["bufferViews"].append(view)
-        out += chunk
     out += b"\0" * (-len(out) % 4)
     doc["buffers"][0]["byteLength"] = len(out)
     text = json.dumps(doc, separators=(",", ":")).encode()
@@ -115,38 +133,25 @@ def write_glb(path, doc, binary, swapped, extra):
                                      struct.pack("<I", len(out)), b"BIN\0", bytes(out))))
 
 
-def lowered_aa(doc, binary, mesh, primitive, upper, drop):
-    """A dense copy of the teeth's `viseme_aa` with the upper arch lower: the target may be sparse and the points it needs absent."""
-    moves = accessor(doc, binary, target_of(mesh, primitive, "viseme_aa")).copy()
-    moves[upper, 1] -= drop / parle_mouth.AA_WEIGHT
-    index = len(doc["accessors"])
-    doc["accessors"].append({"bufferView": len(doc["bufferViews"]), "componentType": 5126, "count": len(moves), "type": "VEC3",
-                             "min": moves.min(axis=0).tolist(), "max": moves.max(axis=0).tolist()})
-    primitive["targets"][mesh["extras"]["targetNames"].index("viseme_aa")]["POSITION"] = index
-    return {"buffer": 0}, moves.astype(np.float32).tobytes()
-
-
 def patch(source, out):
     doc, binary = read_glb(source)
-    teeth_mesh, teeth = mesh_with(doc, "Human.teeth_base")
-    tongue_mesh, tongue = mesh_with(doc, "Human.tongue01")
+    _, teeth = mesh_with(doc, "Human.teeth_base")
+    _, tongue = mesh_with(doc, "Human.tongue01")
+    if doc["asset"].get("extras", {}).get(MARK) or tongue_luma(doc, binary, tongue) < TREATED_TONGUE_LUMA:
+        sys.exit(f"{source}: already treated; patch the body as published")
     body = body_mesh(doc)
     rest = to_mouth_space(accessor(doc, binary, teeth["attributes"]["POSITION"]).astype(np.float64))
-    jaw = to_mouth_space(accessor(doc, binary, target_of(teeth_mesh, teeth, "jawOpen")).astype(np.float64))
-    aa = to_mouth_space(accessor(doc, binary, target_of(teeth_mesh, teeth, "viseme_aa")).astype(np.float64))
-    lower = parle_tongue.lower_teeth(jaw)
     skin = body["primitives"][0]
     body_rest = to_mouth_space(accessor(doc, binary, skin["attributes"]["POSITION"]).astype(np.float64))
-    body_aa = to_mouth_space(accessor(doc, binary, target_of(body, skin, "viseme_aa")).astype(np.float64))
-    body_jaw = to_mouth_space(accessor(doc, binary, target_of(body, skin, "jawOpen")).astype(np.float64))
-    show = parle_mouth.incisor_show(rest, aa, jaw, lower, body_rest, body_aa, body_jaw)
-    drop = parle_mouth.incisor_drop(show)
-    swapped = dict((shaded_image(doc, binary, teeth, parle_mouth.teeth_shade(rest, lower)),))
+    swapped = dict((shaded_image(doc, binary, teeth, parle_mouth.teeth_shade(rest), gums=True, base=TEETH_MAP),))
     tongue_rest = to_mouth_space(accessor(doc, binary, tongue["attributes"]["POSITION"]).astype(np.float64))
     swapped.update((shaded_image(doc, binary, tongue, parle_mouth.tongue_shade(tongue_rest)),))
-    extra = [lowered_aa(doc, binary, teeth_mesh, teeth, ~lower, drop)] if drop else []
-    write_glb(out, doc, binary, swapped, extra)
-    print(Path(source).name, "incisor", None if show is None else round(show * 1000, 1), "mm, dropped", round(drop * 1000, 1), "bytes", Path(source).stat().st_size, "->", Path(out).stat().st_size)
+    skin_uv = accessor(doc, binary, skin["attributes"]["TEXCOORD_0"]).astype(np.float64)
+    inside = parle_mouth.body_inside(body_rest, skin_uv, rest)
+    swapped.update((shaded_image(doc, binary, skin, np.full(len(body_rest), parle_mouth.BODY_INSIDE, np.float64), only=inside),))
+    doc["asset"].setdefault("extras", {})[MARK] = 2
+    write_glb(out, doc, binary, swapped)
+    print(Path(source).name, "bytes", Path(source).stat().st_size, "->", Path(out).stat().st_size)
 
 
 if __name__ == "__main__":

@@ -14,25 +14,26 @@ import numpy as np
 TEETH_LIT_M = 0.012
 TEETH_DARK_M = 0.045
 TEETH_DEEP = 0.32
-# Gums are wet flesh behind the lip's shadow; at the teeth's brightness the open mouth showed a red band.
-GUM_SHADE = 0.6
-GUM_FROM_TIP_M = 0.0095
-GUM_FADE_M = 0.003
+# Gums are wet flesh behind the lip's shadow. Read off the painted pink in the map, not from the points: the arc behind the upper incisors
+# is shallow and stayed bright orange, read as braces (critic, #2896). Pink is red well above blue, in the map's own (sRGB) values.
+GUM_SHADE = 0.24
+GUM_PINK_FROM = 0.28
+GUM_PINK_FULL = 0.42
+# The black painted between the teeth (luma 33) went to luma 9 and read as missing teeth at the player's size (critic, #2896): shade
+# never takes a texel below this luma, and a texel darker than it is left alone.
+LUMA_FLOOR = 48.0 / 255.0
+LUMA = np.array((0.2126, 0.7152, 0.0722), np.float32)
+# The orange-red arc behind the teeth is not gum: it is the body's own inside of the mouth, on the island of the skin map the lips' inner
+# band and palate share, lit like the cheek. Those points are behind the front of the teeth and inside their extent.
+BODY_INSIDE = 0.3
+BODY_BOX_M = 0.01
+BODY_BEHIND_M = 0.001
+BODY_ISLAND_U = 0.7
+BODY_ISLAND_V = 0.8
 TONGUE_FRONT = 0.62
 TONGUE_DEEP = 0.3
 TONGUE_DARK_M = 0.045
 FILL_PX = 8
-# The upper incisors show under the lip on an open "a": at the player's widest (`viseme_aa` 0.55 in LipSync.MaxAmplitude and what
-# JawRoom leaves of `jawOpen`) a few bodies had the tip at the lip's edge, or behind it, and the open mouth showed only lower teeth.
-AA_WEIGHT = 0.55
-AA_JAW = 0.205
-SHOW_MIN_M = 0.001
-SHOW_TARGET_M = 0.002
-INCISOR_HALF_M = 0.008
-INCISOR_FRONT_M = 0.004
-LIP_COLUMN_M = 0.003
-LIP_JAW_SHARE = 0.3
-LIP_REACH_M = 0.008
 
 
 def smoothstep(low, high, value):
@@ -45,18 +46,9 @@ def depth(rest):
     return rest[:, 1] - rest[:, 1].min()
 
 
-def gum_share(rest, lower):
-    """How much of each point is gum: more than a crown away from the tip of its row, as in `teeth_gum.py`."""
-    tip_up = np.percentile(rest[~lower, 2], 2)
-    top_low = np.percentile(rest[lower, 2], 98)
-    away = np.where(lower, top_low - rest[:, 2], rest[:, 2] - tip_up)
-    return smoothstep(GUM_FROM_TIP_M, GUM_FROM_TIP_M + GUM_FADE_M, away)
-
-
-def teeth_shade(rest, lower):
-    """Multiplier of the teeth map at each point; `lower` are the points the jaw carries."""
-    deep = 1 - (1 - TEETH_DEEP) * smoothstep(TEETH_LIT_M, TEETH_DARK_M, depth(rest))
-    return deep * (1 - (1 - GUM_SHADE) * gum_share(rest, lower))
+def teeth_shade(rest):
+    """Multiplier of the teeth map at each point."""
+    return 1 - (1 - TEETH_DEEP) * smoothstep(TEETH_LIT_M, TEETH_DARK_M, depth(rest))
 
 
 def tongue_shade(rest):
@@ -82,12 +74,23 @@ def shade_map(width, height, uv_triangles, shade_triangles):
         c = (ab[0] * (ys - uv[0, 1]) - ab[1] * (xs - uv[0, 0])) / area
         a = 1 - b - c
         inside = (a >= -0.01) & (b >= -0.01) & (c >= -0.01)
-        canvas[low[1]:high[1], low[0]:high[0]][inside] = (a * shade[0] + b * shade[1] + c * shade[2])[inside]
+        # The UV islands overlap and most texels belong to several triangles: the darkest wins, or a molar kept the shade of the incisor drawn over it.
+        region = canvas[low[1]:high[1], low[0]:high[0]]
+        region[inside] = np.fmin(region[inside], (a * shade[0] + b * shade[1] + c * shade[2])[inside])
     return canvas
 
 
-def grow(canvas, steps=FILL_PX):
-    """Spreads the shade past the islands' edges: mipmaps read those texels, and a bright or black rim would outline every tooth."""
+def body_inside(body, uv, teeth):
+    """Which skin points are the inside of the mouth. `uv` in glTF convention (v from the top); a point must be in the island and in the box."""
+    near = (body[:, 0] > teeth[:, 0].min()) & (body[:, 0] < teeth[:, 0].max())
+    near &= (body[:, 2] > teeth[:, 2].min() - BODY_BOX_M) & (body[:, 2] < teeth[:, 2].max() + BODY_BOX_M)
+    near &= body[:, 1] > teeth[:, 1].min() + BODY_BEHIND_M
+    return near & (uv[:, 0] > BODY_ISLAND_U) & (uv[:, 1] > BODY_ISLAND_V)
+
+
+def grow(canvas, steps=FILL_PX, fill=None):
+    """Spreads the shade past the islands' edges: mipmaps read those texels, and a bright or black rim would outline every tooth.
+    `fill`: value of whatever stays uncovered; by default the mean, for a map the mesh covers."""
     grown = canvas.copy()
     for _ in range(steps):
         unset = np.isnan(grown)
@@ -99,42 +102,22 @@ def grow(canvas, steps=FILL_PX):
         total = np.nan_to_num(around).sum(axis=0)
         reachable = unset & (count > 0)
         grown[reachable] = total[reachable] / count[reachable]
-    grown[np.isnan(grown)] = np.nanmean(grown)
+    grown[np.isnan(grown)] = np.nanmean(grown) if fill is None else fill
     return grown
 
 
-def darken(pixels, shade):
-    """`pixels` is the map as rows x columns x RGBA in its own (sRGB) values."""
+def gum_of(rgb):
+    """How much of each texel is painted gum: `rgb` in 0..1."""
+    return smoothstep(GUM_PINK_FROM, GUM_PINK_FULL, (rgb[:, :, 0] - rgb[:, :, 2]) / np.maximum(rgb[:, :, 0], 1e-3))
+
+
+def darken(pixels, shade, gums=False):
+    """`pixels` is the map as rows x columns x RGBA, 0..1, in its own (sRGB) values. `gums`: the map has painted gums to take down too."""
     out = pixels.copy()
-    out[:, :, :3] = out[:, :, :3] * shade[:, :, None]
+    rgb = out[:, :, :3]
+    if gums:
+        shade = shade * (1 - (1 - GUM_SHADE) * gum_of(rgb))
+    luma = rgb @ LUMA
+    kept = np.minimum(1.0, LUMA_FLOOR / np.maximum(luma, 1e-3))
+    out[:, :, :3] = rgb * np.maximum(shade, kept)[:, :, None]
     return out
-
-
-def posed(rest, aa_moves, jaw_moves):
-    return rest + aa_moves * AA_WEIGHT + jaw_moves * AA_JAW
-
-
-def incisors(rest, lower):
-    """Front points of the upper arch, around the mouth's middle (x), in the rest pose."""
-    front = rest[:, 1].min()
-    middle = np.median(rest[:, 0])
-    return (~lower) & (rest[:, 1] < front + INCISOR_FRONT_M) & (np.abs(rest[:, 0] - middle) < INCISOR_HALF_M)
-
-
-def incisor_show(teeth, teeth_aa, teeth_jaw, lower, body, body_aa, body_jaw):
-    """Millimetres of upper incisor below the lip's edge on the widest "a", in metres; or None without a lip to measure."""
-    tip = posed(teeth, teeth_aa, teeth_jaw)[incisors(teeth, lower), 2].min()
-    middle = np.median(teeth[incisors(teeth, lower), 0])
-    front = teeth[:, 1].min()
-    pose = posed(body, body_aa, body_jaw)
-    jaw_move = np.linalg.norm(body_jaw, axis=1)
-    near = (np.abs(body[:, 0] - middle) < LIP_COLUMN_M) & (body[:, 1] < front) & (np.abs(pose[:, 2] - tip) < LIP_REACH_M)
-    if not near.any():
-        return None
-    still = near & (jaw_move < jaw_move.max() * LIP_JAW_SHARE)
-    return float(pose[still, 2].min() - tip) if still.any() else None
-
-
-def incisor_drop(show):
-    """How much lower the upper arch must sit on the widest "a"; zero when the tooth already shows."""
-    return 0.0 if show is None or show >= SHOW_MIN_M else SHOW_TARGET_M - show

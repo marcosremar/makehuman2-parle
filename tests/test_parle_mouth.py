@@ -7,13 +7,11 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 import parle_mouth as mouth  # noqa: E402
 
-# Upper arch: front incisors at y=-0.1, molars 50 mm behind; lower arch likewise; the gum 20 mm above the tip.
-teeth = np.array([[0, -0.1, 0], [0, -0.1, 0.02], [0, -0.05, 0], [0, -0.1, -0.05], [0, -0.05, -0.05]], float)
-lower = np.array([False, False, False, True, True])
-shade = mouth.teeth_shade(teeth, lower)
+# Front incisors at y=-0.1, molars 50 mm behind.
+teeth = np.array([[0, -0.1, 0], [0, -0.05, 0]], float)
+shade = mouth.teeth_shade(teeth)
 assert shade[0] == 1.0, f"the incisor must stay lit: {shade[0]}"
-assert shade[2] <= mouth.TEETH_DEEP + 1e-6, f"the molars must be in the dark: {shade[2]}"
-assert shade[1] <= mouth.GUM_SHADE + 1e-6, f"the gum must be darker than the tooth: {shade[1]}"
+assert shade[1] <= mouth.TEETH_DEEP + 1e-6, f"the molars must be in the dark: {shade[1]}"
 
 tongue = np.array([[0, -0.08, 0], [0, -0.04, 0], [0, -0.03, 0]], float)
 tongue_light = mouth.tongue_shade(tongue)
@@ -22,6 +20,8 @@ assert tongue_light[0] > tongue_light[1] >= tongue_light[2] and abs(tongue_light
 
 uv = np.array([[[0, 0], [0.5, 0], [0, 1]]], float)
 canvas = mouth.shade_map(16, 16, uv, np.array([[0.2, 0.2, 0.2]], float))
+overlap = mouth.shade_map(16, 16, np.concatenate([uv, uv]), np.array([[0.2, 0.2, 0.2], [0.9, 0.9, 0.9]], float))
+assert abs(np.nanmax(overlap) - 0.2) < 1e-6, "where UV islands overlap, the darkest triangle must win"
 assert np.nanmax(canvas) == np.nanmin(canvas) and abs(np.nanmin(canvas) - 0.2) < 1e-6
 assert np.isnan(canvas).any(), "the map must say where no triangle falls"
 filled = mouth.grow(canvas, 40)
@@ -31,18 +31,25 @@ pixels = np.full((16, 16, 4), 0.8, np.float32)
 dark = mouth.darken(pixels, np.full((16, 16), 0.5, np.float32))
 assert abs(dark[0, 0, 0] - 0.4) < 1e-6 and dark[0, 0, 3] == pixels[0, 0, 3], "alpha must not change"
 
-# The tip sits at the lip's edge on the widest "a": it must come down; 3 mm below already shows.
-assert mouth.incisor_drop(0.0) == mouth.SHOW_TARGET_M
-assert mouth.incisor_drop(0.003) == 0.0
-assert mouth.incisor_drop(None) == 0.0
+# Painted black between the teeth (luma 33 of 255) keeps its value: deep shade used to take it to luma 9, a hole at the player's size.
+black = np.dstack([np.full((4, 4), v, np.float32) for v in (51 / 255, 25 / 255, 25 / 255, 1.0)])
+held = mouth.darken(black, np.full((4, 4), 0.2, np.float32))
+assert abs((held[:, :, :3] @ mouth.LUMA).min() - (black[:, :, :3] @ mouth.LUMA).min()) < 1e-3, "a texel already under the floor must stay as it was"
+pale = np.dstack([np.full((4, 4), v, np.float32) for v in (0.5, 0.5, 0.5, 1.0)])
+assert (mouth.darken(pale, np.full((4, 4), 0.1, np.float32))[:, :, :3] @ mouth.LUMA).min() >= mouth.LUMA_FLOOR - 1e-3, "a texel went under the floor"
 
-upper_tip = np.array([[0.0, -0.1, -0.003], [0.0, -0.1, 0.01], [0.0, -0.05, 0.0], [0.0, -0.1, -0.03], [0.0, -0.05, -0.03]])
-arch_lower = np.array([False, False, False, True, True])
-no_move = np.zeros_like(upper_tip)
-jaw_teeth = np.zeros_like(upper_tip)
-jaw_teeth[3:, 2] = -0.017
-lip = np.array([[0.0, -0.11, 0.0], [0.0, -0.11, -0.02]], float)  # the upper edge, 3 mm above the tip; then the lower lip the jaw takes
-lip_jaw = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -0.02]])
-show = mouth.incisor_show(upper_tip, no_move, jaw_teeth, arch_lower, lip, np.zeros_like(lip), lip_jaw)
-assert show is not None and abs(show - 0.003) < 1e-6, show
+# The pink of a gum goes down with the map, wherever the point is; ivory does not.
+gum = np.dstack([np.full((4, 4), v, np.float32) for v in (196 / 255, 116 / 255, 112 / 255, 1.0)])
+ivory = np.dstack([np.full((4, 4), v, np.float32) for v in (245 / 255, 235 / 255, 214 / 255, 1.0)])
+lit = np.ones((4, 4), np.float32)
+assert (mouth.darken(gum, lit, gums=True)[:, :, :3] @ mouth.LUMA).max() < (gum[:, :, :3] @ mouth.LUMA).max() * 0.45, "the gum must go down"
+assert abs(mouth.darken(ivory, lit, gums=True)[0, 0, 0] - 245 / 255) < 1e-3, "a tooth is not a gum"
+
+# The body's inside of the mouth: in the island and behind the teeth, not the cheek beside them or the lip in front.
+inner_teeth = np.array([[-0.03, -0.12, 1.36], [0.03, -0.06, 1.40]], float)
+inner_body = np.array([[0.0, -0.1, 1.38], [0.0, -0.13, 1.38], [0.0, -0.1, 1.5], [0.05, -0.1, 1.38], [0.0, -0.1, 1.38]], float)
+inner_uv = np.array([[0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.5, 0.5]], float)
+assert mouth.body_inside(inner_body, inner_uv, inner_teeth).tolist() == [True, False, False, False, False], "wrong points taken as the inside of the mouth"
+assert abs(mouth.grow(np.full((3, 3), np.nan, np.float32), 1, fill=1.0)[0, 0] - 1.0) < 1e-6, "an uncovered map must stay as it was"
+
 print("ok")
