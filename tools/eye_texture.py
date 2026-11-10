@@ -22,18 +22,18 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 IRIS_RADIUS = 0.115
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 GAZE_DOWN = 0.2
-# Pupil as a share of the iris radius, by iris colour. Light-adapted pupils under interior light are about 0.25 to 0.33 of the iris
-# (10 to 100 cd/m2, Watson & Yellott 2012, "A unified formula for light-adapted pupil size", Journal of Vision 12(10):12, DOI
-# 10.1167/12.10.12). These values sit above that range and are chosen by eye in the player's bust shots (2026-11-09): 0.48 read as a
-# dilated eye. A dark iris takes 0.36; on the lighter honey iris 0.36 left a bright disc with a 4 px dot at game size, so it keeps 0.42.
-PUPIL_SHARES = {"castanho-escuro": 0.36, "castanho": 0.36, "mel": 0.42}
+# Pupil as a share of the iris radius. Light-adapted pupils under interior light are about 0.25 to 0.33 of the iris (10 to 100 cd/m2,
+# Watson & Yellott 2012, "A unified formula for light-adapted pupil size", Journal of Vision 12(10):12, DOI 10.1167/12.10.12). 0.36 sits
+# just above that range and is chosen by eye in the player's bust shots (2026-11-09): 0.48 read as a dilated eye, 0.42 still did on a dark iris.
+PUPIL_SHARE = 0.36
 LIMBUS_SHARE = 0.90
 # BGR, 0-1. Measured on the player's iris for the middle one, then 20% lighter with a darker limbus and a whiter sclera: next to her and Rafa the eye read as dull (owner, 2026-11-08).
-# Honey was then too bright in the game (value 0.82: an orange disc, 2026-11-09). It keeps its hue and sits at value 0.72, still above the 0.68 it had before the 20%.
+# Honey was then too bright in the game (value 0.82: an orange disc with a dot, an owl's eye at game size, 2026-11-09). The owner chose
+# the darker honey (2026-11-10): same hue at value 0.64, below the 0.68 it had before the 20%, with the same pupil as the brown irises.
 IRISES = {
     "castanho-escuro": (0.204, 0.324, 0.504),
     "castanho": (0.276, 0.432, 0.672),
-    "mel": (0.324, 0.517, 0.72),
+    "mel": (0.307, 0.47, 0.64),
 }
 LIMBUS = np.array((0.09, 0.07, 0.03))
 PUPIL = np.array((0.0, 0.0, 0.0))
@@ -54,7 +54,7 @@ def smooth(low, high, value):
     return t * t * (3 - 2 * t)
 
 
-def paint(iris_colour, pupil_share):
+def paint(iris_colour):
     axis = (np.arange(SIZE) + 0.5) / SIZE
     x, y = np.meshgrid(axis, axis)
     image = np.ones((SIZE, SIZE, 3)) * SCLERA
@@ -63,12 +63,12 @@ def paint(iris_colour, pupil_share):
         radius = np.hypot(dx, dy)
         near = radius < 1.2
         # A little lighter near the pupil, as in both references.
-        colour = np.array(iris_colour)[None, None] * (1.15 - 0.3 * np.clip((radius - pupil_share) / (1 - pupil_share), 0, 1))[..., None]
+        colour = np.array(iris_colour)[None, None] * (1.15 - 0.3 * np.clip((radius - PUPIL_SHARE) / (1 - PUPIL_SHARE), 0, 1))[..., None]
         colour = colour * (1 + 0.14 * fibres(np.arctan2(dy, dx), index)[..., None])
         ring = smooth(LIMBUS_SHARE - 0.03, LIMBUS_SHARE + 0.02, radius)[..., None]
         colour = colour * (1 - ring) + LIMBUS * ring
         iris = (1 - smooth(0.98, 1.02, radius))[..., None]
-        pupil = (1 - smooth(pupil_share - 0.02, pupil_share + 0.02, radius))[..., None]
+        pupil = (1 - smooth(PUPIL_SHARE - 0.02, PUPIL_SHARE + 0.02, radius))[..., None]
         eye = SCLERA * (1 - iris) + colour * iris
         eye = eye * (1 - pupil) + PUPIL * pupil
         image[near] = eye[near]
@@ -79,7 +79,7 @@ def main():
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
     for name, colour in IRISES.items():
-        cv2.imwrite(os.path.join(out, f"parle_eye_{name}.png"), paint(colour, PUPIL_SHARES[name]))
+        cv2.imwrite(os.path.join(out, f"parle_eye_{name}.png"), paint(colour))
         print("EYE", name)
 
 
