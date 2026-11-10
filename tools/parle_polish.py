@@ -36,6 +36,15 @@ SHOULDER_IN_M = {"female": 0.0, "male": 0.012}
 DROP_INSIDE_M = 0.07
 DROP_BELOW_M = 0.10
 DROP_ALONG_M = (0.22, 0.16)
+# Arms (owner, 2026-11-10), as a share of the height from joint to joint, measured on the whole-body models the owner gave as reference beside the cast:
+# two women's scans (15.0 and 15.7% upper arm, 12.9 and 13.3% forearm) against 13.3 and 12.2% in the cast's women, and a slim man's base mesh (16.1 and
+# 12.3%) close to the cast's men, which only even out between builds. Winter (2009, Biomechanics and Motor Control of Human Movement, 4th ed.,
+# DOI 10.1002/9780470549148) gives 18.6% and 14.6% from the acromion, which sits above the joint. Past 16% of stretch the sleeve shows it.
+ARM_UPPER_SHARE = {"female": 0.154, "male": 0.160}
+ARM_FORE_SHARE = {"female": 0.131, "male": 0.128}
+ARM_SCALE_LIMITS = (0.94, 1.16)
+ARM_STILL_SHARE = 0.1
+ARM_BONES = ("Arm", "ForeArm", "Hand")
 
 
 def smooth(t):
@@ -146,6 +155,59 @@ def natural_shoulders(meshes, rig, sex):
     field = shoulder_field(joint("Neck"), [joint("LeftArm"), joint("RightArm")], [joint("LeftForeArm"), joint("RightForeArm")], SHOULDER_CAP_M[sex], SHOULDER_RISE_M[sex], SHOULDER_DROP_M[sex], SHOULDER_IN_M[sex])
     for obj in meshes:
         warp(obj, field)
+
+
+def arm_scales(height, upper_m, fore_m, sex):
+    """How much the upper arm and the forearm stretch to reach the natural share of this height."""
+    low, high = ARM_SCALE_LIMITS
+    return float(np.clip(ARM_UPPER_SHARE[sex] * height / upper_m, low, high)), float(np.clip(ARM_FORE_SHARE[sex] * height / fore_m, low, high))
+
+
+def arm_shift(joint, elbow, wrist, upper, fore):
+    """Takes world points, gives how far each moves: nothing at the shoulder, an even stretch down each bone, the hand carried whole."""
+    upper_way, fore_way = elbow - joint, wrist - elbow
+    upper_m, fore_m = np.linalg.norm(upper_way), np.linalg.norm(fore_way)
+
+    def shift(points):
+        on_upper = np.clip(((points - joint) @ upper_way / upper_m**2 - ARM_STILL_SHARE) / (1 - ARM_STILL_SHARE), 0, 1)
+        on_fore = np.clip((points - elbow) @ fore_way / fore_m**2, 0, 1)
+        return np.outer(on_upper, (upper - 1) * upper_way) + np.outer(on_fore, (fore - 1) * fore_way)
+
+    return shift
+
+
+def arm_share(obj, side):
+    """How much of each vertex follows that arm, from its weights: the flank beside a hanging arm stays, the sleeve goes."""
+    groups = {group.index for group in obj.vertex_groups if group.name.startswith(side) and any(part in group.name for part in ARM_BONES)}
+    share = np.zeros(len(obj.data.vertices))
+    for vertex in obj.data.vertices if groups else ():
+        share[vertex.index] = sum(item.weight for item in vertex.groups if item.group in groups)
+    return np.clip(share * 2, 0, 1)
+
+
+def natural_arms(meshes, rig, height, sex):
+    """Run last, like the shoulders. Skin, cloth and bones move by the same field, and the clips only turn the bones, so every clip still plays."""
+    bpy.context.view_layer.update()
+    world, back = np.array(rig.matrix_world), np.array(rig.matrix_world.inverted())
+    joint = lambda name: np.array(rig.matrix_world @ rig.data.bones[name].head_local)
+    shifts = {}
+    for side in ("Left", "Right"):
+        ends = [joint(side + part) for part in ARM_BONES]
+        shifts[side] = arm_shift(*ends, *arm_scales(height, np.linalg.norm(ends[1] - ends[0]), np.linalg.norm(ends[2] - ends[1]), sex))
+    for obj in meshes:
+        shares = {side: arm_share(obj, side) for side in shifts}
+        if not any(share.any() for share in shares.values()):
+            continue
+        warp(obj, lambda points: points + sum(shares[side][:, None] * shifts[side](points) for side in shifts))
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    for side, shift in shifts.items():
+        upper = rig.data.edit_bones[side + "Arm"]
+        for bone, ends in [(upper, ("tail",))] + [(child, ("head", "tail")) for child in upper.children_recursive]:
+            for end in ends:
+                point = np.array(getattr(bone, end)) @ world[:3, :3].T + world[:3, 3]
+                setattr(bone, end, (point + shift(point[None])[0]) @ back[:3, :3].T + back[:3, 3])
+    bpy.ops.object.mode_set(mode="OBJECT")
 
 
 def garment_normal(name):
