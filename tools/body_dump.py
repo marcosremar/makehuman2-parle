@@ -3,8 +3,9 @@
 
     Unclothed body in a common pose, dumped for `tools/body_measure.py`:
     `Blender -b --factory-startup -noaudio -P tools/body_dump.py -- <out.npz> <model.glb|fbx> kind=<kit|cc|slots|plain> [key=value ...]`.
-    kit: a cast kit (`Body` mesh). `height=` scales it, `chest=<npy>` adds the chest shift, `shoulders=1` runs `natural_shoulders` and `arms=1` runs
-    `natural_arms` (both need `sex=`), and `build=<kit name or profile.json>` runs `natural_build`. cc: a Character Creator body (`CC_Base_Body`); `flat=1` takes it off the tiptoes.
+    kit: a cast kit (`Body` mesh). `height=` scales it, `chest=<npy>` adds the chest shift, and `body=<kit name or profile.json>` runs
+    `natural_body`, the cast's own step (needs `height=` and `sex=`; a name with no profile gives the arms alone).
+    cc: a Character Creator body (`CC_Base_Body`); `flat=1` takes it off the tiptoes.
     slots: one skinned mesh, keeping the faces of the materials in `slots=`; `flip=1` when it faces +y. plain: a mesh with no rig, `keep=<prefix>`.
     `arm=<degrees>` puts the upper arms that far below the horizontal. `photos=<folder>` with `name=` adds clay photos (front, side, back).
     A reference model is only measured here: neither its mesh nor its texture goes into the cast.
@@ -78,13 +79,9 @@ if kind == "kit":
     if "height" in opts:
         rig.scale = [float(opts["height"]) / float(np.ptp(parle_polish.rest_points(body)[:, 2]))] * 3
         bpy.context.view_layer.update()
-    # The same order as the cast: shoulders, arms, build.
-    if opts.get("shoulders") == "1":
-        parle_polish.natural_shoulders(meshes, rig, opts["sex"])
-    if opts.get("arms") == "1":
-        parle_polish.natural_arms(meshes, rig, float(opts["height"]), opts["sex"])
-    if "build" in opts:
-        parle_polish.natural_build(meshes, rig, float(opts["height"]), opts["build"])
+    # The one step the cast runs, so what is measured here is what goes under the clothes.
+    if "body" in opts:
+        parle_polish.natural_body(meshes, rig, float(opts["height"]), opts["sex"], opts["body"])
     keep = [body]
 elif kind == "cc":
     keep = [obj for obj in meshes if obj.name.split(".")[0] == "CC_Base_Body"]
