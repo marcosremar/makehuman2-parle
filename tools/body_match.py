@@ -122,12 +122,18 @@ def crotch_share(found, frame):
     return round(float((hip - (found["crotch"] * frame["tall"] + frame["move"][2])) / (hip - knee)), 4)
 
 
+def dump_options(opts):
+    """What every dump of the loop runs before the build: the arms, never the shoulder polish. The polish (`natural_shoulders`) shapes the
+    shoulder for the arm that hangs, and the measure reads the body with the arm out: measured with it, the loop pushed the arms up to 3 cm
+    out on each side to undo it, and the dressed body stood with the arms away from the trunk (2026-11-10). The cast still runs the polish."""
+    return [f"height={opts['height']}", f"sex={opts['sex']}", "arms=1"] + ([f"chest={opts['chest']}"] if "chest" in opts else [])
+
+
 def match(kit_glb, reference_path, out, opts):
     reference = json.load(open(reference_path))
     work = opts.get("work") or tempfile.mkdtemp()
     os.makedirs(work, exist_ok=True)
-    # The body is measured as the cast builds it: with the shoulders polished for the arm that hangs, which the pose of the measure does not show.
-    base = [f"height={opts['height']}", f"sex={opts['sex']}", "shoulders=1", "arms=1"] + ([f"chest={opts['chest']}"] if "chest" in opts else [])
+    base = dump_options(opts)
     profile, arm_deg = parle_build.identity(opts["kit"]), float(reference["arm_angle"])
     best, history = None, []
     for turn in range(int(opts.get("rounds", 12)) + 1):
