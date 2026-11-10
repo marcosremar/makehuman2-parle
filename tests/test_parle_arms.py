@@ -1,6 +1,6 @@
 """Regression for the length of the arms (2026-11-10): run with `Blender -b --python-exit-code 1 -P tests/test_parle_arms.py`.
 
-The women's upper arm was 13.3% of the height against 15.4% in two whole-body scans; the men's were close to their reference and only even out. Each bone stretches evenly to its share, the shoulder stays and the hand is carried whole.
+The arm was 0.51 to 0.56 of the leg against 0.58 to 0.60 in the reference models: the forearm was short in both sexes and the upper arm in the women. Each bone stretches evenly to its share, the shoulder stays and the hand is carried whole.
 """
 import sys
 from pathlib import Path
@@ -10,12 +10,17 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 import parle_polish  # noqa: E402
 
-HEIGHT = 1.63
-JOINT, ELBOW, WRIST = np.array([0.17, 0.0, 1.30]), np.array([0.27, 0.0, 1.108]), np.array([0.36, 0.01, 0.93])
+# The cast's women as they come from the kit: 13.6% of upper arm and 12.4% of forearm.
+HEIGHT = 1.60
+JOINT, ELBOW, WRIST = np.array([0.17, 0.0, 1.30]), np.array([0.27, 0.0, 1.1067]), np.array([0.36, 0.01, 0.93])
 upper_m, fore_m = np.linalg.norm(ELBOW - JOINT), np.linalg.norm(WRIST - ELBOW)
 upper, fore = parle_polish.arm_scales(HEIGHT, upper_m, fore_m, "female")
 assert abs(upper * upper_m / HEIGHT - parle_polish.ARM_UPPER_SHARE["female"]) < 1e-9 and abs(fore * fore_m / HEIGHT - parle_polish.ARM_FORE_SHARE["female"]) < 1e-9, (upper, fore)
-assert upper > 1.05 and parle_polish.arm_scales(HEIGHT, upper_m, fore_m, "male")[0] > upper
+assert upper > 1.05 and fore > 1.05 and parle_polish.arm_scales(HEIGHT, upper_m, fore_m, "male")[0] > upper
+# The men's forearm grows too: the same bones on a man's height come out longer than on a woman's.
+assert parle_polish.arm_scales(HEIGHT, upper_m, fore_m, "male")[1] > fore
+# The arm ends near the leg share of the reference models (0.58) on the cast's legs, 51.4% of a woman's height.
+assert 0.57 < (parle_polish.ARM_UPPER_SHARE["female"] + parle_polish.ARM_FORE_SHARE["female"]) / 0.514 < 0.60
 # A body far from the measure moves only as far as the sleeve allows.
 assert parle_polish.arm_scales(HEIGHT, 0.1, 0.5, "female") == (parle_polish.ARM_SCALE_LIMITS[1], parle_polish.ARM_SCALE_LIMITS[0])
 shift = parle_polish.arm_shift(JOINT, ELBOW, WRIST, upper, fore)

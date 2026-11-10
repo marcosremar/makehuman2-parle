@@ -36,12 +36,14 @@ SHOULDER_IN_M = {"female": 0.0, "male": 0.012}
 DROP_INSIDE_M = 0.07
 DROP_BELOW_M = 0.10
 DROP_ALONG_M = (0.22, 0.16)
-# Arms (owner, 2026-11-10), as a share of the height from joint to joint, measured on the whole-body models the owner gave as reference beside the cast:
-# two women's scans (15.0 and 15.7% upper arm, 12.9 and 13.3% forearm) against 13.3 and 12.2% in the cast's women, and a slim man's base mesh (16.1 and
-# 12.3%) close to the cast's men, which only even out between builds. Winter (2009, Biomechanics and Motor Control of Human Movement, 4th ed.,
-# DOI 10.1002/9780470549148) gives 18.6% and 14.6% from the acromion, which sits above the joint. Past 16% of stretch the sleeve shows it.
-ARM_UPPER_SHARE = {"female": 0.154, "male": 0.160}
-ARM_FORE_SHARE = {"female": 0.131, "male": 0.128}
+# Arms (owner, 2026-11-10), as a share of the height (body without hair or shoes) from joint centre to joint centre. The yardstick that hair, hat and
+# heels do not move is the arm against the leg (upper arm + forearm over thigh + shank): 0.58, 0.58 and 0.60 on the three rigged whole-body models the
+# owner gave as reference, 0.51 to 0.56 on the cast, whose forearm was short in both sexes (12.4 to 12.9% of the height) and whose upper arm was short
+# in the women (13.6%). De Leva (1996, Journal of Biomechanics 29(9), 1223-1230, DOI 10.1016/0021-9290(95)00178-6) measures between joint centres
+# 16.2 and 15.4% in men and 15.9 and 15.2% in women, 0.64 of the leg in men. The shares below sit between the references and that measure and put the
+# cast at 0.58 of the leg. One bone stretches 16% at most, which is what the cast needs.
+ARM_UPPER_SHARE = {"female": 0.157, "male": 0.162}
+ARM_FORE_SHARE = {"female": 0.142, "male": 0.148}
 ARM_SCALE_LIMITS = (0.94, 1.16)
 ARM_STILL_SHARE = 0.1
 ARM_BONES = ("Arm", "ForeArm", "Hand")
