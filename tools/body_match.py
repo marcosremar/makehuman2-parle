@@ -123,10 +123,11 @@ def crotch_share(found, frame):
 
 
 def dump_options(opts):
-    """What every dump of the loop runs before the build: the arms, never the shoulder polish. The polish (`natural_shoulders`) shapes the
-    shoulder for the arm that hangs, and the measure reads the body with the arm out: measured with it, the loop pushed the arms up to 3 cm
-    out on each side to undo it, and the dressed body stood with the arms away from the trunk (2026-11-10). The cast still runs the polish."""
-    return [f"height={opts['height']}", f"sex={opts['sex']}", "arms=1"] + ([f"chest={opts['chest']}"] if "chest" in opts else [])
+    """What every dump of the loop gets besides the profile of the round. No step of its own: the dump runs `parle_polish.natural_body`, the
+    same call as the cast, so the loop measures the body that goes under the clothes. Twice it did not (2026-11-10): measured with a shoulder
+    polish that fitted the hanging arm, the loop pushed the arms up to 3 cm out on each side to undo it; measured without it while the cast
+    still ran it, the dressed shoulders came out 6 to 8 cm narrower on each side than the body shown as matched."""
+    return [f"height={opts['height']}", f"sex={opts['sex']}"] + ([f"chest={opts['chest']}"] if "chest" in opts else [])
 
 
 def match(kit_glb, reference_path, out, opts):
@@ -138,7 +139,7 @@ def match(kit_glb, reference_path, out, opts):
     best, history = None, []
     for turn in range(int(opts.get("rounds", 12)) + 1):
         parle_build.save_profile(profile, os.path.join(work, "profile.json"))
-        found, frame = dump(kit_glb, os.path.join(work, "round.npz"), base + [f"build={os.path.join(work, 'profile.json')}", f"arm={arm_deg:.1f}"])
+        found, frame = dump(kit_glb, os.path.join(work, "round.npz"), base + [f"body={os.path.join(work, 'profile.json')}", f"arm={arm_deg:.1f}"])
         percent, parts = body_measure.similarity(found, reference)
         history.append(percent)
         print(f"round {turn}: {percent:.2f}% arm {arm_deg:.1f} {parts}", flush=True)
