@@ -53,8 +53,17 @@ UNDER_LIP_BEHIND_M = 0.012
 # In three reference women the chin sits about 3% of the head's height (6 mm) behind the lower lip; on the women's kit it was 2 mm ahead of it.
 CHIN_BACK = {"female": 0.0035, "male": 0.0}
 # Each lip a form of its own, as on the reference heads: forward at the middle of its height, the lower one taller, and a soft hollow under it. All in metres; the lips' meeting line stays.
-LIPS_FULL = {"female": {"upper_forward": 0.0, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0005, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028}, "male": None}
+LIPS_FULL = {"female": {"upper_forward": 0.0, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0005, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028, "corner_up": 0.0042, "corner_from": 0.008, "corner_at": 0.027, "corner_out": 0.02, "corner_tall": 0.014}, "male": None}
 LIPS_KEEP_LINE_M = 0.0012
+CORNER_AT_M = 0.027
+CORNER_NEAR_END_M = 0.004
+CORNER_RELAX_NEAR_M = 0.004
+CORNER_RELAX_FAR_M = 0.016
+CORNER_RELAX_BEHIND_M = 0.012
+CORNER_LIP_CLEAR_M = 0.0015
+# Right at the corner the ridge sits on the lip's own points: left out, it stayed and still lit up (owner, 2026-11-09).
+CORNER_LIP_FREE_M = (0.004, 0.01)
+CORNER_RELAX_ROUNDS = 12
 LIPS_CUPID = {"female": 0.8, "male": 0.0}
 # In the wide-open vowels the lining of the mouth came out through the cheek in two cuts (owner, 2026-11-09).
 MOUTH_LINING_REACH_M = 0.08
@@ -224,6 +233,11 @@ def full_lips(keys, rest, shape):
     move[:, 1] += shape["roll_back"] * gauss(height, 0.0, shape["roll_wide"]) * across ** 2
     move[:, 2] += shape["upper_grow"] * np.clip(height / 0.008, 0, 1) * gauss(height, 0.008, 0.008) * across * up
     move[:, 2] -= shape["lower_grow"] * np.clip(-height / 0.01, 0, 1) * gauss(height, -0.01, 0.01) * across * ~up
+    # The kit's meeting line falls about 6 mm from the middle to each corner, and the face reads as sulking (owner, 2026-11-09). Both lips and the skin beside them go up together.
+    side = np.abs(x)
+    rise = np.clip((side - shape["corner_from"]) / (shape["corner_at"] - shape["corner_from"]), 0, 1)
+    past = np.clip((side - shape["corner_at"]) / shape["corner_out"], 0, 1)
+    move[:, 2] += shape["corner_up"] * rise * rise * (3 - 2 * rise) * (1 - past * past * (3 - 2 * past)) * gauss(height, 0.0, shape["corner_tall"])
     move[~outer] = 0
     return move
 
@@ -258,17 +272,47 @@ def relaxed_under_lip(obj, rest, move, lip, rounds):
     low, high = rest[lip, 2].min(), rest[lip, 2].max()
     share *= np.clip((low + (high - low) * UNDER_LIP_SHARE - rest[:, 2]) / 0.002, 0, 1)
     share *= np.clip((rest[lip, 1].mean() + UNDER_LIP_BEHIND_M - rest[:, 1]) / 0.004, 0, 1)
+    return relaxed(obj, rest + move, share, rounds) - rest
+
+
+def relaxed(obj, placed, share, rounds):
+    """`placed` after each point moved `rounds` times towards the middle of its neighbours, as far as `share` lets it."""
     edges = np.empty(len(obj.data.edges) * 2, int)
     obj.data.edges.foreach_get("vertices", edges)
     edges = edges.reshape(-1, 2)
-    placed = rest + move
     count = np.maximum(np.bincount(edges.ravel(), minlength=len(placed)), 1)[:, None]
     for _ in range(rounds):
         total = np.zeros_like(placed)
         np.add.at(total, edges[:, 0], placed[edges[:, 1]])
         np.add.at(total, edges[:, 1], placed[edges[:, 0]])
         placed = placed + (total / count - placed) * (share * 0.5)[:, None]
-    return placed - rest
+    return placed
+
+
+def relaxed_corners(obj, rest, move, lip):
+    """`move` after smoothing the skin beside the mouth corners: a ridge there faces the ceiling and lit up as a white patch in the player (owner, 2026-11-09). The lips stay."""
+    if not len(lip):
+        return move
+    placed = rest + move
+    middle = placed[lip, 0].mean()
+    tree = KDTree(len(lip))
+    for index in lip:
+        tree.insert(placed[index], int(index))
+    tree.balance()
+    share = np.zeros(len(rest))
+    free = np.zeros(len(rest))
+    for sign in (-1, 1):
+        ends = lip[np.abs((placed[lip, 0] - middle) * sign - CORNER_AT_M) < CORNER_NEAR_END_M]
+        if not len(ends):
+            continue
+        corner = np.median(placed[ends], axis=0)
+        away = np.linalg.norm(placed - corner, axis=1)
+        close = np.clip((CORNER_RELAX_FAR_M - away) / (CORNER_RELAX_FAR_M - CORNER_RELAX_NEAR_M), 0, 1)
+        share = np.maximum(share, close * (placed[:, 1] < corner[1] + CORNER_RELAX_BEHIND_M))
+        free = np.maximum(free, np.clip((CORNER_LIP_FREE_M[1] - away) / (CORNER_LIP_FREE_M[1] - CORNER_LIP_FREE_M[0]), 0, 1))
+    for index in np.where(share > 0)[0]:
+        share[index] *= max(np.clip((tree.find(placed[index])[2] - CORNER_LIP_CLEAR_M) / CORNER_LIP_CLEAR_M, 0, 1), free[index])
+    return relaxed(obj, placed, share, CORNER_RELAX_ROUNDS) - rest
 
 
 def lining_points(rest, polygons, lip):
@@ -411,6 +455,8 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
             move = move + mouth_back(keys, rest, back)
         if obj.name == "Body":
             move = relaxed_under_lip(obj, rest, move, carried_lip(keys, rest), rounds)
+            if lips:
+                move = relaxed_corners(obj, rest, move, carried_lip(keys, rest))
         if back and ("teeth" in obj.name or "tongue" in obj.name):
             move[:, 1] += back
         if "eyebrow" in obj.name:
@@ -441,7 +487,7 @@ def tongue_follows_jaw(meshes):
     print("LINGUA segue a mandibula em", carried, "formas")
 
 
-def shade_map_of(obj, shade, gums=False, only=None, wine=False):
+def shade_map_of(obj, shade, gums=False, only=None, wine=None, inside=False):
     """Multiplies the object's colour map by `shade`, one value per point, through its UV islands. `only`: a map the mesh shares; see parle_mouth."""
     image = next(node.image for node in obj.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image)
     width, height = image.size
@@ -450,35 +496,55 @@ def shade_map_of(obj, shade, gums=False, only=None, wine=False):
     uv = np.array([[loops[index].uv[:] for index in triangle] for triangle in triangles], np.float64)
     points = np.array([[obj.data.loops[index].vertex_index for index in triangle] for triangle in triangles])
     if only is not None:
-        kept = only[points].all(axis=1)
+        vertex_uv = np.zeros((len(obj.data.vertices), 2))
+        for corner, point in zip(uv.reshape(-1, 2), points.ravel()):
+            vertex_uv[point] = corner[0], 1 - corner[1]
+        kept = parle_mouth.body_triangles(points, only, vertex_uv)
         uv, points = uv[kept], points[kept]
     canvas = parle_mouth.grow(parle_mouth.shade_map(width, height, uv, shade[points]), fill=None if only is None else 1.0)
     pixels = np.empty(width * height * 4, np.float32)
     image.pixels.foreach_get(pixels)
-    image.pixels.foreach_set(parle_mouth.darken(pixels.reshape(height, width, 4), canvas, gums, wine).ravel())
+    image.pixels.foreach_set(parle_mouth.darken(pixels.reshape(height, width, 4), canvas, gums, wine, inside).ravel())
     image.pack()
 
 
-def shade_mouth(meshes):
+def body_wine(body):
+    """The wet floor of this body, from the lip in its own skin map."""
+    keys = body.data.shape_keys.key_blocks
+    rest = key_points(keys[0])
+    moves = [key_points(keys[name]) - rest for name in ("viseme_U", "viseme_PP") if name in keys]
+    image = next(node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image and node.image.colorspace_settings.name != "Non-Color")
+    width, height = image.size
+    pixels = np.empty(width * height * 4, np.float32)
+    image.pixels.foreach_get(pixels)
+    loops = body.data.uv_layers.active.data
+    uv = np.zeros((len(body.data.vertices), 2))
+    for loop in body.data.loops:
+        uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
+    return parle_mouth.wine_for(parle_mouth.lip_luma(pixels.reshape(height, width, 4)[::-1, :, :3], uv, moves))
+
+
+def shade_mouth(meshes, wine):
     """Runs on the maps the export takes, after the teeth map went in, and on the rest shape the game plays."""
     teeth = next((obj for obj in meshes if "teeth" in obj.name), None)
     tongue = next((obj for obj in meshes if "tongue" in obj.name), None)
     if teeth is not None and teeth.data.shape_keys:
         rest = key_points(teeth.data.shape_keys.key_blocks[0])
-        shade_map_of(teeth, parle_mouth.teeth_shade(rest), gums=True, wine=True)
+        shade_map_of(teeth, parle_mouth.teeth_shade(rest), gums=True, wine=wine)
     if tongue is not None:
         shade_map_of(tongue, parle_mouth.tongue_shade(key_points(tongue.data.shape_keys.key_blocks[0])))
     print("BOCA escurecida", bool(teeth), bool(tongue))
 
 
-def shade_inside_of_mouth(body, teeth_rest):
+def shade_inside_of_mouth(body, teeth_rest, wine):
     """The body's own inside of the mouth, on the skin map."""
     rest = key_points(body.data.shape_keys.key_blocks[0])
     loops = body.data.uv_layers.active.data
     uv = np.zeros((len(body.data.vertices), 2))
     for loop in body.data.loops:
         uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
-    shade_map_of(body, np.full(len(rest), parle_mouth.BODY_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest), wine=True)
+    triangles = np.array([(polygon.vertices[0], second, third) for polygon in body.data.polygons for second, third in zip(polygon.vertices[1:], polygon.vertices[2:])])
+    shade_map_of(body, np.full(len(rest), parle_mouth.MARK_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest, triangles), wine=wine, inside=True)
 
 
 def weld_seams(body):
@@ -588,7 +654,7 @@ def clean_face(body, added, job, env):
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
     if env.get("CAST_TEETH"):
-        teeth_map = bpy.data.images.load(env["CAST_TEETH"])
+        teeth_map = bpy.data.images.load(parle_mouth.clean_teeth(env["CAST_TEETH"]))
         teeth_map.pack()
         for obj in added:
             if obj.type == "MESH" and "teeth" in obj.name:
@@ -597,10 +663,11 @@ def clean_face(body, added, job, env):
                 for link in [link for link in material.node_tree.links if link.to_socket.name == "Alpha"]:
                     material.node_tree.links.remove(link)
                 set_map(obj, teeth_map)
-    shade_mouth([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
+    wine = body_wine(body)
+    shade_mouth([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys], wine)
     teeth_for_inside = next((obj for obj in added if obj.type == "MESH" and "teeth" in obj.name), None)
     if teeth_for_inside is not None and body.data.shape_keys:
-        shade_inside_of_mouth(body, key_points(teeth_for_inside.data.shape_keys.key_blocks[0]))
+        shade_inside_of_mouth(body, key_points(teeth_for_inside.data.shape_keys.key_blocks[0]), wine)
     if env.get("CAST_EYE"):
         eye_map = bpy.data.images.load(env["CAST_EYE"])
         eye_map.pack()
