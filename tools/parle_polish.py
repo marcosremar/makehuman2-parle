@@ -29,6 +29,13 @@ SLOPE_PAST_ARM_M = 0.015
 SLOPE_ABOVE_ARM_M = (0.005, 0.035)
 SLOPE_ABOVE_NECK_M = (0.06, 0.04)
 SLOPE_DEPTH_M = (0.11, 0.05)
+# Men (owner, 2026-11-10): the end of the shoulder stood as high as its middle, a square corner under a sleeve. The whole end comes down and a little in,
+# from inside the joint to the top of the arm; 3 cm down with 2 cm in already reads as a drooping shoulder narrower than the arm.
+SHOULDER_DROP_M = {"female": 0.0, "male": 0.02}
+SHOULDER_IN_M = {"female": 0.0, "male": 0.012}
+DROP_INSIDE_M = 0.07
+DROP_BELOW_M = 0.10
+DROP_ALONG_M = (0.22, 0.16)
 
 
 def smooth(t):
@@ -99,7 +106,7 @@ def bigger_eyes(meshes, eye, scale=EYE_SCALE):
         warp(obj, field)
 
 
-def shoulder_field(neck, arms, elbows, cap, rise):
+def shoulder_field(neck, arms, elbows, cap, rise, drop=0.0, inward=0.0):
     """Takes world points. A continuous field, so skin, sleeve, strap and necklace stay together without being fitted again."""
     up = np.array((0.0, 0.0, 1.0))
 
@@ -124,6 +131,9 @@ def shoulder_field(neck, arms, elbows, cap, rise):
             above = smooth((points[:, 2] - joint[2] - SLOPE_ABOVE_ARM_M[0]) / SLOPE_ABOVE_ARM_M[1]) * smooth((neck[2] + SLOPE_ABOVE_NECK_M[0] - points[:, 2]) / SLOPE_ABOVE_NECK_M[1])
             depth = smooth((SLOPE_DEPTH_M[0] - np.abs(points[:, 1] - neck[1])) / SLOPE_DEPTH_M[1])
             out[:, 2] += rise * along_slope * above * depth
+            end = smooth((side - reach + DROP_INSIDE_M) / DROP_INSIDE_M) * smooth((DROP_ALONG_M[0] - along) / DROP_ALONG_M[1])
+            out[:, 2] -= drop * end * smooth((points[:, 2] - joint[2] + DROP_BELOW_M) / DROP_BELOW_M)
+            out[:, 0] -= outer * inward * end
         return out
 
     return field
@@ -133,7 +143,7 @@ def natural_shoulders(meshes, rig, sex):
     """Run last on a finished character, in its final size: the clips and the cloth were solved on the same skeleton, which does not move."""
     bpy.context.view_layer.update()
     joint = lambda name: np.array(rig.matrix_world @ rig.data.bones[name].head_local)
-    field = shoulder_field(joint("Neck"), [joint("LeftArm"), joint("RightArm")], [joint("LeftForeArm"), joint("RightForeArm")], SHOULDER_CAP_M[sex], SHOULDER_RISE_M[sex])
+    field = shoulder_field(joint("Neck"), [joint("LeftArm"), joint("RightArm")], [joint("LeftForeArm"), joint("RightForeArm")], SHOULDER_CAP_M[sex], SHOULDER_RISE_M[sex], SHOULDER_DROP_M[sex], SHOULDER_IN_M[sex])
     for obj in meshes:
         warp(obj, field)
 
