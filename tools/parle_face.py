@@ -53,8 +53,17 @@ UNDER_LIP_BEHIND_M = 0.012
 # In three reference women the chin sits about 3% of the head's height (6 mm) behind the lower lip; on the women's kit it was 2 mm ahead of it.
 CHIN_BACK = {"female": 0.0035, "male": 0.0}
 # Each lip a form of its own, as on the reference heads: forward at the middle of its height, the lower one taller, and a soft hollow under it. All in metres; the lips' meeting line stays.
-LIPS_FULL = {"female": {"upper_forward": 0.0, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0005, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028}, "male": None}
+LIPS_FULL = {"female": {"upper_forward": 0.0, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0005, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028, "corner_up": 0.0042, "corner_from": 0.008, "corner_at": 0.027, "corner_out": 0.02, "corner_tall": 0.014}, "male": None}
 LIPS_KEEP_LINE_M = 0.0012
+CORNER_AT_M = 0.027
+CORNER_NEAR_END_M = 0.004
+CORNER_RELAX_NEAR_M = 0.004
+CORNER_RELAX_FAR_M = 0.016
+CORNER_RELAX_BEHIND_M = 0.012
+CORNER_LIP_CLEAR_M = 0.0015
+# Right at the corner the ridge sits on the lip's own points: left out, it stayed and still lit up (owner, 2026-11-09).
+CORNER_LIP_FREE_M = (0.004, 0.01)
+CORNER_RELAX_ROUNDS = 12
 LIPS_CUPID = {"female": 0.8, "male": 0.0}
 # In the wide-open vowels the lining of the mouth came out through the cheek in two cuts (owner, 2026-11-09).
 MOUTH_LINING_REACH_M = 0.08
@@ -224,6 +233,11 @@ def full_lips(keys, rest, shape):
     move[:, 1] += shape["roll_back"] * gauss(height, 0.0, shape["roll_wide"]) * across ** 2
     move[:, 2] += shape["upper_grow"] * np.clip(height / 0.008, 0, 1) * gauss(height, 0.008, 0.008) * across * up
     move[:, 2] -= shape["lower_grow"] * np.clip(-height / 0.01, 0, 1) * gauss(height, -0.01, 0.01) * across * ~up
+    # The kit's meeting line falls about 6 mm from the middle to each corner, and the face reads as sulking (owner, 2026-11-09). Both lips and the skin beside them go up together.
+    side = np.abs(x)
+    rise = np.clip((side - shape["corner_from"]) / (shape["corner_at"] - shape["corner_from"]), 0, 1)
+    past = np.clip((side - shape["corner_at"]) / shape["corner_out"], 0, 1)
+    move[:, 2] += shape["corner_up"] * rise * rise * (3 - 2 * rise) * (1 - past * past * (3 - 2 * past)) * gauss(height, 0.0, shape["corner_tall"])
     move[~outer] = 0
     return move
 
@@ -258,17 +272,47 @@ def relaxed_under_lip(obj, rest, move, lip, rounds):
     low, high = rest[lip, 2].min(), rest[lip, 2].max()
     share *= np.clip((low + (high - low) * UNDER_LIP_SHARE - rest[:, 2]) / 0.002, 0, 1)
     share *= np.clip((rest[lip, 1].mean() + UNDER_LIP_BEHIND_M - rest[:, 1]) / 0.004, 0, 1)
+    return relaxed(obj, rest + move, share, rounds) - rest
+
+
+def relaxed(obj, placed, share, rounds):
+    """`placed` after each point moved `rounds` times towards the middle of its neighbours, as far as `share` lets it."""
     edges = np.empty(len(obj.data.edges) * 2, int)
     obj.data.edges.foreach_get("vertices", edges)
     edges = edges.reshape(-1, 2)
-    placed = rest + move
     count = np.maximum(np.bincount(edges.ravel(), minlength=len(placed)), 1)[:, None]
     for _ in range(rounds):
         total = np.zeros_like(placed)
         np.add.at(total, edges[:, 0], placed[edges[:, 1]])
         np.add.at(total, edges[:, 1], placed[edges[:, 0]])
         placed = placed + (total / count - placed) * (share * 0.5)[:, None]
-    return placed - rest
+    return placed
+
+
+def relaxed_corners(obj, rest, move, lip):
+    """`move` after smoothing the skin beside the mouth corners: a ridge there faces the ceiling and lit up as a white patch in the player (owner, 2026-11-09). The lips stay."""
+    if not len(lip):
+        return move
+    placed = rest + move
+    middle = placed[lip, 0].mean()
+    tree = KDTree(len(lip))
+    for index in lip:
+        tree.insert(placed[index], int(index))
+    tree.balance()
+    share = np.zeros(len(rest))
+    free = np.zeros(len(rest))
+    for sign in (-1, 1):
+        ends = lip[np.abs((placed[lip, 0] - middle) * sign - CORNER_AT_M) < CORNER_NEAR_END_M]
+        if not len(ends):
+            continue
+        corner = np.median(placed[ends], axis=0)
+        away = np.linalg.norm(placed - corner, axis=1)
+        close = np.clip((CORNER_RELAX_FAR_M - away) / (CORNER_RELAX_FAR_M - CORNER_RELAX_NEAR_M), 0, 1)
+        share = np.maximum(share, close * (placed[:, 1] < corner[1] + CORNER_RELAX_BEHIND_M))
+        free = np.maximum(free, np.clip((CORNER_LIP_FREE_M[1] - away) / (CORNER_LIP_FREE_M[1] - CORNER_LIP_FREE_M[0]), 0, 1))
+    for index in np.where(share > 0)[0]:
+        share[index] *= max(np.clip((tree.find(placed[index])[2] - CORNER_LIP_CLEAR_M) / CORNER_LIP_CLEAR_M, 0, 1), free[index])
+    return relaxed(obj, placed, share, CORNER_RELAX_ROUNDS) - rest
 
 
 def lining_points(rest, polygons, lip):
@@ -411,6 +455,8 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
             move = move + mouth_back(keys, rest, back)
         if obj.name == "Body":
             move = relaxed_under_lip(obj, rest, move, carried_lip(keys, rest), rounds)
+            if lips:
+                move = relaxed_corners(obj, rest, move, carried_lip(keys, rest))
         if back and ("teeth" in obj.name or "tongue" in obj.name):
             move[:, 1] += back
         if "eyebrow" in obj.name:

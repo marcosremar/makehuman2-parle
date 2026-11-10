@@ -17,6 +17,18 @@ EYE_SCALE = 1.1
 EYE_CORE_M = 0.017
 EYE_REACH_M = 0.032
 NORMAL_PX = 512
+# Shoulders, measured beside two whole-body scans in the same camera (owner, 2026-11-09). The body binds with the arm half raised: lowered, the skin over the
+# joint stands out as a ball, and the slope from the neck is flat. Past 2 cm on the cap the sleeve and arm show a stepped crease.
+SHOULDER_CAP_M = {"female": 0.014, "male": 0.02}
+SHOULDER_RISE_M = {"female": 0.024, "male": 0.02}
+CAP_CORE_M = (0.015, 0.03)
+CAP_ALONG_M = (-0.07, 0.05, 0.17, 0.10)
+CAP_INSIDE_M = (0.07, 0.05)
+SLOPE_FROM_NECK_M = (0.025, 0.03)
+SLOPE_PAST_ARM_M = 0.015
+SLOPE_ABOVE_ARM_M = (0.005, 0.035)
+SLOPE_ABOVE_NECK_M = (0.06, 0.04)
+SLOPE_DEPTH_M = (0.11, 0.05)
 
 
 def smooth(t):
@@ -83,6 +95,45 @@ def bigger_eyes(meshes, eye, scale=EYE_SCALE):
             out += away * (scale - 1) * weight[:, None]
         return out
 
+    for obj in meshes:
+        warp(obj, field)
+
+
+def shoulder_field(neck, arms, elbows, cap, rise):
+    """Takes world points. A continuous field, so skin, sleeve, strap and necklace stay together without being fitted again."""
+    up = np.array((0.0, 0.0, 1.0))
+
+    def field(points):
+        out = points.copy()
+        for joint, elbow in zip(arms, elbows):
+            arm = (elbow - joint) / np.linalg.norm(elbow - joint)
+            top = up - up.dot(arm) * arm
+            top /= np.linalg.norm(top)
+            away = points - joint
+            along = away @ arm
+            ring = away - along[:, None] * arm
+            radius = np.maximum(np.linalg.norm(ring, axis=1), 1e-6)
+            start, start_fade, end, end_fade = CAP_ALONG_M
+            on_arm = smooth((along - start) / start_fade) * smooth((end - along) / end_fade) * smooth((radius - CAP_CORE_M[0]) / CAP_CORE_M[1])
+            outer = np.sign(joint[0] - neck[0])
+            off_chest = smooth(((points[:, 0] - joint[0]) * outer + CAP_INSIDE_M[0]) / CAP_INSIDE_M[1])
+            out -= (ring / radius[:, None]) * (cap * np.clip((ring @ top) / radius, 0, 1) * on_arm * off_chest)[:, None]
+            side = (points[:, 0] - neck[0]) * outer
+            reach = (joint[0] - neck[0]) * outer
+            along_slope = smooth((side - SLOPE_FROM_NECK_M[0]) / SLOPE_FROM_NECK_M[1]) * smooth((reach + SLOPE_PAST_ARM_M - side) / (reach - SLOPE_FROM_NECK_M[1]))
+            above = smooth((points[:, 2] - joint[2] - SLOPE_ABOVE_ARM_M[0]) / SLOPE_ABOVE_ARM_M[1]) * smooth((neck[2] + SLOPE_ABOVE_NECK_M[0] - points[:, 2]) / SLOPE_ABOVE_NECK_M[1])
+            depth = smooth((SLOPE_DEPTH_M[0] - np.abs(points[:, 1] - neck[1])) / SLOPE_DEPTH_M[1])
+            out[:, 2] += rise * along_slope * above * depth
+        return out
+
+    return field
+
+
+def natural_shoulders(meshes, rig, sex):
+    """Run last on a finished character, in its final size: the clips and the cloth were solved on the same skeleton, which does not move."""
+    bpy.context.view_layer.update()
+    joint = lambda name: np.array(rig.matrix_world @ rig.data.bones[name].head_local)
+    field = shoulder_field(joint("Neck"), [joint("LeftArm"), joint("RightArm")], [joint("LeftForeArm"), joint("RightForeArm")], SHOULDER_CAP_M[sex], SHOULDER_RISE_M[sex])
     for obj in meshes:
         warp(obj, field)
 

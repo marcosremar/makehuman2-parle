@@ -51,12 +51,12 @@ BOW_DIP = 0.2
 BOW_DIP_WIDE_M = 0.0035
 # Where the lips meet there is a thin dark line in every photograph; it stops short of the corners.
 # The very middle rolls into the mouth and is not seen: the line sits a little on the lower lip.
-LINE_M = 0.0013
-LINE_BELOW_M = 0.0007
+LINE_M = 0.0024
+LINE_BELOW_M = 0.0013
 SLIT_BIN_M = 0.003
 SLIT_DEGREE = 4
 LINE_ENDS = 4.0
-LINE_DARK = 0.5
+LINE_DARK = 0.68
 # Light comes from above: the upper lip faces down and is darker than the lower.
 UPPER_SHADE = 10.0
 
