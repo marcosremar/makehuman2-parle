@@ -10,6 +10,8 @@ import os
 import bpy
 import numpy as np
 
+import parle_build
+
 CLOTHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local/mhd/data/clothes/hm08")
 
 # 12% with a staring look all round; 10% reads as awake next to the player.
@@ -210,6 +212,47 @@ def natural_arms(meshes, rig, height, sex):
                 point = np.array(getattr(bone, end)) @ world[:3, :3].T + world[:3, 3]
                 setattr(bone, end, (point + shift(point[None])[0]) @ back[:3, :3].T + back[:3, 3])
     bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def group_share(obj, names):
+    """How much of each vertex follows those bones, from its weights."""
+    groups = {group.index for group in obj.vertex_groups if group.name in names}
+    share = np.zeros(len(obj.data.vertices))
+    for vertex in obj.data.vertices if groups else ():
+        share[vertex.index] = sum(item.weight for item in vertex.groups if item.group in groups)
+    return np.clip(share, 0, 1)
+
+
+def natural_build(meshes, rig, height, kit):
+    """The build of the kit's profile (`parle_build`): trunk, arms and legs get the widths found against a reference body. Run last, after the arms.
+    The head keeps its shape, the spine stays, and each arm and leg goes as a whole with its bones, so every clip still plays. No profile, no change."""
+    profile = parle_build.load_profile(kit)
+    if profile is None:
+        return False
+    bpy.context.view_layer.update()
+    back = np.array(rig.matrix_world.inverted())[:3, :3]
+    joints = {name: np.array(rig.matrix_world @ rig.data.bones[name].head_local) for name in parle_build.BONES}
+    field, rides = parle_build.build_field(profile, joints, height)
+    head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
+    for obj in meshes:
+        if not obj.vertex_groups:
+            continue
+        arms, top = {side: arm_share(obj, side) for side in parle_build.SIDES}, group_share(obj, head)
+        warp(obj, lambda points: points + field(points, arms, top))
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    moves = []
+    for name, ride in rides.items():
+        first, local = rig.data.edit_bones[name], ride @ back.T
+        # The collar bone ends where the arm starts.
+        moves += [(first.parent, "tail", np.array(first.parent.tail) + local)] if name.endswith("Arm") else []
+        for bone in [first] + list(first.children_recursive):
+            moves += [(bone, end, np.array(getattr(bone, end)) + local) for end in ("head", "tail")]
+    # Every end is read before any is written: a bone joined to its parent would otherwise move twice.
+    for bone, end, point in moves:
+        setattr(bone, end, point)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return True
 
 
 def garment_normal(name):
