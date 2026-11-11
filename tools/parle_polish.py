@@ -418,7 +418,8 @@ def natural_build(meshes, rig, height, kit):
     """The build of the kit's profile (`parle_build`): trunk, arms and legs get the widths found against a reference body. Run last, after the arms.
     The head keeps its shape, the spine stays, and each arm and leg goes as a whole with its bones, so every clip still plays. Cloth goes
     the way of the skin under it (`over_skin`). On the kits whose head grows against the body (`parle_build.head_ratio`), its bones grow
-    with it and the body comes back to the stature it had. No profile, no change."""
+    with it, and where the neck is shorter (`parle_build.neck_ratio`) the head and its bones come down; the body comes back to the
+    stature it had. No profile, no change."""
     profile = parle_build.load_profile(kit)
     if profile is None:
         return False
@@ -429,6 +430,9 @@ def natural_build(meshes, rig, height, kit):
     head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
     body = next((obj for obj in meshes if obj.name.split(".")[0] == "Body" and obj.vertex_groups), None)
     grow, stature = parle_build.head_ratio(profile.get("kit", "")), float(np.ptp(rest_points(body)[:, 2])) if body else 0.0
+    short = parle_build.neck_ratio(profile.get("kit", ""))
+    # The head comes down by what the neck loses, in the rig's own frame for its bones.
+    down = -(1 - short) * (joints["Head"] - joints["Neck"]) @ back.T
     skin, skin_arms = KDTree(len(body.data.vertices) if body else 0), {side: arm_share(body, side) for side in parle_build.SIDES} if body else {}
     for index, point in enumerate(rest_points(body) if body else ()):
         skin.insert(point, index)
@@ -436,10 +440,10 @@ def natural_build(meshes, rig, height, kit):
     for obj in meshes:
         if not obj.vertex_groups:
             continue
-        arms, top = {side: arm_share(obj, side) for side in parle_build.SIDES}, group_share(obj, head)
+        arms, top, mid = {side: arm_share(obj, side) for side in parle_build.SIDES}, group_share(obj, head), group_share(obj, {"Neck"})
         if body is not None and obj is not body:
             arms = over_skin(obj, arms, skin, skin_arms)
-        warp(obj, lambda points: points + field(points, arms, top))
+        warp(obj, lambda points: points + field(points, arms, top, mid))
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode="EDIT")
     moves = []
@@ -453,13 +457,15 @@ def natural_build(meshes, rig, height, kit):
     crown = rig.data.edit_bones["Head"]
     base = np.array(crown.head)
     for bone, ends in [(crown, ("tail",))] + [(child, ("head", "tail")) for child in crown.children_recursive]:
-        moves += [(bone, end, base + grow * (np.array(getattr(bone, end)) - base)) for end in ends]
+        moves += [(bone, end, base + grow * (np.array(getattr(bone, end)) - base) + down) for end in ends]
+    # And come down with it where the neck is shorter: the joint of the head, which is the end of the bone of the neck.
+    moves += [(crown, "head", base + down), (rig.data.edit_bones["Neck"], "tail", base + down)]
     # Every end is read before any is written: a bone joined to its parent would otherwise move twice.
     for bone, end, point in moves:
         setattr(bone, end, point)
     bpy.ops.object.mode_set(mode="OBJECT")
-    if grow != 1 and body is not None:
-        # A bigger head on the same body stands taller: the whole comes back to the stature it had, so it is the body that is smaller.
+    if (grow != 1 or short != 1) and body is not None:
+        # A bigger head on the same body stands taller, and a shorter neck lower: the whole comes back to the stature it had.
         rig.scale = [rig.scale[0] * stature / float(np.ptp(rest_points(body)[:, 2]))] * 3
         bpy.context.view_layer.update()
     return True

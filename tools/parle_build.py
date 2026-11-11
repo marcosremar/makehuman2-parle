@@ -43,8 +43,13 @@ GIRDLE_BELOW = 0.12
 # (Carlos: 6.6 cm between the eyes against 6.5, 10.5 cm from the eyes to the top against 10.7; Rafa 6.6 and 10.7). The women came out
 # 7.6 to 7.7 heads tall, with a head a quarter to a third smaller than Sofia's and the game's women (5.3 cm between the eyes against
 # 7.5 to 7.8) and small next to the man of the cast too. The owner saw it at 12 and at 25% more and took 12: the head, and all that
-# hangs on it, grows by that about its joint, and the body keeps its stature (`parle_polish.natural_build`).
-HEAD = {"female": 1.12}
+# hangs on it, grows by that about its joint, and the body keeps its stature (`parle_polish.natural_build`). Later the same day, with
+# the faces and the hair seen to: "a cabeça das mulheres poderia ter um pouco maior para ter mais aparência de cartoon e o pescoço um
+# pouco menor". A little more is 18%, between the two he had seen.
+HEAD = {"female": 1.18}
+# And the neck, from its joint to the head's, is 15% shorter on the women: the head comes down that much, and the skin of the neck
+# closes up with it, each point by how far up the neck it is. A choice by eye on a sheet of three (as it was, this, and 25% of each).
+NECK = {"female": 0.85}
 # Widths of the blends, as shares of the height or in metres: trunk to legs, left leg to right leg, upper arm to forearm, wrist to hand.
 # The trunk hands over to the legs across 10 cm: with a short band, a pelvis made deeper than the thighs left a ledge at the groin.
 CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
@@ -82,6 +87,11 @@ def trunk_param(z, joints):
 def head_ratio(kit):
     """How many times the size of the kit's own the head of a kit is, against its body."""
     return next((ratio for sex, ratio in HEAD.items() if str(kit).startswith(sex)), 1.0)
+
+
+def neck_ratio(kit):
+    """How many times the length of the kit's own the neck of a kit is, from its joint to the head's."""
+    return next((ratio for sex, ratio in NECK.items() if str(kit).startswith(sex)), 1.0)
 
 
 def share_over_skin(own, skin, away, near, far):
@@ -181,14 +191,20 @@ def build_field(profile, joints, height):
         return rides[side + "Arm"] + (1 - fore)[:, None] * ring(points, shoulder, elbow, depth, thick) + fore[:, None] * ring(points, elbow, wrist, depth, thick)
 
     grow = head_ratio(profile.get("kit", ""))
+    neck_way = joints["Head"] - joints["Neck"]
+    drop = (1 - neck_ratio(profile.get("kit", ""))) * neck_way
 
-    def field(points, arms, head):
+    def field(points, arms, head, neck=None):
         out = body(points)
         for side in SIDES:
             share = np.asarray(arms[side])[:, None]
             out = (1 - share) * out + share * arm(points, side)
         top = np.asarray(head)[:, None]
+        mid = np.zeros_like(top) if neck is None else np.asarray(neck)[:, None]
+        # How far up the neck each point is, from its joint to the head's: where the neck is shorter, the head comes down whole and
+        # what follows the bone of the neck by that share of the way.
+        along = np.clip((points - joints["Neck"]) @ neck_way / (neck_way @ neck_way), 0, 1)[:, None]
         # The head keeps its shape and, on the kits whose head grows, grows about its joint.
-        return (out + rise(points)) * (1 - top) + top * (grow - 1) * (points - joints["Head"])
+        return (out + rise(points)) * (1 - top) + top * (grow - 1) * (points - joints["Head"]) - np.clip(top + mid * along, 0, 1) * drop
 
     return field, rides

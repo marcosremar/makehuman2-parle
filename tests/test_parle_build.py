@@ -27,9 +27,9 @@ none = {side: np.zeros(len(cloud)) for side in parle_build.SIDES}
 zero = np.zeros(len(cloud))
 
 
-def shift(profile, points, arms=None, head=None):
+def shift(profile, points, arms=None, head=None, neck=None):
     field, _ = parle_build.build_field(profile, JOINTS, HEIGHT)
-    return field(points, arms or {side: np.zeros(len(points)) for side in parle_build.SIDES}, np.zeros(len(points)) if head is None else head)
+    return field(points, arms or {side: np.zeros(len(points)) for side in parle_build.SIDES}, np.zeros(len(points)) if head is None else head, neck)
 
 
 plain = parle_build.identity("test")
@@ -139,16 +139,25 @@ assert "arms = over_skin(obj, arms, skin, skin_arms)" in polish and "parle_build
 # The head against the body (2026-11-11). The aim is avatars like Rafa and Sofia, "mais estilo Disney", and the women of the cast had a head
 # a quarter to a third smaller than Sofia's and the game's women, where the men's is the game's. On the kits of women the head, and what
 # hangs on it, grows about its joint; the men's and the body under any head stay.
-assert parle_build.head_ratio("female-slim") == parle_build.head_ratio("female-muscled") == parle_build.HEAD["female"] > 1.1, "the women's head is the kit's again"
+assert parle_build.head_ratio("female-slim") == parle_build.head_ratio("female-muscled") == parle_build.HEAD["female"] > 1.15, "the women's head is the kit's again, or no bigger than the 12% that was too little"
 assert parle_build.head_ratio("male-slim") == 1.0 == parle_build.head_ratio("test"), "the men's head, which is the game's, changed size"
 lady, grown = parle_build.identity("female-test"), parle_build.head_ratio("female-test") - 1
 spots = JOINTS["Head"] + np.array([[0.05, -0.08, 0.1], [0.0, -0.06, -0.04], [0.05, -0.08, 0.1], [0.0, 0.0, 0.0]])
 moved = shift(lady, spots, head=np.array([1.0, 1.0, 0.5, 1.0]))
-assert np.allclose(moved[0], grown * np.array([0.05, -0.08, 0.1])) and np.allclose(moved[1], grown * np.array([0.0, -0.06, -0.04])), f"the head does not grow about its joint: {moved[:2]}"
-assert np.allclose(moved[2], moved[0] / 2) and np.abs(moved[3]).max() == 0, "the skin between the head and the neck does not go half way, or the joint moved"
+# The neck (2026-11-11, the same owner, later: "a cabeça das mulheres poderia ter um pouco maior para ter mais aparência de cartoon e o
+# pescoço um pouco menor"): shorter from its joint to the head's on the women, so the head, joint and all, comes down by what it lost.
+lost = (1 - parle_build.neck_ratio("female-test")) * (JOINTS["Head"] - JOINTS["Neck"])
+assert parle_build.neck_ratio("female-slim") == parle_build.NECK["female"] < 1 and parle_build.neck_ratio("male-slim") == 1.0 == parle_build.neck_ratio("test"), "whose neck is shorter"
+assert np.allclose(moved[0], grown * np.array([0.05, -0.08, 0.1]) - lost) and np.allclose(moved[1], grown * np.array([0.0, -0.06, -0.04]) - lost), f"the head does not grow about its joint and come down with it: {moved[:2]}"
+assert np.allclose(moved[2], moved[0] / 2) and np.allclose(moved[3], -lost), "the skin between the head and the neck does not go half way, or the joint of the head stayed where the long neck had it"
 assert np.abs(shift(lady, cloud)).max() == 0, "the body under the head moved with it"
+up = JOINTS["Neck"] + np.outer([0.0, 0.5, 1.0, 1.4, -0.3], JOINTS["Head"] - JOINTS["Neck"]) + (0.03, 0.0, 0.0)
+closed = shift(lady, up, neck=np.ones(5))
+assert np.allclose(closed, -np.outer([0.0, 0.5, 1.0, 1.0, 0.0], lost)), f"the skin of the neck does not close up by how far up the neck it is: {closed}"
+assert np.abs(shift(lady, up, neck=np.zeros(5))).max() == 0 and np.abs(shift(parle_build.identity("male-test"), up, neck=np.ones(5))).max() == 0, "what does not follow the neck moved, or a man's neck"
 polish = (Path(__file__).parent.parent / "tools" / "parle_polish.py").read_text()
 assert "parle_build.head_ratio(profile" in polish and "rig.scale = [rig.scale[0] * stature /" in polish, "the bones of the head do not grow with it, or the body does not keep its stature"
+assert "parle_build.neck_ratio(profile" in polish and 'rig.data.edit_bones["Neck"], "tail", base + down' in polish, "the bones do not come down with the head where the neck is shorter"
 
 # A profile comes back as it was saved; a kit without one has none.
 folder = tempfile.mkdtemp()
