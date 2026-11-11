@@ -24,6 +24,8 @@ GUM = np.array((112, 116, 196)) / 255  # BGR, the colour of a gum in daylight
 ROOT_SHADE = 0.9
 EDGE_SHADE = 0.8
 EDGE_SHARE = 0.1
+# A lower molar moves 40 % of what an incisor moves when the jaw opens (it sits near the hinge); an upper tooth does not move at all.
+JAW_SHARE = 0.15
 
 
 def parts(points, triangles):
@@ -72,8 +74,9 @@ def facing_out(points, triangles, centre):
     return (normal[:, :2] * out).sum(axis=1) >= 0
 
 
-def atlas(points, triangles):
-    """The UV of every corner, as (triangles, 3, 2) with v from the bottom (Blender's). Two halves per tooth and per gum: the outer faces and the inner ones."""
+def atlas(points, triangles, jaw=None):
+    """The UV of every corner, as (triangles, 3, 2) with v from the bottom (Blender's). Two halves per tooth and per gum: the outer faces and the inner ones.
+    `jaw`: how far each point moves when the jaw opens. The lower arch is what the jaw carries; without it, the arch comes from the gums."""
     label = parts(points, triangles)
     centre = arch_centre(points)
     ids, counts = np.unique(label, return_counts=True)
@@ -83,9 +86,10 @@ def atlas(points, triangles):
     gum_order = sorted(gums, key=lambda part: -points[label == part, 2].mean())
     gum_points = [points[label == part] for part in gum_order]
 
-    def arch_of(part):
+    def nearness(part, gum):
         mine = points[label == part]
-        return int(np.argmin([np.linalg.norm(mine[:, None] - other[None], axis=2).min(axis=1).mean() for other in gum_points]))
+        return float(np.linalg.norm(mine[:, None] - gum[None], axis=2).min(axis=1).mean())
+
     out = facing_out(points, triangles, centre)
     owner = label[triangles[:, 0]]
     uv = np.zeros((len(triangles), 3, 2))
@@ -99,7 +103,18 @@ def atlas(points, triangles):
         pixels[chosen, :, 0] = box(across, left, left + width, members=members)[corners]
         pixels[chosen, :, 1] = box(-up, top, top + height, members=members)[corners]
 
-    arches = {part: arch_of(part) for part in teeth} if len(gum_points) == TOOTH_ROWS else None
+    arches = None
+    if jaw is not None and np.max(jaw) > 0:
+        # The jaw carries the lower teeth and nothing else: by height or by the nearest gum, the cast's incisors of both arches fell in one row
+        # and three molars past the sixteenth got no cell (2026-11-11).
+        carried = np.asarray(jaw) > JAW_SHARE * np.max(jaw)
+        arches = {part: int(carried[label == part].mean() > 0.5) for part in teeth}
+    elif len(gum_points) == TOOTH_ROWS:
+        # Half the teeth per arch, the ones nearest their gum against the other: a lone nearest gum put 19 teeth on the lower arch of the cast and
+        # the three past the sixteenth got no cell.
+        lean = {part: nearness(part, gum_points[0]) - nearness(part, gum_points[1]) for part in teeth}
+        upper = set(sorted(teeth, key=lambda part: lean[part])[:len(teeth) // 2])
+        arches = {part: 0 if part in upper else 1 for part in teeth}
     middle = float(np.median([points[label == part, 2].mean() for part in teeth]))
     for arch in range(TOOTH_ROWS):
         own = [part for part in teeth if (arches[part] == arch if arches else (points[label == part, 2].mean() > middle) == (arch == 0))]

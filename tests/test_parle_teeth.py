@@ -116,3 +116,17 @@ for index, arch in enumerate(carch):
     assert cols.max() - cols.min() > 0.6 * teeth.TOOTH_W, f"tooth {index} must fill its cell across: {cols.max() - cols.min():.1f} px of {teeth.TOOTH_W}"
     assert rows.max() - rows.min() > 0.6 * teeth.TOOTH_H, f"tooth {index} must fill its cell up and down: {rows.max() - rows.min():.1f} px of {teeth.TOOTH_H}"
 print("ok celula cheia")
+
+# No elenco, a gengiva mais perto ainda punha os incisivos de baixo na fileira de cima (os dois arcos se encostam na frente): quem diz o arco é a
+# mandíbula. Os pontos que o jawOpen leva são o arco de baixo.
+jaw = np.zeros(len(cpoints))
+for index, arch in enumerate(carch):
+    jaw[index * 8:index * 8 + 8] = 0.02 * arch
+lower_gum = cpoints[:, 2] < 0
+jaw[64:][lower_gum[64:]] = 0.02
+juv = teeth.atlas(cpoints, ctriangles, jaw)
+for index, arch in enumerate(carch):
+    mine = cowner == teeth.parts(cpoints, ctriangles)[index * 8]
+    rows = (1 - juv[mine, :, 1]) * teeth.SIZE
+    assert arch * teeth.TOOTH_H - 1 <= rows.min() and rows.max() <= (arch + 1) * teeth.TOOTH_H + 1, f"with the jaw, tooth {index} left arch {arch}"
+print("ok mandibula")

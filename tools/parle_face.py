@@ -491,10 +491,12 @@ def tongue_follows_jaw(meshes):
 
 def teeth_atlas(teeth):
     """Gives the teeth the atlas `parle_teeth.tooth_map` paints: every polygon corner, from the rest shape."""
-    rest = key_points(teeth.data.shape_keys.key_blocks[0])
+    keys = teeth.data.shape_keys.key_blocks
+    rest = key_points(keys[0])
+    jaw = np.linalg.norm(key_points(keys["jawOpen"]) - rest, axis=1) if "jawOpen" in keys else None
     loops = [(polygon.loop_indices[0], second, third) for polygon in teeth.data.polygons for second, third in zip(polygon.loop_indices[1:], polygon.loop_indices[2:])]
     corners = np.array([[teeth.data.loops[index].vertex_index for index in triangle] for triangle in loops])
-    atlas = parle_teeth.atlas(rest, corners)
+    atlas = parle_teeth.atlas(rest, corners, jaw)
     target = teeth.data.uv_layers.active.data
     for triangle, uv in zip(loops, atlas):
         for index, value in zip(triangle, uv):
