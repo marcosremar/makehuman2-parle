@@ -130,3 +130,8 @@ for index, arch in enumerate(carch):
     rows = (1 - juv[mine, :, 1]) * teeth.SIZE
     assert arch * teeth.TOOTH_H - 1 <= rows.min() and rows.max() <= (arch + 1) * teeth.TOOTH_H + 1, f"with the jaw, tooth {index} left arch {arch}"
 print("ok mandibula")
+
+# Prateado e riscado no player (11/11/2026): o marfim tinha azul alto e a linha entre dentes caía a 0,8, que o filtro alargava em barra escura.
+assert edge.mean() > 0.9 * centre.mean(), f"the line between teeth is a hint, not a bar: {edge} against {centre}"
+assert centre[0] < 0.8 * centre[2], f"ivory leans warm (blue well under red): {centre}"
+print("ok marfim")

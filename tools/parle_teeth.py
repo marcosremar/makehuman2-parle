@@ -18,11 +18,13 @@ MARGIN = 0.08
 # Sizes of the parts, in welded points: a tooth has 22, a gum over 200.
 GUM_LEAST = 100
 BEHIND_ARCH_M = 0.03
-IVORY = np.array((0.80, 0.90, 0.95))  # BGR
+# Warmer than paper white: behind the upper lip the tooth gets only the cool room light, and at 0.80 blue it read silver in the player (2026-11-11).
+IVORY = np.array((0.72, 0.87, 0.96))  # BGR
 GUM = np.array((112, 116, 196)) / 255  # BGR, the colour of a gum in daylight
 # A tooth is a little warmer towards the gum, and a thin darker line keeps it from melting into the next one. Measured by eye in the player: a design choice to pilot.
+# At 0.8 the line, once the player's filter spread it, drew a dark bar between every two teeth: braces (2026-11-11).
 ROOT_SHADE = 0.9
-EDGE_SHADE = 0.8
+EDGE_SHADE = 0.93
 EDGE_SHARE = 0.1
 # A lower molar moves 40 % of what an incisor moves when the jaw opens (it sits near the hinge); an upper tooth does not move at all.
 JAW_SHARE = 0.15
