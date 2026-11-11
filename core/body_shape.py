@@ -54,6 +54,19 @@ GAIN = (1.3, 1.0)
 # bands across the back. On the front only what is smooth over this share of the height goes: the step under the pectorals is the same
 # from one side to the other, and with all of it out the plates never came through, only the mounds in the middle (2026-11-11).
 POSTURE_SHARE = (0.15, 0.0)
+# A man's nipples. They sit between these heights, in shares of crotch to neck pit (not the levels of the chart, which move with the
+# armpit: on a body whose arms hang closer the nipple fell out of the band), and these distances from the midline, in half widths of
+# the trunk: higher and further out is the fold in front of the armpit, a ridge that has to stay. A nipple stands this far in front of the skin smoothed
+# NIPPLE_RINGS rings around, in shares of crotch to neck pit (2.5 mm; a chest that curves gives under 1 mm). The patch laid again around
+# it is this wide to each side (2.5 cm, the cone and the ring around it), and this share of the bump comes back. A step that only pulled
+# the tip back to its neighbours left the cone as a flat-topped bump (2026-11-11).
+NIPPLE_LEVELS = (0.55, 0.72)
+NIPPLE_SIDES = (0.25, 0.85)
+NIPPLE_RINGS = 3
+NIPPLE_PEAK = 0.005
+NIPPLE_PATCH = 0.045
+NIPPLE_KEPT = 0.2
+NIPPLE_ROUNDS = 60
 # The flanks belong to the profile of the kit, which sets the width of the trunk level by level: the relief is whole up to the first
 # of these and gone at the second, in half widths of the trunk from the midline.
 EDGE = (0.8, 1.0)
@@ -241,6 +254,40 @@ def muscles(count):
     return sum(read_target(path, count) for path in MUSCLES)
 
 
+def without_peaks(points, depth, edges, where, span, centre=0.0):
+    """`depth` (y, the front of the body at the smaller values) with the nipple of each side of `where` taken down.
+
+    The base mesh models a nipple as a cone with a blunt tip, two or three rings of vertices wide, so no single point is its peak. It is
+    found as what stands furthest in front of the same skin smoothed a few rings around, on each side of `centre`, when that is more than
+    NIPPLE_PEAK of `span`. The patch around it, NIPPLE_PATCH of `span` to each side, is laid again as the skin that joins its rim (each
+    point the mean of its neighbours), and a share of the bump comes back so the chest is not ironed flat."""
+    depth = np.asarray(depth, float).copy()
+    near = [[] for _ in range(len(depth))]
+    for a, b in edges:
+        near[a].append(b)
+        near[b].append(a)
+    inside = np.array([index for index in np.flatnonzero(where) if near[index]], dtype=int)
+    if not len(inside):
+        return depth
+    smooth = depth.copy()
+    for _ in range(NIPPLE_RINGS):
+        smooth[inside] = [np.mean(smooth[near[index]]) for index in inside]
+    bump = smooth - depth
+    for side in (points[inside, 0] >= centre, points[inside, 0] < centre):
+        if not side.any():
+            continue
+        tip = inside[side][np.argmax(bump[inside[side]])]
+        if bump[tip] < NIPPLE_PEAK * span:
+            continue
+        flat = np.hypot(points[inside, 0] - points[tip, 0], points[inside, 2] - points[tip, 2])
+        patch = inside[flat < NIPPLE_PATCH * span]
+        laid = depth.copy()
+        for _ in range(NIPPLE_ROUNDS):
+            laid[patch] = [np.mean(laid[near[index]]) for index in patch]
+        depth[patch] = laid[patch] + NIPPLE_KEPT * np.clip(depth[patch] - laid[patch], None, 0)
+    return depth
+
+
 def moulded(points, faces, relief, trunk, strength=1.0, soft=0):
     """The muscles of the sculpture in the place of the body's own, as depth on the front and on the back.
 
@@ -277,4 +324,8 @@ def moulded(points, faces, relief, trunk, strength=1.0, soft=0):
     print("MOLDE marcos", np.round(marks, 3), "axila", np.round(pits, 3), "relevo", round(float(np.abs(detail).max()) * 1000, 1), "mm")
     shift = np.zeros((len(merged), 3))
     shift[:, 1] = np.where(back, detail, -detail)
+    # The base mesh models a man's nipples as cones 6 to 9 mm tall: bare-chested they stood out as points, and under a T-shirt they marked the cloth.
+    height = (merged[:, 2] - marks[2]) / span
+    chest = (~back) & (np.abs(side) > NIPPLE_SIDES[0]) & (np.abs(side) < NIPPLE_SIDES[1]) & (height > NIPPLE_LEVELS[0]) & (height < NIPPLE_LEVELS[1]) & (bones > 0.3)
+    shift[:, 1] = without_peaks(merged, merged[:, 1] + shift[:, 1], edges, chest, span, marks[0]) - merged[:, 1]
     return shift[twin]

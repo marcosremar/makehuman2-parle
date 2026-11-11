@@ -34,7 +34,8 @@ profiles = sorted(path for path in (ROOT / "data" / "parle_build").glob("*.json"
 assert len(profiles) == 6, f"a profile per kit: {[path.name for path in profiles]}"
 for path in profiles:
     arm_out = json.load(open(path))["arm_out"]
-    assert abs(arm_out) < body_match.ARM_OUT_LIMIT, f"{path.name} holds the arms at the limit: {arm_out}"
+    assert abs(arm_out) <= body_match.ARM_OUT_LIMIT + 1e-9, f"{path.name} moves the arms further than the limit: {arm_out}"
+assert body_match.ARM_OUT_LIMIT <= 0.005, "the arm moves on its own again: 3 cm into the trunk pinched the skin between the arm and the shoulder (2026-11-11)"
 
 # The shoulder line (2026-11-11): no ratio moved it, and the muscled man's stood 16 to 40 mm under the reference body's. The loop now lifts it
 # where the reference's line stands higher, by a share of the height, and stops at the limit; a body without the rows is left as it is.

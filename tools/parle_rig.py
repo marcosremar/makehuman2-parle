@@ -9,6 +9,18 @@
       still the shoulders sat 2 cm in front of the neck (owner, 2026-11-07). In height it goes only half
       way, because all the way the shoulders came up 2.5 cm and the person looked hunched. It also turns back a little more than the
       game's: seen from above the tips of the shoulders still curved forward, standing still, on a body that has a deeper chest (owner, 2026-11-09).
+      With the arms copied from Rafa and Sofia (2026-11-11) that turn was left over: standing still it held the clavicle 7 to 16 degrees
+      back and up from where it was modelled, and the skin around it went along. The shoulder stood as a high square mass with a deep
+      groove between the arm and the chest, where at rest it is round (owner: "os ombros do homem estão jogados para frente e a dobra
+      entre o braço e o ombro está estranha"). Now the clavicle is pointed so that, when the body it copies stands still, ours is exactly
+      where it was modelled, and the clip moves it from there.
+    - Standing, the head sits over the ankles (owner, 2026-11-11: "os ombros do homem estão jogados para frente"). The spine keeps its own
+      rest, and with the game's clips on it the cast stooped: in the idle clip the middle of the head stood 2.7 to 2.9% of the height in
+      front of the ankles (5 cm), where Rafa holds his 0.8% behind them and Sofia hers 1.9% behind. On the bodies the owner gave as
+      reference, standing at rest, it is between 1.5% behind and 2.7% in front. The three bones of the spine share a lean back that
+      brings the head to HEAD_AHEAD, measured on each body in its own idle clip: the chest opens and the shoulders come back over the
+      hips. The neck, the head and the arms keep their own direction. Leaning by the game's old body instead (its hips-to-neck line)
+      worked on the men and sent the women further forward: their old bodies are not Rafa's.
     - Each finger phalanx points as in the game: MakeHuman rests with the fingers half curled and spread, the
       game (Mixamo) with them straight, and the clip's curl came on top of ours. Pointing, the hand closed into a
       claw: 64 degrees of curl against 38, and the index and little finger 52 degrees apart against 18 (2026-11-08,
@@ -28,6 +40,8 @@
       Unity player has no step that takes the hand out of the body, so the clip has to bring it out: the arms open about the shoulder until
       the standing clips have his gap.
 """
+import math
+
 from mathutils import Quaternion, Vector
 
 FINGERS = tuple(f"Hand{finger}{joint}" for finger in ("Thumb", "Index", "Middle", "Ring", "Pinky") for joint in (1, 2, 3))
@@ -37,14 +51,36 @@ SHOULDER_HEIGHT_SHARE = 0.5
 SHOULDER_BACK = 0.16
 
 
-def rest_turn(name, old_dir, new_dir):
-    """The turn that points our bone like the game's, or None when this bone keeps its own rest."""
+def rest_turn(name, old_dir, new_dir, standing=None):
+    """The turn that points our bone like the game's, or None when this bone keeps its own rest. `standing` is the turn the clavicle gets
+    from the clip when the body it copies the arms from stands still, in the space of the skeleton, when there is such a body."""
     if name not in old_dir or name not in new_dir or not name.endswith(ALIGNED):
         return None
     wanted = old_dir[name]
-    if name.endswith("Shoulder"):
+    if name.endswith("Shoulder") and standing is not None:
+        # Standing still, our clavicle rests where it was modelled: the clip's own turn, undone.
+        wanted = standing.inverted() @ new_dir[name]
+    elif name.endswith("Shoulder"):
         wanted = Vector((wanted.x, wanted.y + SHOULDER_BACK, new_dir[name].z + (wanted.z - new_dir[name].z) * SHOULDER_HEIGHT_SHARE)).normalized()
     return new_dir[name].rotation_difference(wanted)
+
+
+SPINE = ("Spine", "Spine1", "Spine2")
+# Where the middle of the head stands in front of the ankle joints, standing still, as a share of the height: the plumb line of a
+# standing body runs from the ear to just in front of the ankle bone (Kendall, McCreary & Provance, 1993, Muscles: Testing and Function,
+# 4th ed., Williams & Wilkins), about 1.5 cm on an adult. Between Rafa's and Sofia's (behind the ankle) and the reference bodies at rest.
+HEAD_AHEAD = 0.008
+# Past this the difference is between two rigs, not between two postures.
+LEAN_MOST = math.radians(9)
+
+
+def trunk_lean(ahead, reach):
+    """The turn of each bone of the spine that brings the head over the ankles. `ahead` is how far in front of the ankles the middle of the
+    head stands in the idle clip with no lean, and `reach` the mean height of the head over the three bones of the spine, both as shares of
+    the height. The turn is about the axis that runs from side to side (z up, the front of the body at -y), counted from the bottom, so the
+    last bone holds all of it. A body that already stands behind the mark is left as it is."""
+    angle = max(0.0, min(LEAN_MOST, math.atan2(ahead - HEAD_AHEAD, reach)))
+    return {name: Quaternion((1.0, 0.0, 0.0), -angle * (index + 1) / len(SPINE)) for index, name in enumerate(SPINE)}
 
 
 ARM_ROOT = "Spine2"

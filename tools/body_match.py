@@ -34,7 +34,14 @@ BLENDER = os.environ.get("BLENDER", "/Applications/Blender-4.5-LTS.app/Contents/
 # club, so arms and legs stay within 15%. A ratio that follows the reference ring by ring leaves steps, so each round smooths `SOFT` times.
 LIMITS, LIMB_LIMITS, NECK_LIMITS, NECK_FROM_W, TAPER = (0.72, 1.25), (0.85, 1.15), (0.9, 1.15), 0.85, 0.5
 STEP, SOFT = 0.8, 3
-ARM_OUT_LIMIT = 0.03
+# How far the arm moves out or in on its own, as a share of the height. It was 3%: the muscled man had the arms drawn 3 cm into the trunk
+# to match the width across the arms, and the slim woman 1.7 cm. Only the arm's skin moves, so the skin between the arm and the shoulder
+# was pinched into a fold, and the muscled man ended with shoulders narrower than the slim one's (owner, 2026-11-11: "a dobra entre o
+# braço e o ombro está estranha"). The width of the shoulders is now the trunk's, level by level, and the arm keeps to a few millimetres.
+ARM_OUT_LIMIT = 0.004
+# The shoulder rows that set the width of the trunk above the armpit, as shares of armpit to neck: the row at the armpit itself is the
+# chest's, which the torso rows already give, and above 0.45 the row is cut over the tip of the shoulder.
+SHOULDER_TRUNK = (0.15, 0.45)
 # The shoulder line goes up by a share of the height, not by a ratio: 2% is 35 mm on a man of 1.75 m, a trapezius, and more is a hump. It
 # never goes down: the measure asked the slim man's line 7 to 18 mm lower, more at the tip, and next to his reference, whose shoulders are
 # square, he stood with the shoulders of a bottle. The rise is read from the armpit, and his armpit sits lower than the reference's.
@@ -93,8 +100,10 @@ def update(profile, found, frame, reference):
     level = lambda z: (height(z) - hip) / (neck - hip)
     for curve, field, neck_field in (("trunk_x", "width", "neck_width"), ("trunk_y", "depth", "neck_depth")):
         pairs = rows(found, reference, "torso", field)
-        params = [level(row["z"]) for row, _, _ in pairs] + [level(found["neck"])]
-        ratios = [want / have for _, have, want in pairs] + [reference[neck_field] / found[neck_field]]
+        # Above the armpit the width of the trunk is the width of the shoulders, read across the arms: the arms ride with their joints.
+        girdle = [item for item in rows(found, reference, "shoulder", "width") if SHOULDER_TRUNK[0] <= item[0]["k"] <= SHOULDER_TRUNK[1]] if curve == "trunk_x" else []
+        params = [level(row["z"]) for row, _, _ in pairs + girdle] + [level(found["neck"])]
+        ratios = [want / have for _, have, want in pairs + girdle] + [reference[neck_field] / found[neck_field]]
         profile[curve] = pull(curve, profile[curve], params, ratios)
     for curve, field in (("leg_x", "width"), ("leg_y", "depth")):
         pairs = rows(found, reference, "leg", field)

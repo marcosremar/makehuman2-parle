@@ -46,6 +46,31 @@ assert still.angle < 1e-6, "an arm at rest on Rafa is not at rest on us"
 gap = Quaternion((0, 1, 0), 0.1)
 assert arm_turn(ours, lean, lean @ out, gap).rotation_difference(ours @ out @ gap).angle < 1e-5
 
+# Standing still, the clavicle rests where it was modelled (2026-11-11): the turn left over from the old clips held it 7 to 16 degrees back
+# and up, and the shoulder stood as a square mass with a groove in front of the arm.
+ours = {"LeftShoulder": Vector((1, -0.05, -0.5)).normalized()}
+game = {"LeftShoulder": Vector((1, 0.25, -0.05)).normalized()}
+clip = Quaternion((0, 0, 1), -0.28) @ Quaternion((0, 1, 0), 0.2)  # what the clip turns the clavicle by when Rafa stands still
+turn = rest_turn("LeftShoulder", game, ours, clip)
+assert (clip @ (turn @ ours["LeftShoulder"]) - ours["LeftShoulder"]).length < 1e-5, "standing still, the clavicle is not where it was modelled"
+assert (rest_turn("LeftShoulder", game, ours) @ ours["LeftShoulder"]).y > 0.1, "without a body to copy, the clavicle no longer points as in the game"
+assert rest_turn("LeftArm", {"LeftArm": Vector((1, 0, 0))}, {"LeftArm": Vector((0, 0, -1))}, clip).angle > 1.5, "the arm stopped pointing as in the game"
+
+# Standing, the head sits over the ankles (2026-11-11): with the game's clips on our spine the cast stooped, the head 5 cm in front of the ankles.
+import math  # noqa: E402
+
+from parle_rig import HEAD_AHEAD, LEAN_MOST, trunk_lean  # noqa: E402
+
+reach = 0.3
+lean = trunk_lean(0.029, reach)
+assert list(lean) == ["Spine", "Spine1", "Spine2"]
+whole = lean["Spine2"].angle
+assert abs(math.tan(whole) * reach - (0.029 - HEAD_AHEAD)) < 2e-4, "the lean does not bring the head back to its mark"
+assert abs(lean["Spine"].angle * 3 - whole) < 1e-3 and abs(lean["Spine1"].angle * 3 - whole * 2) < 1e-3, "the three bones do not share the turn"
+assert (lean["Spine2"] @ Vector((0, 0, 1))).y > 0, "the trunk leans forward"
+assert trunk_lean(HEAD_AHEAD - 0.01, reach)["Spine2"].angle < 1e-3, "a body that already stands behind the mark was pushed"
+assert abs(trunk_lean(0.5, reach)["Spine2"].angle - LEAN_MOST) < 1e-3, "the lean has no ceiling"
+
 # Each body keeps Rafa's gap between the arm and the body (2026-11-11): the muscled man's forearm sank into the trunk and Lúcia's hand brushed the hip.
 from parle_rig import ARM_GAP_M, ARM_OPENING_MOST, arm_opening, arm_spots, opened, skin_gap  # noqa: E402
 

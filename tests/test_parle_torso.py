@@ -68,6 +68,23 @@ with tempfile.TemporaryDirectory() as folder:
     assert done.returncode == 0, done.stderr[-600:]
     assert np.abs(np.load(mesh) - base).max() == 0 and np.abs(np.load(shift)).max() == 0, "the slim man's shoulders grew"
 
+# A man's nipples (2026-11-11): the base mesh models them as cones 6 to 9 mm tall and two rings of vertices wide. Bare-chested they stood out
+# as points. The cone comes down to a fifth of its height with the ring around it; outside the chest nothing moves, and a chest that only curves stays.
+side, step, span = 21, 0.005, 0.5
+grid = np.arange(side * side).reshape(side, side)
+edges = np.concatenate([np.stack([grid[:, :-1].ravel(), grid[:, 1:].ravel()], axis=1), np.stack([grid[:-1].ravel(), grid[1:].ravel()], axis=1)])
+ys, xs = np.mgrid[:side, :side]
+spots = np.stack([(xs.ravel() - 10) * step + 0.1, np.zeros(side * side), (ys.ravel() - 10) * step], axis=1)  # one side of the chest
+far = np.hypot(spots[:, 0] - 0.1, spots[:, 2])
+cone = -np.clip(0.007 - np.clip(far - 0.004, 0, None) * 0.9, 0, None)  # 7 mm tall with a blunt tip: out is the smaller depth, the front of the body is -y
+everywhere = np.ones(side * side, bool)
+laid = body_shape.without_peaks(spots, cone, edges, everywhere, span)
+assert -0.0018 < laid.min() < 0, f"the nipple is still a point: {laid.min() * 1000:.1f} mm"
+assert np.abs(laid[far > body_shape.NIPPLE_PATCH * span + step]).max() == 0, "the skin around the patch moved"
+assert np.abs(body_shape.without_peaks(spots, cone, edges, ~everywhere, span) - cone).max() == 0, "a point outside the chest was moved"
+dome = -np.sqrt(0.5 ** 2 - far ** 2)
+assert np.abs(body_shape.without_peaks(spots, dome, edges, everywhere, span) - dome).max() == 0, "a chest that only curves was flattened"
+
 source = (ROOT / "tools" / "chest_shape.py").read_text()
 assert "delta" not in source and "pectoral" not in source, "the step takes the sculpture out of the trunk again"
 print("torso: the step adds", len(body_shape.MUSCLES), "targets and", int(touched(added).sum()), "vertices move")
