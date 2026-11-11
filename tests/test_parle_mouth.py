@@ -53,12 +53,16 @@ assert abs(wet[0, 0, 0] - mouth.WINE[0]) < 1e-3, "a shaded dark texel must rise 
 assert abs((mouth.wine_for(0.1) @ mouth.LUMA) - mouth.LIP_SHARE * 0.1) < 1e-6, "a dark lip must scale the floor"
 assert np.allclose(mouth.wine_for(0.9), mouth.WINE), "a light lip keeps the floor"
 
-# The body's inside of the mouth: never lighter than the map it had, and at most the floor; lit texels unchanged.
-dark_skin = np.dstack([np.full((4, 4), v, np.float32) for v in (0.2, 0.15, 0.13, 1.0)])
-inside = mouth.darken(dark_skin, np.full((4, 4), 0.5, np.float32), wine=mouth.WINE, inside=True)
-assert (inside[:, :, :3] < dark_skin[:, :, :3]).all(), "dark skin must stay below the map it had"
+# The body's inside of the mouth is wet mucosa, warm dark red, whatever the map had (2026-11-11: the skin map paints the mouth island near black,
+# and the corners of an open mouth read as black wedges once the teeth turned white). Deeper is darker; lit texels unchanged.
+black_skin = np.dstack([np.full((4, 4), v, np.float32) for v in (0.03, 0.02, 0.02, 1.0)])
+deep = mouth.darken(black_skin, np.full((4, 4), mouth.MARK_INSIDE, np.float32), wine=mouth.WINE, inside=True)[0, 0, :3]
+lip_side = mouth.darken(black_skin, np.full((4, 4), 0.99, np.float32), wine=mouth.WINE, inside=True)[0, 0, :3]
+assert deep[0] > 0.2 and deep[0] > 1.6 * deep[1] and deep[0] > 1.6 * deep[2], f"the back of the mouth is dark red, not black: {deep}"
+assert (lip_side @ mouth.LUMA) > (deep @ mouth.LUMA) * 1.5 and (deep @ mouth.LUMA) < 0.25, f"the inner lip is lighter than the back, the back stays dark: {lip_side} {deep}"
+dark_wine = mouth.wine_for(0.1)
+assert (mouth.darken(black_skin, np.full((4, 4), 0.99, np.float32), wine=dark_wine, inside=True)[0, 0, :3] @ mouth.LUMA) < 0.1, "dark skin keeps a dark mouth"
 light_skin = np.dstack([np.full((4, 4), v, np.float32) for v in (0.8, 0.5, 0.4, 1.0)])
-assert np.allclose(mouth.darken(light_skin, np.full((4, 4), 0.5, np.float32), wine=mouth.WINE, inside=True)[0, 0, :3], np.minimum(light_skin[0, 0, :3] * mouth.BODY_CEILING, mouth.WINE)), "the floor applies"
 assert np.allclose(mouth.darken(light_skin, np.ones((4, 4), np.float32), wine=mouth.WINE, inside=True), light_skin), "an uncovered texel must not change"
 
 # A small pink mark on an incisor is not a gum.
@@ -85,6 +89,14 @@ piece_uv = np.full((len(points), 2), (0.8, 0.9), float)
 inside_of = mouth.body_inside(points, piece_uv, inner_box, all_triangles)
 assert inside_of[:20].all() and not inside_of[20:].any(), "the mouth is its own piece of the island: all of it, of any depth, and not the nape"
 assert not mouth.body_inside(points, np.full((len(points), 2), (0.5, 0.5), float), inner_box, all_triangles).any(), "outside the island nothing is the inside of the mouth"
+# The inner lip, in front of the teeth on the same piece, is mucosa too (the black ring and corners of 2026-11-11); the nape is not.
+lip_points = np.vstack([points, [[0.0, inner_box[0, 1] - 0.004, 1.38], [0.01, inner_box[0, 1] - 0.004, 1.38]]])
+lip_triangles = np.vstack([all_triangles, [[0, 23, 24], [0, 24, 10]]])
+lip_uv = np.full((len(lip_points), 2), (0.8, 0.9), float)
+piece = mouth.mouth_piece(lip_points, lip_uv, inner_box, lip_triangles)
+assert piece[23:].all() and piece[:20].all() and not piece[20:23].any(), f"the mouth piece holds the inner lip and not the nape: {piece}"
+shade = mouth.mucosa_shade(lip_points, inner_box, piece)
+assert shade[23] > shade[1] > shade[3] and shade[20] == 1.0, f"lighter at the lip, darker deep, untouched off the piece: {shade}"
 assert abs(mouth.grow(np.full((3, 3), np.nan, np.float32), 1, fill=1.0)[0, 0] - 1.0) < 1e-6, "an uncovered map must stay as it was"
 tri_inside = np.array([True, False, False, False, False])
 tri_uv = np.array([[0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.8, 0.9], [0.5, 0.5]], float)

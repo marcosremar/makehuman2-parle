@@ -560,7 +560,8 @@ def shade_inside_of_mouth(body, teeth_rest, wine):
     for loop in body.data.loops:
         uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
     triangles = np.array([(polygon.vertices[0], second, third) for polygon in body.data.polygons for second, third in zip(polygon.vertices[1:], polygon.vertices[2:])])
-    shade_map_of(body, np.full(len(rest), parle_mouth.MARK_INSIDE), only=parle_mouth.body_inside(rest, uv, teeth_rest, triangles), wine=wine, inside=True)
+    piece = parle_mouth.mouth_piece(rest, uv, teeth_rest, triangles)
+    shade_map_of(body, parle_mouth.mucosa_shade(rest, teeth_rest, piece), only=piece, wine=wine, inside=True)
 
 
 def weld_seams(body):

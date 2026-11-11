@@ -33,6 +33,13 @@ LIP_MOVE_SHARE = 0.45
 LIP_SHARE = 0.8
 # The body's inside of the mouth is never as light as the map it had: on dark skin it was already dark and must stay below it.
 BODY_CEILING = 0.85
+# The inside of the mouth is wet mucosa, warm dark red, not black: the skin map paints the whole mouth island near black, and once the teeth turned
+# white the corners of an open mouth read as black wedges and the inner lip as a dark ring, smeared lipstick (owner, scoreboard of 2026-11-11).
+# The colour is this body's wine (it already scales with the lip, so dark skin stays dark), deeper at the back: `MUCOSA_DEEP` of it 35 mm behind
+# the front of the teeth, `MUCOSA_FRONT` on the inner lip in front of them. Calibrated by eye in the player, no source: a design choice to pilot.
+MUCOSA_FRONT = 1.2
+MUCOSA_DEEP = 0.55
+MUCOSA_DEPTH_M = 0.035
 # A gum is a wide area of the map. The small pink marks painted on the incisors are not, and shaded as gum they read as wine flecks on the teeth.
 GUM_OPEN_PX = 10
 MARK_INSIDE = 0.5
@@ -134,6 +141,29 @@ def body_inside(body, uv, teeth, triangles):
     return near & (pieces == pieces[seed])
 
 
+def mucosa_gain(shade):
+    """`shade` of an inside texel, from `MARK_INSIDE` (deep) to just under 1 (the inner lip), as a gain on the wine."""
+    t = np.clip((np.asarray(shade, np.float32) - MARK_INSIDE) / (1.0 - MARK_INSIDE), 0.0, 1.0)
+    return MUCOSA_DEEP + (MUCOSA_FRONT - MUCOSA_DEEP) * t
+
+
+def mouth_piece(body, uv, teeth, triangles):
+    """The whole piece of the island the inside of the mouth sits on, the inner lip in front of the teeth included: left out, its texels kept the
+    near-black of the skin map and drew the corners of an open mouth (2026-11-11)."""
+    inside = body_inside(body, uv, teeth, triangles)
+    if not inside.any():
+        return inside
+    pieces = connected(len(body), triangles[skin_island(uv)[triangles].all(axis=1)])
+    return skin_island(uv) & (pieces == pieces[np.where(inside)[0][0]])
+
+
+def mucosa_shade(body, teeth, piece):
+    """The shade that `darken(inside=True)` reads: just under 1 on the inner lip, down to `MARK_INSIDE` at `MUCOSA_DEPTH_M` behind the teeth's front;
+    1 (untouched) off the piece."""
+    behind = np.clip((body[:, 1] - teeth[:, 1].min()) / MUCOSA_DEPTH_M, 0.0, 1.0)
+    return np.where(piece, 0.99 - (0.99 - MARK_INSIDE) * behind, 1.0)
+
+
 def body_triangles(triangles, inside, uv):
     """Triangles that take the shade: any corner inside the mouth, none outside its island. With all three corners required, the triangle
     behind the incisors with one point off the box stayed an orange block; the island keeps it from reaching the outer skin."""
@@ -201,7 +231,7 @@ def darken(pixels, shade, gums=False, wine=None, inside=False):
     rgb = out[:, :, :3]
     if inside:
         covered = (shade < 1.0)[:, :, None]
-        out[:, :, :3] = np.where(covered, np.minimum(rgb * BODY_CEILING, wine), rgb)
+        out[:, :, :3] = np.where(covered, np.clip(np.asarray(wine)[None, None] * mucosa_gain(shade)[:, :, None], 0.0, 1.0), rgb)
         return out
     gum = gum_of(rgb) if gums else None
     if gums:
