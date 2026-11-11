@@ -48,6 +48,18 @@ assert rest_turn("LeftArm", {"LeftArm": Vector((1, 0, 0))}, {"LeftArm": Vector((
 from parle_rig import clavicle_as_modelled  # noqa: E402
 
 assert clavicle_as_modelled("male-slim") and clavicle_as_modelled("male-muscled"), "the men's shoulder is square again"
+# The women's (2026-11-11). Where it was modelled, their clavicle stands 1.5 to 1.8 cm lower and 2.6 to 3.6 cm further to the front than
+# the clips leave it. All of it undone, the arms came forward round the chest and the breasts looked higher and flatter; none of it undone,
+# the shoulder stood high ("uma curva muito alta na parte de cima"). It comes down to the height it was modelled at and stays as far back
+# as the clip leaves it.
+import math  # noqa: E402
+
+left_over = clip @ (rest_turn("LeftShoulder", game, ours) @ ours["LeftShoulder"])
+stands = clip @ (rest_turn("LeftShoulder", game, ours, clip, level=True) @ ours["LeftShoulder"])
+assert abs(stands.z - ours["LeftShoulder"].z) < 1e-5, f"standing still, the women's clavicle is not as high as it was modelled: {stands.z}"
+assert left_over.z > ours["LeftShoulder"].z + 0.03, "the turn left over no longer holds the clavicle up: this test checks nothing"
+assert abs(math.atan2(stands.y, stands.x) - math.atan2(left_over.y, left_over.x)) < 1e-5, "the women's clavicle is not as far back as the clip leaves it"
+assert abs(stands.length - 1) < 1e-5 and (rest_turn("LeftShoulder", game, ours, None, level=True) @ ours["LeftShoulder"]).y > 0.1, "with no body to copy"
 assert not clavicle_as_modelled("female-slim") and not clavicle_as_modelled("female-normal"), "the women's breasts sit higher and flatter again"
 
 # On the slim man the front of the chest follows the spine alone (2026-11-11): with the arms hanging, the skin around the nipple followed the

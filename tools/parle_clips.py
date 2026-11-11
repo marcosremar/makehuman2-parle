@@ -51,17 +51,18 @@ def directions(rig):
     return table
 
 
-def aligned_rest(old, new, new_rest, still=None, lean=None, stance=None):
+def aligned_rest(old, new, new_rest, still=None, lean=None, stance=None, level=False):
     """The rest of our skeleton with each bone pointed as the game's: the two rest differently (arms and legs open at other angles), and
     without it the clip opened the legs and crossed the hands. `still` is the turn each clavicle gets from the clip when the body stands
-    still; `lean` is the turn of each bone of the spine that brings the head over the ankles and `stance` the turn of each leg, by side,
-    that sets the feet as far apart as on the body the motion comes from (`standing`)."""
+    still, and `level` whether ours then stands at the height it was modelled alone, not where it was modelled; `lean` is the turn of
+    each bone of the spine that brings the head over the ankles and `stance` the turn of each leg, by side, that sets the feet as far
+    apart as on the body the motion comes from (`standing`)."""
     old_dir, new_dir = directions(old), directions(new)
     table, turns = {}, {}
     for bone in sorted(new.data.bones, key=lambda item: len(item.parent_recursive)):
         name = bone.name
         # Which bones point as in the game, and how far, is in `parle_rig`.
-        turn = (lean or {}).get(name) or parle_rig.rest_turn(name, old_dir, new_dir, (still or {}).get(name))
+        turn = (lean or {}).get(name) or parle_rig.rest_turn(name, old_dir, new_dir, (still or {}).get(name), level)
         if stance and turn is not None and name.endswith("Leg"):
             turn = stance["Left" if name.startswith("Left") else "Right"] @ turn
         turns[name] = turn if turn is not None else turns[bone.parent.name] if bone.parent and "Hand" in name else Quaternion()
@@ -169,7 +170,7 @@ def stance_of(rig, floor):
 
 def still_turns(source):
     """The turn each clavicle gets from the clip when the body the motion is copied from stands still, in the middle of its `idle`: undone
-    in the rest, our clavicle stands where it was modelled (`parle_rig.rest_turn`)."""
+    in the rest, our clavicle stands where it was modelled, or as high as it was (`parle_rig.rest_turn`)."""
     idle = source["actions"].get("idle")
     if idle is None:
         return {}
@@ -417,10 +418,11 @@ def clips_on(old, new, body, actions, kit, leads=None):
     # from Rafa her feet came 2.6% of the height closer than in the ones she takes from Sofia.
     apart = (copied[0] if copied else own)["stance"]
     for source in [own, *copied]:
-        # The clavicle standing where it was modelled is for the men only: on the women the breasts sat higher and flatter (`parle_rig`).
-        still = still_turns(source) if parle_rig.clavicle_as_modelled(kit) else None
-        lean, stance = standing(source, new, body, source["idle"], new_rest, aligned_rest(source["rig"], new, new_rest, still), apart, kit)
-        source["posed"] = aligned_rest(source["rig"], new, new_rest, still, lean, stance)
+        # Standing still, the men's clavicle is where it was modelled; the women's is at that height, and as far back as the clip leaves
+        # it (`parle_rig.clavicle_as_modelled`).
+        still, level = still_turns(source), not parle_rig.clavicle_as_modelled(kit)
+        lean, stance = standing(source, new, body, source["idle"], new_rest, aligned_rest(source["rig"], new, new_rest, still, level=level), apart, kit)
+        source["posed"] = aligned_rest(source["rig"], new, new_rest, still, lean, stance, level)
     made_actions, taken = [], Counter()
     for action in actions:
         source, theirs = clip_source(own, copied, action)

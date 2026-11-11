@@ -13,7 +13,8 @@
       back and up from where it was modelled, and the skin around it went along. The shoulder stood as a high square mass with a deep
       groove between the arm and the chest, where at rest it is round (owner: "os ombros do homem estão jogados para frente e a dobra
       entre o braço e o ombro está estranha"). Now the clavicle is pointed so that, when the body it copies stands still, ours is exactly
-      where it was modelled, and the clip moves it from there.
+      where it was modelled, and the clip moves it from there. On the women it comes to the height it was modelled at and keeps the
+      turn back (`clavicle_as_modelled`).
     - Standing, the head sits over the ankles (owner, 2026-11-11: "os ombros do homem estão jogados para frente"). The spine keeps its own
       rest, and with the game's clips on it the cast stooped: in the idle clip the middle of the head stood 2.7 to 2.9% of the height in
       front of the ankles (5 cm), where Rafa holds his 0.8% behind them and Sofia hers 1.9% behind. On the bodies the owner gave as
@@ -86,22 +87,32 @@ def even_joints(left, right, centre=0.0):
 
 def clavicle_as_modelled(kit):
     """Whether the clavicle of this kit rests where it was modelled when the body stands still. The men's does: the turn left over from the
-    old clips made their shoulder a square mass with a groove in front. The women's keeps that turn: with the clavicle as modelled their
-    breasts sat higher and flatter, and the owner liked them better before (2026-11-11)."""
+    old clips made their shoulder a square mass with a groove in front. The women's does in height alone (`rest_turn`, `level`). Where it
+    was modelled it stands 1.5 to 1.8 cm lower and 2.6 to 3.6 cm further to the front than the clips leave it: with all of it undone the
+    arms came forward round the chest, the breasts looked higher and flatter, and the owner liked them better before (2026-11-11); with
+    none of it undone the shoulder stood high, "uma curva muito alta na parte de cima" (owner, the same day). So the women's clavicle
+    comes down to the height it was modelled at and stays as far back as the clips leave it."""
     return str(kit).startswith("male")
 
 
-def rest_turn(name, old_dir, new_dir, standing=None):
+def rest_turn(name, old_dir, new_dir, standing=None, level=False):
     """The turn that points our bone like the game's, or None when this bone keeps its own rest. `standing` is the turn the clavicle gets
-    from the clip when the body it copies the arms from stands still, in the space of the skeleton, when there is such a body."""
+    from the clip when the body it copies the arms from stands still, in the space of the skeleton, when there is such a body: with it,
+    our clavicle stands where it was modelled when that body stands still or, with `level`, as high as it was modelled and as far back
+    as the clip leaves it."""
     if name not in old_dir or name not in new_dir or not name.endswith(ALIGNED):
         return None
     wanted = old_dir[name]
-    if name.endswith("Shoulder") and standing is not None:
-        # Standing still, our clavicle rests where it was modelled: the clip's own turn, undone.
-        wanted = standing.inverted() @ new_dir[name]
-    elif name.endswith("Shoulder"):
+    if name.endswith("Shoulder"):
         wanted = Vector((wanted.x, wanted.y + SHOULDER_BACK, new_dir[name].z + (wanted.z - new_dir[name].z) * SHOULDER_HEIGHT_SHARE)).normalized()
+        if standing is not None and level:
+            # The way it would stand with the clip's turn on top, brought to the height of the modelled one, and the clip's turn undone.
+            left, high = standing @ wanted, new_dir[name].normalized().z
+            flat = Vector((left.x, left.y, 0.0)).normalized() * math.sqrt(max(0.0, 1 - high * high))
+            wanted = standing.inverted() @ Vector((flat.x, flat.y, high))
+        elif standing is not None:
+            # Standing still, our clavicle rests where it was modelled: the clip's own turn, undone.
+            wanted = standing.inverted() @ new_dir[name]
     return new_dir[name].rotation_difference(wanted)
 
 
