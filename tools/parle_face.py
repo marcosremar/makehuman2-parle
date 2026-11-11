@@ -21,6 +21,7 @@ from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).parent))
 import parle_mouth  # noqa: E402
+import parle_polish  # noqa: E402
 import parle_normals  # noqa: E402
 import parle_teeth  # noqa: E402
 import parle_tongue  # noqa: E402
@@ -31,10 +32,40 @@ FOREHEAD_HAIR_M = 0.085
 FOREHEAD_HALF_M = 0.06
 FOREHEAD_REACH_M = 0.06
 # The kit's own morphs, baked into the rest shape: eyes open all around and brows pulled down read as anger on everybody (owner's review, 2026-11-07).
-# The kit rests with the lips a little apart, and the teeth showed through in a white line (owner, 2026-11-07): the jaw rests a quarter closed. Teeth and tongue take it too.
-CALM_LOOK = {"faceEyeOpen": -0.45, "faceBrowAngle": 0.6, "browInnerUp": 0.5, "jawOpen": -0.25}
+# The kit rests with the lips a little apart, and the teeth showed through in a white line (owner, 2026-11-07): the jaw rests a little closed. Teeth and tongue take it too.
+# A quarter closed was too far: closing carries the lower lip up and forward (29 mm up and 20 mm forward for the whole of `jawOpen`),
+# and at a quarter it rode 7 mm up over the upper lip and 5 mm out in front of it. Seen from the side on 2026-11-11 (`parle_profile`),
+# the lower lip stood 0.4 to 3.8 mm ahead of the upper one on the five people measured, and the mouth sat 10 to 13 mm under the nose;
+# on Sofia, Rafa and the four faces of the game measured the same way the upper lip leads by 2.6 to 4 mm and the mouth sits 16 to 21 mm
+# under the nose, as on real faces (the upper lip some 3 mm and the lower some 2 mm ahead of the line from under the nose to the chin:
+# Burstone 1967, "Lip posture and its significance in treatment planning", American Journal of Orthodontics 53(4):262-284, DOI
+# 10.1016/0002-9416(67)90022-X; Legan & Burstone 1980, Journal of Oral Surgery 38(10):744-751). From the front it read as a mouth with
+# a lower lip only. The lips meet with about a tenth of the jaw, tried on the built body: at 0.05 a gap shows, at 0.10 it is closed.
+CALM_LOOK = {"faceEyeOpen": -0.45, "faceBrowAngle": 0.6, "browInnerUp": 0.5, "jawOpen": -0.12}
 # The reference women have about twice the height from the lips to the chin as from the nose to the lips; ours was nearly one to one (owner, 2026-11-09).
-CHIN_LONGER = {"female": 0.3, "male": 0.0}
+# At 0.3 it went past that: three to one on the four women measured on 2026-11-11 (chin 21% of the face, nose to lips 7%), where Sofia,
+# the face the cast aims at, has 2.1 to one and a chin of 18% (`parle_beauty`). Much of the one to one was the mouth itself, ridden up
+# under the nose by the jaw (`CALM_LOOK`): with the jaw where the lips meet and this at 0.1, the chin is 17% of the face.
+CHIN_LONGER = {"female": 0.1, "male": 0.0}
+# The look the cast aims at, on top of each person's own traits (owner, 2026-11-11: the faces were "muito feio", and the aim is avatars
+# like Rafa and Sofia, "mais estilo Disney"). Measured by `parle_beauty` next to Sofia, the women had a nose 3 to 4% of the width of the
+# face wider, a jaw 3 to 8% wider against the cheekbones, a chin 3 to 4% of the face longer, the eyes 2 to 4% closer together and the
+# eyebrows 1.5 to 2% of the face lower. Each is a direction that goes with a woman's face being found attractive: smaller nose, shorter
+# chin, cheekbones wide against a face narrow at the mouth, higher eyebrows, eyes further apart (Cunningham 1986, Journal of
+# Personality and Social Psychology 50(5):925-935, DOI 10.1037/0022-3514.50.5.925: correlations, no targets; the distance between the
+# eyes, Pallett, Link & Lee 2010, Vision Research 50(2):149-154, DOI 10.1016/j.visres.2009.11.003). The weights are the kit's own
+# trait morphs, where 0.55 is the most a person's traits take. With nose and jaw at twice these and no more cheekbone (2026-11-11) the
+# measure went on rising and the face no longer read as the same person, pinched below the cheeks: how far is by eye.
+# The corners of the mouth: at rest they sat below the middle of the lips on everybody (by 2% of the width of the mouth on the women,
+# 4% on Carlos; on Sofia and on the women of the game they sit 1 to 4% above it), and a face at rest that looks like an expression
+# is judged as that expression: turned down, as sad or cross (Said, Sebe & Todorov 2009, Emotion 9(2):260-264, DOI 10.1037/a0014681);
+# a smiling face is found more attractive (Reis et al. 1990, European Journal of Social Psychology 20(3):259-267, DOI
+# 10.1002/ejsp.2420200307). The kit's own smile, a little of it, in the rest shape: the mouth still smiles from there.
+REST_SMILE = 0.12
+FAIR_LOOK = {
+    "female": {"faceNoseWidth": -0.3, "faceJaw": -0.25, "faceCheek": 0.25, "faceEyeSpacing": 0.25, "faceBrowHeight": 0.25, "faceChin": -0.35, "mouthSmileLeft": REST_SMILE, "mouthSmileRight": REST_SMILE},
+    "male": {"mouthSmileLeft": REST_SMILE, "mouthSmileRight": REST_SMILE},
+}
 BROW_THIN = 0.75
 # With the jaw a quarter closed, the upper teeth sat wholly behind the upper lip: speaking, the mouth showed the lower teeth and the
 # tongue under a bare lip, and read as a snarl (owner, 2026-11-08). Measured on the pharmacy's attendant at the player's widest "a"
@@ -55,7 +86,11 @@ UNDER_LIP_BEHIND_M = 0.012
 # In three reference women the chin sits about 3% of the head's height (6 mm) behind the lower lip; on the women's kit it was 2 mm ahead of it.
 CHIN_BACK = {"female": 0.0035, "male": 0.0}
 # Each lip a form of its own, as on the reference heads: forward at the middle of its height, the lower one taller, and a soft hollow under it. All in metres; the lips' meeting line stays.
-LIPS_FULL = {"female": {"upper_forward": 0.0, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0005, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028, "corner_up": 0.0042, "corner_from": 0.008, "corner_at": 0.027, "corner_out": 0.02, "corner_tall": 0.014}, "male": None}
+# The upper lip leads (2026-11-11, `parle_profile`): with the jaw closed no further than the lips' meeting, the lower lip still stood
+# 1.5 mm ahead of the upper one on the two women measured, where it stands 2.6 to 4 mm behind on Sofia, Rafa and the faces of the game
+# (and behind on real faces: Burstone 1967, DOI 10.1016/0002-9416(67)90022-X). The upper lip comes 1.5 mm forward at the middle of
+# its height and the lower one, which was 0.5 mm forward, goes 1.2 mm back.
+LIPS_FULL = {"female": {"upper_forward": 0.0015, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": -0.0012, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028, "corner_up": 0.0042, "corner_from": 0.008, "corner_at": 0.027, "corner_out": 0.02, "corner_tall": 0.014}, "male": None}
 LIPS_KEEP_LINE_M = 0.0012
 CORNER_AT_M = 0.027
 CORNER_NEAR_END_M = 0.004
@@ -134,7 +169,10 @@ def trim_forehead_hair(obj, body, mine, band_z=None):
 
 
 def tuck_eyes(body, added, opening):
-    """O globo anda inteiro com o rosto e a pele anda ponto a ponto: onde o rosto do jogo é mais estreito, o branco furava a pálpebra em duas marcas."""
+    """O globo anda inteiro com o rosto e a pele anda ponto a ponto: onde o rosto do jogo é mais estreito, o branco furava a pálpebra em duas marcas.
+    The kit's list of the points seen through the lids is read on the kit's own face: on another, a point of it may stand under a
+    lid, so it counts as seen only if no skin lies over the globe between it and the middle of the eye (`parle_polish.under_the_lid`).
+    What moves the face after this (the eyes growing, the build of the head) is seen to at the end, by `parle_polish.globes_behind_skin`."""
     shown = set(json.loads(Path(opening).read_text()))
     skin = skin_tree(body)
     front, back = Vector((0, -1, 0)), Vector((0, 1, 0))
@@ -142,9 +180,12 @@ def tuck_eyes(body, added, opening):
     for eye in (obj for obj in added if obj.type == "MESH" and "low-poly" in obj.name):
         keys = eye.data.shape_keys.key_blocks if eye.data.shape_keys else []
         inverse = eye.matrix_world.inverted()
+        centres, radius = [Vector(centre) for centre in parle_polish.eye_centres(eye)], parle_polish.eye_radius(eye)
         for vertex in eye.data.vertices:
             at = eye.matrix_world @ vertex.co
-            if vertex.index in shown or skin.ray_cast(at + front * 1e-4, front, 0.05)[0] is not None:
+            centre = min(centres, key=lambda spot: (spot - at).length)
+            seen = vertex.index in shown and not parle_polish.under_the_lid(skin, at, centre, radius, front)
+            if seen or skin.ray_cast(at + front * 1e-4, front, 0.05)[0] is not None:
                 continue
             hit = skin.ray_cast(at, back, EYE_TUCK_REACH_M)[0]
             if hit is None:
@@ -439,8 +480,8 @@ def soften_pout(body, forward):
     body.data.update()
 
 
-def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0):
-    look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {}), **({"faceCupidBow": bow} if bow else {}), **({"faceVChin": longer} if longer else {})}
+def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None):
+    look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {}), **({"faceCupidBow": bow} if bow else {}), **({"faceVChin": longer} if longer else {}), **(fair or {})}
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
         if not keys:
@@ -661,7 +702,7 @@ def clean_face(body, added, job, env):
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex])
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], FAIR_LOOK[sex])
     soften_pout(body, POUT_FORWARD[sex])
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])

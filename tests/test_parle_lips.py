@@ -19,6 +19,9 @@ lab = cv2.cvtColor(natural, cv2.COLOR_BGR2LAB).astype(int)
 skin_lab = cv2.cvtColor(skin, cv2.COLOR_BGR2LAB).astype(int)
 # Darker than the skin, but nowhere near the black-wine of the game.
 assert skin_lab[0, 0, 0] * 0.7 < lab[32, 32, 0] < skin_lab[0, 0, 0], (lab[32, 32], skin_lab[0, 0])
+# A woman's lips stand out more from her skin than a man's (2026-11-11: facial contrast), and still nowhere near the wine of the game.
+man_lab = cv2.cvtColor(painted(skin, share, man=True), cv2.COLOR_BGR2LAB).astype(int)
+assert lab[32, 32, 0] < man_lab[32, 32, 0] < skin_lab[0, 0, 0], (lab[32, 32], man_lab[32, 32])
 # Rosier than the skin.
 assert lab[32, 32, 1] > skin_lab[0, 0, 1]
 # Outside the map nothing changes.

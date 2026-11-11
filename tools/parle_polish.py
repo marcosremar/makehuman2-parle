@@ -21,8 +21,36 @@ CLOTHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 # 12% with a staring look all round; 10% reads as awake next to the player.
 EYE_SCALE = 1.1
+# The women's eyes grow a little more: bigger eyes are what most sets apart a woman's face that is found attractive (eye height
+# against the length of the face, r = +.50: Cunningham 1986, Journal of Personality and Social Psychology 50(5):925-935, DOI
+# 10.1037/0022-3514.50.5.925), and next to Sofia, the face the cast aims at, theirs showed 6 to 7% of the box of the face against 10%
+# (`parle_beauty.eye_shown`, 2026-11-11). The men's show as much as Rafa's and stay. How far is bounded by the head they sit
+# on, which has the proportions of a real one: on photographs, eyes are judged too large from 116.3% of their size on (SD 9.1; Seyama &
+# Nagayama 2009, Presence 18(5):321-339, DOI 10.1162/pres.18.5.321), and eyes 50% bigger on a computer face of human proportions were
+# eerie at every level of skin (MacDorman, Green, Ho & Koch 2009, Computers in Human Behavior 25(3):695-710, DOI
+# 10.1016/j.chb.2008.12.026). Tried on 2026-11-11: at 1.22 the face is the same person with bigger eyes; at 1.4 the skin round each eye
+# stood as a bag, and grown in the plane of the face alone (1.35) the globe came out through the lids.
+EYE_SCALE_BY_SEX = {"female": 1.2}
 EYE_CORE_M = 0.017
 EYE_REACH_M = 0.032
+# A point of the globe that is not seen goes this far behind the skin, when the skin is no further behind it than the reach.
+EYE_BEHIND_M = 0.001
+EYE_BEHIND_REACH_M = 0.02
+# The faces of the globe are looked at in a grid of this many steps along each side. A place of a face is the globe coming through
+# when the skin is no further behind it than this, and that skin turns its outer side to the front by this much (the cosine): at the
+# corner of Carlos's eye the white that is meant to show has the inside of the lid 1 mm behind it, turned away (-0.76), where the
+# specks under Dona Marta's eyes had the cheek 0.3 mm behind, turned to the front (0.7 to 0.9). And skin comes first in at least this
+# many of the places looked at on the way to the middle of the eye: a strip of lid, not one stray place (Carlos had one, Dona Marta
+# three or four). No corner goes back more than the most in all, over these rounds.
+EYE_FACE_STEPS = 8
+EYE_THROUGH_M = 0.002
+EYE_SKIN_FACING = 0.3
+EYE_WAY_CUT = 2
+EYE_BEHIND_MOST_M = 0.006
+EYE_BEHIND_ROUNDS = 6
+# The way from a point of the globe to the middle of the eye is looked at in these places, as shares of the way: the strip of lid
+# between a point under it and the opening is a millimetre or two wide.
+EYE_WAY_SHARES = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 NORMAL_PX = 512
 # Arms (owner, 2026-11-10), as a share of the height (body without hair or shoes) from joint centre to joint centre. The yardstick that hair, hat and
 # heels do not move is the arm against the leg (upper arm + forearm over thigh + shank): 0.58, 0.58 and 0.60 on the three rigged whole-body models the
@@ -102,6 +130,98 @@ def eye_centres(eye):
         radius = np.ptp(part[:, 0]) / 2
         centres.append(np.array([(part[:, 0].min() + part[:, 0].max()) / 2, part[:, 1].min() + radius, (part[:, 2].min() + part[:, 2].max()) / 2]))
     return centres
+
+
+def under_the_lid(skin, at, centre, radius, front):
+    """Whether, seen from the front, skin lies over the globe somewhere between one of its points and the middle of the eye: the point
+    is then outside the opening of the lids on this face. The globe is taken as its ball, and the skin as what a ray from the front
+    meets first: where the lids are open it meets the socket, behind the ball."""
+    for share in EYE_WAY_SHARES:
+        spot = at.lerp(centre, share)
+        deep = radius * radius - (spot.x - centre.x) ** 2 - (spot.z - centre.z) ** 2
+        if deep <= 0:
+            continue
+        hit = skin.ray_cast(Vector((spot.x, centre.y, spot.z)) + front * 0.05, -front, 0.1)[0]
+        if hit is not None and (hit - centre).dot(front) > deep ** 0.5:
+            return True
+    return False
+
+
+def globes_behind_skin(meshes):
+    """What of the eye globes is not seen through the lids goes a millimetre behind the skin, and how many points went. The last touch
+    on the eyes: the head of a kit grows by its bones and its skin point by point, and under each of Dona Marta's eyes the globe came
+    through the cheek as a white speck (2026-11-11), after the step that tucks the globes (`parle_face.tuck_eyes`) had run. Not a
+    point of it: the globe has few faces, and the middle of one stood in front of the skin where the skin dips, its corners all behind.
+    So the faces are looked at too, in the places of `EYE_FACE_STEPS`. A place of the globe is coming through when, seen from the
+    front, it shows, the skin is close behind it, and skin shows somewhere between it and the middle of the eye: it is not part of
+    what the lids open on. The corners of its face that are not seen go back until it is behind. The face looks at -y."""
+    body = next((obj for obj in meshes if obj.name == "Body"), None)
+    eye = next((obj for obj in meshes if "low-poly" in obj.name), None)
+    if body is None or eye is None or not len(body.data.polygons):
+        return 0
+    skin = BVHTree.FromPolygons([tuple(point) for point in rest_points(body)], [tuple(polygon.vertices) for polygon in body.data.polygons])
+    front, back = Vector((0, -1, 0)), Vector((0, 1, 0))
+    centres = [Vector(centre) for centre in eye_centres(eye)]
+    faces = [tuple(polygon.vertices) for polygon in eye.data.polygons]
+    triangles = [(face[0], face[index], face[index + 1]) for face in faces for index in range(1, len(face) - 1)]
+    steps = [(a / EYE_FACE_STEPS, b / EYE_FACE_STEPS) for a in range(EYE_FACE_STEPS + 1) for b in range(EYE_FACE_STEPS + 1 - a)]
+    gone = np.zeros(len(eye.data.vertices))
+    for _ in range(EYE_BEHIND_ROUNDS):
+        globe = rest_points(eye)
+        ball = BVHTree.FromPolygons([tuple(point) for point in globe], faces)
+
+        def skin_first(x, z, y):
+            """Whether a ray from the front meets skin before the globe at this place."""
+            start = Vector((x, y - 0.05, z))
+            on_skin, on_ball = skin.ray_cast(start, back, 0.1)[3], ball.ray_cast(start, back, 0.1)[3]
+            return on_skin is not None and (on_ball is None or on_skin < on_ball - 1e-5)
+
+        def through(spot, reach):
+            """How far behind a place of the globe the skin is, when the place has come through it: it shows, the skin behind it
+            turns its outer side to the front, and skin cuts it off from the middle of the eye. Else None."""
+            at = Vector(spot)
+            if skin.ray_cast(at + front * 1e-4, front, 0.05)[0] is not None:
+                return None
+            hit, normal, _, far = skin.ray_cast(at, back, reach)
+            if hit is None or normal.dot(front) < EYE_SKIN_FACING:
+                return None
+            centre = min(centres, key=lambda middle: (middle - at).length)
+            cut = sum(skin_first(at.x + (centre.x - at.x) * share, at.z + (centre.z - at.z) * share, centre.y) for share in EYE_WAY_SHARES)
+            return far if cut >= EYE_WAY_CUT else None
+
+        move = np.zeros_like(globe)
+        seen = np.zeros(len(globe), bool)
+        for index, point in enumerate(globe):
+            deep = through(point, EYE_BEHIND_REACH_M)
+            if deep is not None:
+                move[index][1] = deep + EYE_BEHIND_M
+            else:
+                seen[index] = skin.ray_cast(Vector(point) + front * 1e-4, front, 0.05)[0] is None
+        for corners in triangles:
+            hidden = [index for index in corners if not seen[index]]
+            if not hidden:
+                continue
+            for first, second in steps:
+                shares = np.array((1 - first - second, first, second))
+                carried = sum(share for share, index in zip(shares, corners) if not seen[index])
+                if carried < 0.2:
+                    continue
+                deep = through(shares @ globe[list(corners)], EYE_THROUGH_M)
+                if deep is None:
+                    continue
+                for index in hidden:
+                    move[index][1] = max(move[index][1], (deep + EYE_BEHIND_M) / carried)
+        move[:, 1] = np.minimum(move[:, 1], EYE_BEHIND_MOST_M - gone)
+        if not (move[:, 1] > 1e-6).any():
+            break
+        warp(eye, lambda world: world + move)
+        gone += move[:, 1]
+    return int((gone > 1e-6).sum())
+
+
+def eye_scale(kit):
+    """How many times their own size the eyes of a kit are."""
+    return next((scale for sex, scale in EYE_SCALE_BY_SEX.items() if str(kit).startswith(sex)), EYE_SCALE)
 
 
 def bigger_eyes(meshes, eye, scale=EYE_SCALE):
@@ -388,7 +508,8 @@ def natural_body(meshes, rig, height, sex, kit):
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
     the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body. And under a top the bust of a
-    woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves."""
+    woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves. And the eye globes stay behind the skin where the
+    lids do not show them (`globes_behind_skin`)."""
     natural_arms(meshes, rig, height, sex)
     built = natural_build(meshes, rig, height, kit)
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
@@ -397,6 +518,9 @@ def natural_body(meshes, rig, height, sex, kit):
     cups = round_bust(meshes, rig) if sex == "female" else []
     if cups:
         print("BUSTO em taça debaixo da roupa: a ponta de cada seio voltou", [round(back * 1000, 1) for back in cups], "mm")
+    tucked = globes_behind_skin(meshes)
+    if tucked:
+        print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
     return built
 
 

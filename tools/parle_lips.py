@@ -21,6 +21,13 @@ import numpy as np
 from parle_beard import position_map
 
 LIP_LIGHT = 0.8
+# A woman's lips stand out more from her skin: the contrast in lightness between the lips and the skin round them is greater on
+# women's faces, and a woman's face with more of it is found more feminine and more attractive, a man's with less (Russell 2003,
+# Perception 32(9):1093-1107, DOI 10.1068/p5101; Russell 2009, Perception 38(8):1211-1219, DOI 10.1068/p6331; for the lips alone,
+# Stephen & McKeegan 2010, Perception 39(8):1104-1110, DOI 10.1068/p6730: directions, read in the abstracts). Measured on the portrait
+# (`parle_beauty.lip_contrast`, 2026-11-11) the cast's women had 0.06 where Sofia has 0.14 and the women of the game 0.10 to 0.18.
+# Not as far as theirs: the game's wine lips read as make-up (above), and the lip stays lighter than 0.7 of the skin.
+WOMAN_LIP_LIGHT = 0.74
 # 11 and a half of the drawing left the crease and the corners dark and the colour weak next to the clean face (owner, 2026-11-08).
 LIP_ROSE = 19.0
 LIP_WARM = -7
@@ -143,7 +150,7 @@ def painted(skin, share, colour=None, man=False, line=None, upper=None):
         base, hue = wanted[0], wanted[1:]
     else:
         rose = LIP_ROSE * min(1.0, (own[0] / ROSE_FULL_LIGHT) ** 2) * (MAN_ROSE if man else 1.0)
-        base, hue = own[0] * LIP_LIGHT, own[1:] + np.array([rose, LIP_WARM])
+        base, hue = own[0] * (LIP_LIGHT if man else WOMAN_LIP_LIGHT), own[1:] + np.array([rose, LIP_WARM])
     lip = lab.copy()
     lip[:, :, 0] = base + (lab[:, :, 0] - light) * LIP_DRAWING
     lip[:, :, 1:] = hue
