@@ -7,10 +7,10 @@
     of a T-shirt ended in a cone, and from the front in two tips with the folds of the cloth running to them (owner, 2026-11-11: "o bico
     do peito da mulher está muito pontudo na roupa", "com roupa deve parecer que está com sutiã"). A bra holds the breast in a cup: the
     tip is round and the sides are full. So where a top covers it, each breast takes the shape of a cup along its own axis: a point that
-    stood a share of the way from the rim to the tip stands at `cup` of that share. The tip comes back by a fifth of how far it stood
-    over the rim (5 to 8 mm on the cast), half way up the cloth goes out a little, and the rim stays: over the centimetre around the
-    tip the cloth of a T-shirt stood 8 mm proud, and now 3. The skin under the cloth goes by the same rule, and stays under it.
-    Unclothed, nothing changes.
+    stood a share of the way from the rim to the tip stands at `cup` of that share. The tip comes back by a quarter of how far it stood
+    over the rim (7 to 10 mm on the cast), the front is nearly flat over 2 cm round the axis, the sides go out by 2 to 3 mm, and the
+    rim stays: the cloth of a T-shirt follows a ball 7 cm in radius where it was a cone. The skin under the cloth goes by the same
+    rule, and stays under it. Unclothed, nothing changes.
 
     This file is numpy alone: `parle_polish.round_bust` reads the meshes.
 """
@@ -24,11 +24,13 @@ SIDES = (0.2, 0.95)
 # the rim is fitted to the points between these shares of it.
 REACH = 0.035
 RIM = (0.8, 1.15)
-# The cup: the tip stands at CUP of where it stood; up to it the height follows a quarter of a sine wave, which is flat at the top,
-# with STRAIGHT of the old height left in, so no two points on the way to the tip end at the same place. At 0.9 the tip of a T-shirt
-# still read as a point from the side.
-CUP = 0.8
-STRAIGHT = 0.2
+# The cup: the tip stands at CUP of where it stood; up to it the height follows a quarter of a sine wave, flat at the top, raised to
+# ROUND, which fills the sides; STRAIGHT of the old height is left in, so no two points on the way to the tip end at the same place.
+# With the tip at 0.9 a T-shirt still read as a point from the side. At 0.8 the tip was flat over 2 cm, but from there the sides fell
+# straight to the rim, 43 degrees, a cone with its end cut off (owner, 2026-11-11: "os seios poderiam ser ainda menos pontudos").
+CUP = 0.75
+ROUND = 0.75
+STRAIGHT = 0.15
 # A tip that stands less than this over its rim, in metres, is no breast to round: a flat chest, or a loose top.
 TALL_LEAST_M = 0.01
 
@@ -71,7 +73,7 @@ def rim_of(points, tip, reach):
 def cup(share):
     """Where a point that stood `share` of the way from the rim (0) to the tip (1) stands in the cup."""
     share = np.clip(share, 0, 1)
-    return CUP * ((1 - STRAIGHT) * np.sin(np.pi * share / 2) + STRAIGHT * share)
+    return CUP * ((1 - STRAIGHT) * np.sin(np.pi * share / 2) ** ROUND + STRAIGHT * share)
 
 
 def cupped(points, tip, axis, tall, reach):

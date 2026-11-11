@@ -41,16 +41,19 @@ assert axis @ (0, -1, 0) > 0.99 and abs(tall - TALL) < 0.006, f"the axis does no
 moved = cloth + parle_bust.cupped(cloth, tip, axis, tall, REACH)
 at_tip = np.linalg.norm(cloth - tip, axis=1).argmin()
 assert abs((moved[at_tip, 1] - cloth[at_tip, 1]) - (1 - parle_bust.CUP) * tall) < 1e-4, f"the tip did not come back by its share of the height: {moved[at_tip] - cloth[at_tip]}"
-assert parle_bust.CUP <= 0.85, "at nine tenths the tip of a T-shirt still read as a point from the side"
+assert parle_bust.CUP <= 0.75 and parle_bust.ROUND < 1, "the bust under a top is pointed again: a flat tip on straight sides was still a cone (owner, 2026-11-11)"
 away = np.hypot(cloth[:, 0] - centre[0], cloth[:, 2] - centre[2])
 assert np.abs(moved[away >= REACH] - cloth[away >= REACH]).max() < 1e-9, "the rim of the breast, the wall or the other breast moved"
 # Seen from the side the tip was a cone; now it is round: a centimetre from the axis the cloth stands nearly as far out as at the tip.
 ring = np.abs(away - 0.01) < 0.002
 before, after = cloth[ring, 1].mean() - cloth[at_tip, 1], moved[ring, 1].mean() - moved[at_tip, 1]
 assert before > 0.007 and after < 0.5 * before, f"the tip is as pointed as it was: {before * 1000:.1f} mm -> {after * 1000:.1f} mm over a centimetre"
-# And the sides are full: half way from the rim to the axis the cloth does not come back with the tip, it goes out.
+# And the sides are full: half way from the rim to the axis the cloth does not come back with the tip, it goes out, and nearer the rim
+# it goes out more than it did when the cup was a plain quarter of a sine wave.
 half = np.abs(away - REACH / 2) < 0.002
 assert (cloth[half, 1] - moved[half, 1]).mean() > 0.001, f"the sides of the cup are not fuller: {(cloth[half, 1] - moved[half, 1]).mean() * 1000:.1f} mm"
+low = np.abs(away - 0.8 * REACH) < 0.002
+assert (cloth[low, 1] - moved[low, 1]).mean() > 0.002, f"near the rim the sides still fall straight: {(cloth[low, 1] - moved[low, 1]).mean() * 1000:.1f} mm"
 # The skin goes by the same rule and stays under the cloth, and no point passes another on its way.
 under = skin + parle_bust.cupped(skin, tip, axis, tall, REACH)
 assert (under[:, 1] - moved[:, 1]).min() > 0.0005, f"the skin came through the cloth: {(under[:, 1] - moved[:, 1]).min() * 1000:.2f} mm"
