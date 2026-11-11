@@ -5,6 +5,9 @@
     under it in the old body is not print: a necklace baked into a shirt reads as a torn collar, a
     bikini under a tank top as a red stain, and the cord of the shorts as a grey patch.
 """
+# How the game names the pieces of each garment, by the start of the name. A dress and a bikini are both halves.
+GAME_TOP = ("lctshirt", "Shirt_", "Rolled_sleeves_shirt", "Tank", "Dress", "Placket", "Pen", "Necklace", "Chain", "Crucifix", "Bikini")
+GAME_BOTTOM = ("lcpants", "bjjeans", "Shorts", "Dress", "Belt", "Fray", "Bikini")
 NOT_PRINT = ("Necklace", "Chain", "Crucifix", "Shorts_Cord")
 UNDERWEAR = "Bikini"
 # The last centimetres of a game garment are its hem: a dark cuff, a white fray. On a longer new garment they would end up in the middle of the leg.

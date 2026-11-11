@@ -3,10 +3,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
-from parle_stamp import stamp_sources  # noqa: E402
+from parle_stamp import GAME_BOTTOM as BOTTOM, GAME_TOP as TOP, stamp_sources  # noqa: E402
 
-TOP = ("lctshirt", "Shirt_", "Rolled_sleeves_shirt", "Tank", "Dress", "Placket", "Pen", "Necklace", "Chain", "Crucifix", "Bikini")
-BOTTOM = ("lcpants", "bjjeans", "Shorts", "Dress", "Belt", "Fray", "Bikini")
+# How the game names the pieces of each garment is said here, once, for the bake and for the print that repeats.
+assert "lctshirt" in TOP and "Shirt_" in TOP and "Dress" in TOP and "Dress" in BOTTOM and "bjjeans" in BOTTOM
 
 # Lia: the necklace baked into the shirt read as a torn collar.
 assert stamp_sources(["Rolled_sleeves_shirt", "Placket", "Necklace", "Base_Body"], TOP) == ["Rolled_sleeves_shirt", "Placket"]
