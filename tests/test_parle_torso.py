@@ -59,6 +59,15 @@ with tempfile.TemporaryDirectory() as folder:
     for part in ("torso/torso-muscle-pectoral-incr", "torso/torso-muscle-dorsi-incr"):
         assert (touched(target(part)) & still).sum() > 300, f"the step moves the trunk again: {part}"
 
+# A man who is not muscled keeps his shoulders: under a shirt the step leaves him as he came (2026-11-11, the chest of every bare man).
+with tempfile.TemporaryDirectory() as folder:
+    body, mesh, shift = (str(Path(folder) / name) for name in ("w.npz", "p.npy", "shift.npy"))
+    np.savez_compressed(body, **dump)
+    np.save(mesh, base)
+    done = subprocess.run([sys.executable, "tools/chest_shape.py", body, mesh, shift, "kit=male-slim", "--plain"], cwd=ROOT, capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr[-600:]
+    assert np.abs(np.load(mesh) - base).max() == 0 and np.abs(np.load(shift)).max() == 0, "the slim man's shoulders grew"
+
 source = (ROOT / "tools" / "chest_shape.py").read_text()
 assert "delta" not in source and "pectoral" not in source, "the step takes the sculpture out of the trunk again"
 print("torso: the step adds", len(body_shape.MUSCLES), "targets and", int(touched(added).sum()), "vertices move")

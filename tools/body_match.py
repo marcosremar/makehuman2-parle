@@ -35,10 +35,15 @@ BLENDER = os.environ.get("BLENDER", "/Applications/Blender-4.5-LTS.app/Contents/
 LIMITS, LIMB_LIMITS, NECK_LIMITS, NECK_FROM_W, TAPER = (0.72, 1.25), (0.85, 1.15), (0.9, 1.15), 0.85, 0.5
 STEP, SOFT = 0.8, 3
 ARM_OUT_LIMIT = 0.03
-# The shoulder line goes up or down by a share of the height, not by a ratio: 2% is 35 mm on a man of 1.75 m, a trapezius, and more is a hump.
-RISE_LIMITS = (-0.01, 0.02)
-# The shoulder rows below this share of armpit to neck are the arm's reach; above it they are the slope, which no ratio here moves.
-SHOULDER_REACH = 0.6
+# The shoulder line goes up by a share of the height, not by a ratio: 2% is 35 mm on a man of 1.75 m, a trapezius, and more is a hump. It
+# never goes down: the measure asked the slim man's line 7 to 18 mm lower, more at the tip, and next to his reference, whose shoulders are
+# square, he stood with the shoulders of a bottle. The rise is read from the armpit, and his armpit sits lower than the reference's.
+RISE_LIMITS = (0.0, 0.02)
+# The shoulder rows up to this share of armpit to neck are the arm's reach; above it they are the slope. It was 0.6, and the row at 0.6 is
+# cut above the tip of the shoulder on a body with a longer neck: read as 7 to 10% of the height too narrow there, the women had their
+# arms pushed 1 to 3 cm out on each side, and stood 2 to 4 cm wider across the deltoids than the reference women, with the shoulders of a
+# man over their hips (owner, 2026-11-11: "o ombro da mulher está muito largo").
+SHOULDER_REACH = 0.45
 
 
 def dump(kit_glb, out, options):
@@ -136,7 +141,7 @@ def at_limit(profile):
     if abs(profile["arm_out"]) >= ARM_OUT_LIMIT - 1e-6:
         held["arm_out"] = 1
     rise = np.array(profile.get("shoulder_rise") or [0.0])
-    stuck = int(np.sum((rise <= RISE_LIMITS[0] + 1e-6) | (rise >= RISE_LIMITS[1] - 1e-6)))
+    stuck = int(np.sum(rise >= RISE_LIMITS[1] - 1e-6))
     if stuck:
         held["shoulder_rise"] = stuck
     return held

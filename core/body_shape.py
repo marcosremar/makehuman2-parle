@@ -9,14 +9,15 @@
     from the sculpture, the way a displacement map works: both torsos go to the same chart, the trunk
     seen from the front and from the back, as wide as the trunk at each height, with the armpits at the
     same height and without the arms. What each has between two sizes, less what a height has in common
-    across the trunk, is its muscle relief: the body trades its own back for the sculpture's and adds the sculpture's
-    chest to its own, as depth.
+    across the trunk, is its muscle relief, and the body trades its own for the sculpture's, as depth. On the
+    chest the step under the pectorals stays in, although it is the same from side to side: it is what
+    makes a pectoral a plate.
     The proportions and the posture stay the body's: the profile of the kit owns them.
 
     Works in metres with Z up.
 """
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, gaussian_filter1d
 
 from core.garment_fit import vertex_normals
 
@@ -32,19 +33,27 @@ TRUNK_SHARE = 0.27
 # Where the armpit of every torso sits on the chart, and the least gap between the arm and the trunk under it, in the same shares.
 ARMPIT_LEVEL = 0.72
 GAP_SHARE = 0.02
-# The muscles are what is smaller than this, in the same shares: a pectoral, a lat and the groove of the spine fit in it, and the
-# proportions of the trunk, which the profile of the kit owns, do not. At 0.07 only the fine detail came through, and the pectorals
-# stayed the two small high bumps of the base mesh next to the plates of the sculpture and of the reference body (2026-11-10).
-RELIEF_SHARE = 0.14
+# The muscles are what is smaller than this, in the same shares, front and back; the proportions of the trunk, which the profile of the
+# kit owns, are not. On the back a lat and the groove of the spine fit in 0.14. On the front a pectoral is a plate a quarter of the trunk
+# tall, and at 0.14 only its middle came through: with 0.26 the whole plate does, the upper chest fills up to the collarbone and the
+# cleft between the two goes shallow (2026-11-11). At 0.07 only the fine detail came through (2026-11-10).
+RELIEF_SHARE = (0.26, 0.14)
 # The trunk has a vertex every 2 to 3 cm: detail finer than this lands on one vertex and not on the next, and reads as dents. At
 # 0.03 the edge under the pectorals and the rows of the abdomen were blurred away and the front stayed as it came (2026-11-10).
 FINEST_SHARE = 0.012
-MOST_RELIEF_M = 0.018
-# How much of the body's own relief gives way to the sculpture's, front and back. On the back the base mesh has almost none and the
-# sculpture's lats and shoulder blades take its place. On the front the base mesh's pectorals have the edge the sculpture's broader plates
-# lack at this resolution: traded, the chest came out smoother than before; added, the edge of the pectorals and the rows of the abdomen
-# read like the reference body (2026-11-11).
-OWN_TAKEN = (0.0, 1.0)
+# The most a vertex moves, front and back: the plates of the chest stand further out than anything on the back.
+MOST_RELIEF_M = (0.035, 0.018)
+# How much of the body's own relief gives way to the sculpture's, front and back: all of it. The base mesh's pectorals are two round
+# mounds in the middle of the chest. Kept, with the sculpture's on top, they stood out as cones with a deep cleft between them, where
+# the reference bodies have a wide flat plate from the breastbone to the armpit with a straight lower edge (owner, 2026-11-11: "o
+# peitoral do homem está feio").
+OWN_TAKEN = (1.0, 1.0)
+# How strong the sculpture's relief comes, front and back: the trunk has a vertex every 2 to 3 cm and rounds the edge of a plate away.
+GAIN = (1.3, 1.0)
+# What a height has in common from flank to flank is posture, not muscle, and goes out. On the back all of it does: kept, it came out as
+# bands across the back. On the front only what is smooth over this share of the height goes: the step under the pectorals is the same
+# from one side to the other, and with all of it out the plates never came through, only the mounds in the middle (2026-11-11).
+POSTURE_SHARE = (0.15, 0.0)
 # The flanks belong to the profile of the kit, which sets the width of the trunk level by level: the relief is whole up to the first
 # of these and gone at the second, in half widths of the trunk from the midline.
 EDGE = (0.8, 1.0)
@@ -179,16 +188,19 @@ def relief_map(points, marks, pits, widths):
         return gaussian_filter(grid, sigmas, mode="nearest") / np.maximum(weight, 1e-6), weight
 
     reliefs, knowns = [], []
-    for out in (front[inside], -front[inside]):
+    for face, out in enumerate((front[inside], -front[inside])):
         grid = np.full((HEIGHTS, COLUMNS), -np.inf)
         np.maximum.at(grid, cells, out)
         known = np.isfinite(grid).astype(np.float64)
         grid = np.where(known > 0, grid, 0.0)
         fine, weight = blurred(grid, known, FINEST_SHARE)
-        relief = fine - blurred(grid, known, RELIEF_SHARE)[0]
-        # What a height has in common from flank to flank is posture, not muscle: the curve of the spine and the line of the belly.
+        relief = fine - blurred(grid, known, RELIEF_SHARE[face])[0]
+        # What a height has in common from flank to flank is posture, not muscle: the curve of the spine and the line of the belly (POSTURE_SHARE).
         middle = weight * (np.abs(across) < EDGE[0])
-        reliefs.append(relief - ((relief * middle).sum(axis=1) / np.maximum(middle.sum(axis=1), 1e-6))[:, None])
+        line = (relief * middle).sum(axis=1) / np.maximum(middle.sum(axis=1), 1e-6)
+        if POSTURE_SHARE[face] > 0:
+            line = gaussian_filter1d(line, POSTURE_SHARE[face] / (CHART_HIGH - CHART_LOW) * HEIGHTS, mode="nearest")
+        reliefs.append(relief - line[:, None])
         knowns.append(weight)
     return np.array(reliefs), np.array(knowns)
 
@@ -229,12 +241,13 @@ def muscles(count):
     return sum(read_target(path, count) for path in MUSCLES)
 
 
-def moulded(points, faces, relief, trunk):
+def moulded(points, faces, relief, trunk, strength=1.0, soft=0):
     """The muscles of the sculpture in the place of the body's own, as depth on the front and on the back.
 
     `relief` is the pair relief_map gave for the sculpture, and `trunk` is the share of each vertex that belongs to the torso bones.
-    """
-    merged, twin, _, welded_faces = welded(points, faces)
+    `strength` is how much of the sculpture's relief a body takes: all of it on a muscled man, less on a man who is not. `soft` is how
+    many times each vertex then takes half of what its neighbours got: on a man who does not train the edge of a plate is not a ledge."""
+    merged, twin, edges, welded_faces = welded(points, faces)
     marks, pits, widths, (own, known) = torso_chart(merged, welded_faces)
     row, column, side, _ = chart(merged, marks, pits, widths)
     span = marks[3] - marks[2]
@@ -252,8 +265,15 @@ def moulded(points, faces, relief, trunk):
     area = area * smoothstep((np.minimum(read(relief[1]), read(known)) - 0.5) / 0.4)
     # A soft ceiling: a hard one cuts the largest muscles flat and leaves a ledge around them.
     keep = np.where(back, 1.0 - OWN_TAKEN[1], 1.0 - OWN_TAKEN[0])
-    wanted = (read(relief[0]) - read(own) * (1.0 - keep)) * span
-    detail = np.tanh(wanted / MOST_RELIEF_M) * MOST_RELIEF_M * area
+    wanted = (read(relief[0]) * np.where(back, GAIN[1], GAIN[0]) * strength - read(own) * (1.0 - keep)) * span
+    most = np.where(back, MOST_RELIEF_M[1], MOST_RELIEF_M[0])
+    detail = np.tanh(wanted / most) * most * area
+    for _ in range(soft):
+        around, count = np.zeros(len(merged)), np.zeros(len(merged))
+        for here, there in ((edges[:, 0], edges[:, 1]), (edges[:, 1], edges[:, 0])):
+            np.add.at(around, here, detail[there])
+            np.add.at(count, here, 1)
+        detail = 0.5 * detail + 0.5 * around / np.maximum(count, 1)
     print("MOLDE marcos", np.round(marks, 3), "axila", np.round(pits, 3), "relevo", round(float(np.abs(detail).max()) * 1000, 1), "mm")
     shift = np.zeros((len(merged), 3))
     shift[:, 1] = np.where(back, detail, -detail)

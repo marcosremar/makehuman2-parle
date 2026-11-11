@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-"""Gives a rigged body dump the shoulders and the torso muscles of a muscled man, keeping the originals so it can run twice.
+"""Gives a rigged body dump the torso muscles of a man, and the shoulders of a muscled one, keeping the originals so it can run twice.
 
-    python tools/chest_shape.py <body.npz> <base.npy> <shift.npy> [--plain]
+    python tools/chest_shape.py <body.npz> <base.npy> <shift.npy> [kit=<male-muscled|male-normal|male-slim>] [--plain]
+
+Every bare-chested man takes the chest of the sculpture in the place of the base mesh's own, which is two round mounds: on the normal man
+of the beach they hung like breasts (owner, 2026-11-11). The muscled man takes all of its relief and the deltoid targets; the others take
+a share of it and keep their shoulders.
 
 The dump is the one core/garment_weights reads. The base mesh moves too: clothes and necklaces fit it through
 their .mhclo, so they follow the new torso. The shift is one displacement per vertex of the rigged body.
@@ -18,17 +22,23 @@ from core.body_shape import moulded, muscles  # noqa: E402
 
 
 RELIEF = "data/sculpt/male-torso-relief.npz"
+# How much of the sculpture's relief each kit takes: the plates of a man who trains are not those of a slim one.
+STRENGTH = {"male-muscled": 1.0, "male-normal": 0.9, "male-slim": 0.7}
+# How many times the relief is smoothed over the mesh. Not smoothed, on the normal man the lower edge of the chest came out as a hard
+# straight ledge with a square notch at the breastbone; six times over it is the soft edge of a chest that does not train (2026-11-11).
+SOFT = {"male-muscled": 1, "male-normal": 6, "male-slim": 6}
 
 
 def main():
     path, base_path, target = sys.argv[1:4]
+    kit = next((word.split("=", 1)[1] for word in sys.argv[4:] if word.startswith("kit=")), "male-muscled")
     data = dict(np.load(path, allow_pickle=False))
     original = data.setdefault("points_before", data["points"]).astype(np.float64)
     kept = base_path.replace(".npy", ".antes.npy")
     if not os.path.exists(kept):
         shutil.copy(base_path, kept)
     base = np.load(kept).astype(np.float64)
-    move = muscles(len(base))
+    move = muscles(len(base)) if kit == "male-muscled" else np.zeros_like(base)
     shift = move[cKDTree(base).query(original)[1]]
     names = [str(name) for name in data["names"]]
     torso = np.array([name.startswith(("Spine", "Hips")) for name in names])
@@ -38,7 +48,8 @@ def main():
     if "--plain" not in sys.argv:
         chart = np.load(RELIEF)
         relief = chart["relief"].astype(np.float64), chart["known"].astype(np.float64)
-        fine = moulded(original + shift, data["faces"].astype(np.int64), relief, trunk)
+        tuned = dict(word.split("=", 1) for word in sys.argv[4:] if word.startswith(("strength=", "soft=")))  # to try a value out
+        fine = moulded(original + shift, data["faces"].astype(np.int64), relief, trunk, float(tuned.get("strength", STRENGTH[kit])), int(tuned.get("soft", SOFT[kit])))
         shift = shift + fine
         gaps, near = cKDTree(original).query(base)
         moved += fine[near] * (gaps < 0.02)[:, None]

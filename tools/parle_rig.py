@@ -13,12 +13,15 @@
       game (Mixamo) with them straight, and the clip's curl came on top of ours. Pointing, the hand closed into a
       claw: 64 degrees of curl against 38, and the index and little finger 52 degrees apart against 18 (2026-11-08,
       measured in the Unity player on Dona Rosa). The tip (Thumb4, Index4...) has no child and follows its parent.
-    - The arms move as Rafa's (owner, 2026-11-11). The game fitted each clip to each of its old bodies: standing, talking and walking it
+    - The arms move as Rafa's on the men and as Sofia's on the women (owner, 2026-11-11). The game fitted each clip to each of its old
+      bodies: standing, talking and walking it
       opened the arms by an angle tuned by hand to that body (0.03 rad on Rafa, 0.05 to 0.18 on the men, another on the women), and the
       clip of each old body came with it. On our bodies that tuning is for a body that is no longer there: next to Rafa in the same clip,
       Carlos held the upper arm 3 to 6 degrees further out and the elbow 10 degrees more bent, and Lúcia, breathing, stood with the arms 20
       degrees further out, like wings. The gestures (agreeing, counting, pointing) were the same within 1 degree. So the clavicle, the arm,
       the forearm, the hand and the fingers take Rafa's turn in each clip, counted from the chest, and the rest of the body keeps its own.
+      A woman takes Sofia's: in the gestures (agreeing, talking, pointing) she carries the arms 10 to 20 degrees further from the body than
+      he does, and with his arms Lúcia's gestures ended 19 degrees from hers. A clip one of them lacks comes from the other.
     - Each body keeps the gap Rafa keeps between the arm and the body. Standing, his forearm and hand stay 2.6 to 3.3 cm clear of the trunk and
       the thigh, skin to skin. His motion on a body of another girth lands the arm elsewhere, and so did the game's own tuning: the muscled
       man's forearm and hand sank into the trunk (0.8 cm clear standing, 0.7 cm inside talking) and Lúcia's hand brushed the hip (0.6 cm). The
