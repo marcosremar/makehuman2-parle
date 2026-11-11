@@ -87,3 +87,45 @@ tree.balance()
 shares = parle_polish.over_skin(empty, {"L": np.zeros(0)}, tree, {"L": np.ones(1)})
 assert shares["L"].shape == (0,), shares
 print("ok")
+
+# The legs of a pair of shorts end on a level line (2026-11-11): the bottoms of a kit have few faces, and the hem of the pharmacy
+# attendant's shorts went round each thigh in teeth of 2 cm. Shorts are sewn of a front and a back panel, so each opening is the hems
+# of both. The waist and the seams between the panels stay as they are.
+def panel(name, front):
+    """Half of a pair of shorts: the front or the back of two legs 20 cm apart, each half a tube of 8 cm, from 0.60 to 0.90 m, its hem in teeth."""
+    points, faces = [], []
+    for leg in (-0.10, 0.10):
+        start = len(points)
+        for ring in range(7):
+            for turn in range(9):
+                angle = math.pi * turn / 8 + (math.pi if front else 0.0)
+                high = 0.60 + 0.05 * ring + (0.02 if ring == 0 and turn % 2 else 0.0)
+                points.append((leg + 0.08 * math.cos(angle), 0.08 * math.sin(angle), high))
+        faces += [(start + ring * 9 + turn, start + ring * 9 + turn + 1, start + (ring + 1) * 9 + turn + 1, start + (ring + 1) * 9 + turn) for ring in range(6) for turn in range(8)]
+    mesh = bpy.data.meshes.new(name)
+    mesh.from_pydata(points, [], faces)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(obj)
+    return obj
+
+
+halves = [panel("Outfit_Bottom", True), panel("Outfit_Bottom.001", False)]
+ragged = [parle_polish.rest_points(half).copy() for half in halves]
+assert parle_polish.level_hems(halves) == 2, "the two openings of a pair of shorts sewn of two panels were not found"
+for half, was in zip(halves, ragged):
+    now = parle_polish.rest_points(half)
+    hem = was[:, 2] < 0.63
+    assert np.ptp(now[hem, 2]) < 1e-4, f"the hem still goes up and down: {np.ptp(now[hem, 2]) * 1000:.1f} mm"
+    assert np.allclose(now[~hem], was[~hem], atol=1e-7), "waist or seams moved with the hem"
+    assert np.allclose(now[hem][:, :2], was[hem][:, :2], atol=1e-4), "the hem came nearer the leg, or further from it"
+
+# A skirt is one opening, right across the middle.
+skirt = tube("Outfit_Bottom", 0.20, 0.5, 0.9, rings=7, around=24)
+wavy = parle_polish.rest_points(skirt).copy()
+wavy[wavy[:, 2] < 0.501, 2] += np.where(np.arange((wavy[:, 2] < 0.501).sum()) % 2 == 0, 0.0, 0.02)
+skirt.data.vertices.foreach_set("co", wavy.ravel())
+skirt.data.update()
+assert parle_polish.level_hems([skirt]) == 1 and np.ptp(parle_polish.rest_points(skirt)[wavy[:, 2] < 0.53, 2]) < 1e-4, "the hem of a skirt was not levelled as one opening"
+assert parle_polish.level_hems([tube("Outfit_Top", 0.16, 0.9, 1.4)]) == 0, "the hem of a shirt was taken for the leg of a bottom"
+print("ok")

@@ -57,6 +57,19 @@ HAIR_ROUGH = 0.8
 CLEAR_REACH_M = 0.09
 CLEAR_GAP_M = 0.012
 CLEAR_ROUNDS = 3
+# Pushed out point by point along the skin's own normal, the long hair of the pharmacy's attendant crumpled round each ear into a knot
+# of spikes: an ear looks every way at once (2026-11-11, seen from the front as a ragged edge down each cheek). Above the mouth a point
+# that is too near the skin goes out from the middle of the head, level, to just outside the skin that stands furthest out that way,
+# found by looking in from this far; and what was pushed carries its neighbours with it, each ring by this share of the one before,
+# this many rings out, so the hair swells where it was crumpled. (Going out that way by as much as the normal asked ran away: where the normal lies across it, no step out
+# is ever enough, and the hair stood out 10 cm in two points.)
+CLEAR_FROM_M = 0.3
+CLEAR_SPREAD = 6
+CLEAR_CARRIED = 0.7
+# A cap of hair lies on the skull: this share of its points no further than this from the skin. Measured on four people on 2026-11-11:
+# the caps have 98 to 100% of their points within 2 cm, long hair 55%, curls 47%, an afro 34%, a ponytail 15%.
+CAP_NEAR_M = 0.02
+CAP_SHARE = 0.9
 # The skull is ours, the hair came from another: where it sinks into the forehead, the skin cuts it in a serrated line.
 SCALP_GAP_M = 0.006
 # Strand tips on the collar pile up as shards: in front, they stop on the neck, with room to spare.
@@ -311,30 +324,46 @@ def dye_scalp(obj, colour, roughness):
 # open edge walks along itself towards the mean of its neighbours, keeping each point's distance from the skull's middle.
 HAIRLINE_PASSES = 12
 HAIRLINE_STEP = 0.5
+HAIRLINE_SAME_M = 1e-5
 
 
 def smooth_hairline(obj):
+    """The open edge of a cap walks along itself towards the mean of its neighbours, each point keeping its distance from the
+    skull's middle. Points at the same place are one point: a cap is cut along a seam of its picture, and smoothed as two edges the
+    seam opened into a slit down the nape (Carlos, 2026-11-11)."""
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
     mesh.verts.ensure_lookup_table()
-    rim = [vert for vert in mesh.verts if any(edge.is_boundary for edge in vert.link_edges)]
-    if not rim:
+    place = lambda vert: tuple(round(value / HAIRLINE_SAME_M) for value in vert.co)
+    shared = {}
+    for vert in mesh.verts:
+        shared.setdefault(place(vert), []).append(vert.index)
+    sides = {}
+    for edge in mesh.edges:
+        key = tuple(sorted((place(edge.verts[0]), place(edge.verts[1]))))
+        if key[0] != key[1]:
+            sides[key] = sides.get(key, 0) + len(edge.link_faces)
+    ring = {}
+    for (first, second), faces in sides.items():
+        if faces == 1:
+            ring.setdefault(first, []).append(second)
+            ring.setdefault(second, []).append(first)
+    if not ring:
         mesh.free()
         return
     middle = sum((vert.co for vert in mesh.verts), Vector()) / len(mesh.verts)
-    ring = {vert.index: [other.index for edge in vert.link_edges if edge.is_boundary for other in edge.verts if other is not vert] for vert in rim}
-    start = {index: mesh.verts[index].co.copy() for index in ring}
+    start = {key: mesh.verts[shared[key][0]].co.copy() for key in ring}
     points = dict(start)
     for _ in range(HAIRLINE_PASSES):
-        points = {index: points[index].lerp(sum((points[other] for other in near), Vector()) / len(near), HAIRLINE_STEP) if near else points[index] for index, near in ring.items()}
+        points = {key: points[key].lerp(sum((points[other] for other in near), Vector()) / len(near), HAIRLINE_STEP) for key, near in ring.items()}
     keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else []
-    for index, point in points.items():
-        reach = (start[index] - middle).length
-        point = middle + (point - middle).normalized() * reach
-        step = point - start[index]
-        obj.data.vertices[index].co += step
-        for key in keys:
-            key.data[index].co += step
+    for key, point in points.items():
+        reach = (start[key] - middle).length
+        step = middle + (point - middle).normalized() * reach - start[key]
+        for index in shared[key]:
+            obj.data.vertices[index].co += step
+            for block in keys:
+                block.data[index].co += step
     mesh.free()
     obj.data.update()
     print("LINHA DO CABELO", obj.name, len(points), "pontos")
@@ -357,6 +386,31 @@ def bald_crown(body, hairs):
         delete_faces(hair, lambda point: bool(bare_crown(np.array([tuple(point)]), head)[0]), "FACES")
 
 
+def hugs_scalp(obj, body):
+    """Whether a piece of hair is a cap on the skull (the scalp under a coif, a cropped cut) and not hair that stands off it: nearly
+    all of its points lie right on the skin. The edge of such a cap is a hairline, and takes `smooth_hairline`: the game's caps are a
+    few big faces, and on Carlos the edge went round the nape and the temple in square steps (2026-11-11), as the restaurant's had on
+    the forehead, because only the piece called Hair_Scalp was smoothed."""
+    tree = surface_tree([body])
+    world = obj.matrix_world
+    near = sum(1 for vertex in obj.data.vertices if tree.find_nearest(world @ vertex.co, CAP_NEAR_M)[0] is not None)
+    return bool(len(obj.data.vertices)) and near >= CAP_SHARE * len(obj.data.vertices)
+
+
+def cut_at(obj, planes):
+    """Splits the faces of a piece along each plane (a point and a normal, in the world), so that a cut made after it ends on the
+    plane and not on the teeth of the faces that crossed it."""
+    mesh = bmesh.new()
+    mesh.from_mesh(obj.data)
+    inverse, turn = obj.matrix_world.inverted(), obj.matrix_world.to_3x3().transposed()
+    for point, normal in planes:
+        bmesh.ops.bisect_plane(mesh, geom=mesh.verts[:] + mesh.edges[:] + mesh.faces[:], dist=1e-6, plane_co=inverse @ Vector(point),
+                               plane_no=(turn @ Vector(normal)).normalized(), clear_inner=False, clear_outer=False)
+    mesh.to_mesh(obj.data)
+    mesh.free()
+    obj.data.update()
+
+
 def delete_faces(obj, wanted, context="FACES_ONLY"):
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
@@ -370,11 +424,15 @@ def delete_faces(obj, wanted, context="FACES_ONLY"):
 
 
 def trim_chest_hair(obj, neck):
-    """A strand that reaches the chest has to lie flat on the collar, and there it looks like a pile of shards. It stops on the neck, and what is left loose below goes too."""
+    """A strand that reaches the chest has to lie flat on the collar, and there it looks like a pile of shards. It stops on the neck, and what is left loose below goes too.
+    The faces are split along the borders of what goes before any is taken away: whole faces gone left the hem of the pharmacy
+    attendant's hair in saw teeth (2026-11-11)."""
     def on_chest(point):
         reach = SHOULDER_BACK_M if abs(point.x - neck.x) > SHOULDER_SIDE_M else CHEST_FRONT_M
         return point.z < neck.z + CHEST_ABOVE_NECK_M and point.y < neck.y + reach
 
+    cut_at(obj, [((0, 0, neck.z + CHEST_ABOVE_NECK_M), (0, 0, 1)), ((0, neck.y + CHEST_FRONT_M, 0), (0, 1, 0)), ((0, neck.y + SHOULDER_BACK_M, 0), (0, 1, 0)),
+                 ((neck.x - SHOULDER_SIDE_M, 0, 0), (1, 0, 0)), ((neck.x + SHOULDER_SIDE_M, 0, 0), (1, 0, 0))])
     cut = delete_faces(obj, on_chest, "FACES")
     mesh = bmesh.new()
     mesh.from_mesh(obj.data)
@@ -420,34 +478,67 @@ def surface_tree(objects):
 
 
 def clear_of_body(obj, covers, below_z):
-    """Hair below the mouth rests on the shirt and the skin, never through them. Above it, only the skin counts, with a thin gap: `covers[0]` is the body."""
+    """Hair below the mouth rests on the shirt and the skin, never through them. Above it, only the skin counts, with a thin gap: `covers[0]` is the body.
+    Points at the same place are one point and move as one: a piece is cut along the seams of its picture, and pushed as two edges a
+    seam opened (a slit down the back of Carlos's cap, a thread standing out of the pharmacy attendant's crown, 2026-11-11)."""
     tree = surface_tree(covers)
     scalp = surface_tree(covers[:1])
-    around = [[] for _ in obj.data.vertices]
-    for edge in obj.data.edges:
-        first, second = edge.vertices
-        around[first].append(second)
-        around[second].append(first)
     world = obj.matrix_world
-    moved = np.zeros((len(obj.data.vertices), 3))
+    spots = [world @ vertex.co for vertex in obj.data.vertices]
+    place = {}
+    for index, spot in enumerate(spots):
+        place.setdefault(tuple(round(value / HAIRLINE_SAME_M) for value in spot), []).append(index)
+    groups = list(place.values())
+    group_of = np.empty(len(spots), int)
+    for number, members in enumerate(groups):
+        group_of[members] = number
+    around = [set() for _ in groups]
+    for edge in obj.data.edges:
+        first, second = (int(group_of[index]) for index in edge.vertices)
+        if first != second:
+            around[first].add(second)
+            around[second].add(first)
+    around = [sorted(near) for near in around]
+    head = [covers[0].matrix_world @ vertex.co for vertex in covers[0].data.vertices]
+    head = [point for point in head if point.z > below_z] or head
+    middle = Vector((sum(point.x for point in head) / len(head), sum(point.y for point in head) / len(head), 0))
+    # A cap lies on the skull and stops at the ear; only hair that hangs goes out over it.
+    hangs = not hugs_scalp(obj, covers[0])
+    moved = np.zeros((len(groups), 3))
     pushed = 0
     for _ in range(CLEAR_ROUNDS):
         step = np.zeros_like(moved)
-        for index, vertex in enumerate(obj.data.vertices):
-            point = world @ vertex.co + Vector(moved[index])
+        for number, members in enumerate(groups):
+            point = spots[members[0]] + Vector(moved[number])
             high = point.z > below_z
             location, normal, _, _ = (scalp if high else tree).find_nearest(point, CLEAR_REACH_M)
             if location is None:
                 continue
             need = (SCALP_GAP_M if high else CLEAR_GAP_M) - (point - location).dot(normal)
-            if need > 0:
-                step[index] = np.array(normal) * need
-                pushed += 1
+            if need <= 0:
+                continue
+            out = Vector((point.x - middle.x, point.y - middle.y, 0))
+            skin = None
+            if high and hangs and out.length > 1e-6:
+                # Seen from outside, level, towards the middle of the head: the first skin met is the furthest out that way, ear and all.
+                axis, far = Vector((middle.x, middle.y, point.z)), out.length
+                out.normalize()
+                skin = scalp.ray_cast(axis + out * CLEAR_FROM_M, -out, CLEAR_FROM_M)[3]
+            if skin is not None:
+                step[number] = np.array(out) * max(0.0, CLEAR_FROM_M - skin + SCALP_GAP_M - far)
+            else:
+                step[number] = np.array(normal) * need
+            pushed += len(members)
         # Neighbours follow, or a strand turns into a row of spikes.
         step = np.array([(step[i] + step[n].mean(axis=0)) / 2 if n and not step[i].any() else step[i] for i, n in enumerate(around)])
         moved += step
+    for _ in range(CLEAR_SPREAD):
+        far = np.linalg.norm(moved, axis=1)
+        most = np.array([near[int(far[near].argmax())] if near else index for index, near in enumerate(around)])
+        more = far[most] * CLEAR_CARRIED > far
+        moved[more] = moved[most[more]] * CLEAR_CARRIED
     inverse = world.inverted().to_3x3()
-    for vertex, shift in zip(obj.data.vertices, moved):
-        vertex.co += inverse @ Vector(shift)
+    for vertex, number in zip(obj.data.vertices, group_of):
+        vertex.co += inverse @ Vector(moved[number])
     obj.data.update()
     print("CABELO FORA DO PANO", obj.name, pushed)

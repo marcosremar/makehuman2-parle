@@ -33,6 +33,16 @@ EYE_SCALE = 1.1
 EYE_SCALE_BY_SEX = {"female": 1.2}
 EYE_CORE_M = 0.017
 EYE_REACH_M = 0.032
+# The pieces whose openings for the legs end on a level line. A hem is in the lowest share of the bottoms, where the open edge leans
+# no more than this from level (the sine); an opening has at least these points, and the plane that fits it stands at least this
+# upright. A skirt's hem has points at the middle (this near it) from the front to the back, this share of the hem's depth.
+HEM_PIECES = ("Outfit_Bottom",)
+HEM_LOW_SHARE = 0.25
+HEM_LEVEL = 0.8
+HEM_LEAST_POINTS = 8
+HEM_UPRIGHT = 0.7
+HEM_MIDDLE_M = 0.02
+HEM_SKIRT_DEEP = 0.6
 # A point of the globe that is not seen goes this far behind the skin, when the skin is no further behind it than the reach.
 EYE_BEHIND_M = 0.001
 EYE_BEHIND_REACH_M = 0.02
@@ -130,6 +140,59 @@ def eye_centres(eye):
         radius = np.ptp(part[:, 0]) / 2
         centres.append(np.array([(part[:, 0].min() + part[:, 0].max()) / 2, part[:, 1].min() + radius, (part[:, 2].min() + part[:, 2].max()) / 2]))
     return centres
+
+
+def hem_points(obj, points, low, tall):
+    """The points of a piece on its hem: the ends of the open edges that lie in the lowest part of the bottoms and run across the leg,
+    not down it (a seam between two panels is an open edge too). The corner where a hem meets a seam is of the hem."""
+    count = {}
+    for polygon in obj.data.polygons:
+        corners = list(polygon.vertices)
+        for first, second in zip(corners, corners[1:] + corners[:1]):
+            key = (min(first, second), max(first, second))
+            count[key] = count.get(key, 0) + 1
+    found = set()
+    for (first, second), times in count.items():
+        along = points[second] - points[first]
+        if times == 1 and max(points[first][2], points[second][2]) < low + HEM_LOW_SHARE * tall and abs(along[2]) < HEM_LEVEL * np.linalg.norm(along):
+            found |= {first, second}
+    return sorted(found)
+
+
+def level_hems(meshes):
+    """The leg of a pair of shorts, of trousers or of a skirt ends on a level line, and how many openings were levelled. The bottoms of
+    a kit have few faces, and the hem of the pharmacy attendant's shorts went round each thigh in teeth of 2 cm, torn-looking
+    (2026-11-11). A bottom is sewn of panels, front and back, so a leg's opening is the hems of both: its points, of every panel, go
+    onto the plane that fits them best, along that plane's normal, which is the way of the leg, so none comes nearer the skin. One
+    opening for each leg; one for a skirt, whose hem goes right across the middle from front to back. Waist and seams stay."""
+    pieces = [obj for obj in meshes if obj.name.startswith(HEM_PIECES) and len(obj.data.vertices)]
+    if not pieces:
+        return 0
+    clouds = {obj.name: rest_points(obj) for obj in pieces}
+    every = np.concatenate(list(clouds.values()))
+    low, tall, middle = every[:, 2].min(), np.ptp(every[:, 2]), every[:, 0].mean()
+    found = [(obj.name, index) for obj in pieces for index in hem_points(obj, clouds[obj.name], low, tall)]
+    if len(found) < HEM_LEAST_POINTS:
+        return 0
+    spots = np.array([clouds[name][index] for name, index in found])
+    between = np.abs(spots[:, 0] - middle) < HEM_MIDDLE_M
+    skirt = between.sum() >= 2 and np.ptp(spots[between, 1]) > HEM_SKIRT_DEEP * np.ptp(spots[:, 1])
+    moves = {name: np.zeros_like(cloud) for name, cloud in clouds.items()}
+    levelled = 0
+    for side in ([np.ones(len(spots), bool)] if skirt else [spots[:, 0] < middle, spots[:, 0] >= middle]):
+        if side.sum() < HEM_LEAST_POINTS:
+            continue
+        centre = spots[side].mean(axis=0)
+        normal = np.linalg.svd(spots[side] - centre)[2][-1]
+        if abs(normal[2]) < HEM_UPRIGHT:
+            continue
+        for (name, index), spot in zip([item for item, mine in zip(found, side) if mine], spots[side]):
+            moves[name][index] = -((spot - centre) @ normal) * normal
+        levelled += 1
+    for obj in pieces:
+        if moves[obj.name].any():
+            warp(obj, lambda world, move=moves[obj.name]: world + move)
+    return levelled
 
 
 def under_the_lid(skin, at, centre, radius, front):
@@ -508,8 +571,8 @@ def natural_body(meshes, rig, height, sex, kit):
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
     the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body. And under a top the bust of a
-    woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves. And the eye globes stay behind the skin where the
-    lids do not show them (`globes_behind_skin`)."""
+    woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves. The legs of the bottoms end on a level line
+    (`level_hems`), and the eye globes stay behind the skin where the lids do not show them (`globes_behind_skin`)."""
     natural_arms(meshes, rig, height, sex)
     built = natural_build(meshes, rig, height, kit)
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
@@ -518,6 +581,9 @@ def natural_body(meshes, rig, height, sex, kit):
     cups = round_bust(meshes, rig) if sex == "female" else []
     if cups:
         print("BUSTO em taça debaixo da roupa: a ponta de cada seio voltou", [round(back * 1000, 1) for back in cups], "mm")
+    hems = level_hems(meshes)
+    if hems:
+        print("BARRA nivelada em", hems, "aberturas de perna")
     tucked = globes_behind_skin(meshes)
     if tucked:
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
