@@ -14,6 +14,7 @@ import numpy as np
 from parle_bald import bare_crown
 from parle_beard import beard_hair, beard_shape, inside_mouth
 from parle_lips import lip_maps, lip_points, lip_zone
+from parle_neck import behind_face, neck_tone
 
 SIZE = 1024
 WIDE_PX = 61
@@ -618,14 +619,19 @@ def main():
     share = (blush * strength * min(1.0, (level / 190) ** 2))[:, :, None]
     clean = clean * (1 - share) + clean * WARM * share
     # On the body the same shadow came out as a brown stain on the small of the back and around the neck: the relief is the face's.
-    shape = (relief(np.load(map_path), shape_path) * face)[:, :, None]
+    # Nor behind the face: where the head meets the neck the relief took each border for the edge of the world and drew a dark band round
+    # the nape (`parle_neck`).
+    front = 1 - painter(np.load(map_path))(behind_face(own_points), 3)
+    shape = (relief(np.load(map_path), shape_path) * face * front)[:, :, None]
     # A sombra da pele é quente: o azul cai mais que o vermelho.
     clean = clean * np.where(shape < 0, 1 + SHADOW * shape * SHADOW_TINT, 1 + LIGHT * shape)
     clean, lashes = lash_line(clean, np.load(map_path), own_points)
     clean, inside = dark_mouth(clean, np.load(map_path))
+    # Last of all, with every shade in place: behind the face the head comes to the tone of the neck where the two meet.
+    clean, neck = neck_tone(pad_islands(clean, np.load(map_path)), np.load(map_path), own_points, SIZE)
     clean = pad_islands(clean, np.load(map_path))
     cv2.imwrite(target, np.clip(clean, 0, 255).astype(np.uint8))
-    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "fio", thread, "sobrancelha", brows, "batom", corners, "couro", scalp, "costura", seams, "cílio", lashes, "boca", inside)
+    print("PELE", target, "tom", tone.round().tolist(), "barba", round(covered, 2), "sulco", cleared, "fio", thread, "sobrancelha", brows, "batom", corners, "couro", scalp, "costura", seams, "pescoço", neck, "cílio", lashes, "boca", inside)
 
 
 if __name__ == "__main__":

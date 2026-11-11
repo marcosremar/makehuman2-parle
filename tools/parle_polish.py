@@ -299,6 +299,31 @@ def top_over_bottom(tops, bottoms):
     return count
 
 
+def seamless_normals(obj):
+    """Gives the points of a mesh that stand at the same place the same normal, and returns how many places had more than one. The skin
+    comes from a glTF, which splits a point wherever the picture has a seam: two rings of points at the same place, each lit by its own
+    faces alone. Where the head meets the neck the two normals stood 4 to 20 degrees apart, and the light drew the seam as a line across
+    the nape and down the side of the neck, a collar of another skin (Carlos, 2026-11-11); the colour was the same on both sides."""
+    mesh = obj.data
+    points = np.round(read(mesh.vertices), 5)
+    _, place, count = np.unique(points, axis=0, return_inverse=True, return_counts=True)
+    place = place.ravel()
+    point_of = np.empty(len(mesh.loops), dtype=np.int64)
+    mesh.loops.foreach_get("vertex_index", point_of)
+    corners = np.empty(len(mesh.loops) * 3)
+    mesh.corner_normals.foreach_get("vector", corners)
+    corners = corners.reshape(-1, 3)
+    # Each corner of a face brings the normal of its point: a place with more faces around it on one side weighs more on that side.
+    total = np.zeros((len(count), 3))
+    np.add.at(total, place[point_of], corners)
+    total /= np.maximum(np.linalg.norm(total, axis=1, keepdims=True), 1e-9)
+    shared = count[place[point_of]] > 1
+    corners[shared] = total[place[point_of]][shared]
+    mesh.normals_split_custom_set(corners.tolist())
+    mesh.update()
+    return int((count > 1).sum())
+
+
 def natural_body(meshes, rig, height, sex, kit):
     """The body of a finished character: the arms, then the build of the kit. The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish

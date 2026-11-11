@@ -1,5 +1,6 @@
-"""Regression for the top that hangs outside the bottom (2026-11-11): after the build of the kit the hem of Carlos's shirt stood up to
-11 mm inside his trousers, and the waistband showed through the plaid in two slits. Run with
+"""Regression for the two last touches on a finished body (2026-11-11). The top hangs outside the bottom: after the build of the kit the
+hem of Carlos's shirt stood up to 11 mm inside his trousers, and the waistband showed through the plaid in two slits. And the points
+of the skin at the same place share a normal: the seam between his head and his neck showed as a line across the nape. Run with
 `Blender -b --factory-startup --python-exit-code 1 -P tests/test_parle_over.py`."""
 import math
 import sys
@@ -50,4 +51,26 @@ assert np.abs(after[far] - dented[far]).max() < 1e-6, "cloth far above the trous
 assert np.abs(after[:, 2] - dented[:, 2]).max() < 0.004, "the hem went up or down"
 # A dress has no bottom under it, and nothing happens.
 assert parle_polish.top_over_bottom([shirt], []) == 0
+print("ok")
+
+# The points of the skin that stand at the same place get the same normal (2026-11-11): the glTF splits a point wherever the picture has
+# a seam, each half lit by its own faces alone, and where the head meets the neck the light drew the seam as a line across the nape.
+bpy.ops.wm.read_factory_settings(use_empty=True)
+# Two faces that meet at a ridge along y, each with its own two points on the ridge, and a third face far away.
+points = [(-1, 0, 0), (0, 0, 1), (0, 1, 1), (-1, 1, 0), (0, 0, 1), (1, 0, 0), (1, 1, 0), (0, 1, 1), (5, 0, 0), (6, 0, 0), (6, 1, 0), (5, 1, 0)]
+mesh = bpy.data.meshes.new("skin")
+mesh.from_pydata(points, [], [(0, 1, 2, 3), (4, 5, 6, 7), (8, 9, 10, 11)])
+mesh.update()
+skin = bpy.data.objects.new("Body", mesh)
+bpy.context.scene.collection.objects.link(skin)
+before = np.array([corner.vector[:] for corner in mesh.corner_normals])
+assert abs(before[1] @ before[4]) < 0.1, "the two sides of the ridge already shared a normal"
+assert parle_polish.seamless_normals(skin) == 2
+after = np.array([corner.vector[:] for corner in mesh.corner_normals])
+# Corners 1 and 2 of the first face and 0 and 3 of the second are the ridge: they now look straight up, the mean of the two sides.
+for corner in (1, 2, 4, 7):
+    assert np.allclose(after[corner], (0, 0, 1), atol=1e-4), (corner, after[corner])
+# The points with no twin keep the normal of their face.
+for corner in (0, 3, 5, 6, 8, 9, 10, 11):
+    assert np.allclose(after[corner], before[corner], atol=1e-4), (corner, after[corner], before[corner])
 print("ok")
