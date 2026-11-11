@@ -21,6 +21,7 @@ from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).parent))
 import parle_mouth  # noqa: E402
+import parle_mouth_close  # noqa: E402
 import parle_normals  # noqa: E402
 import parle_teeth  # noqa: E402
 import parle_tongue  # noqa: E402
@@ -665,6 +666,8 @@ def clean_face(body, added, job, env):
     soften_pout(body, POUT_FORWARD[sex])
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
+    # The lips close over the open jaw in /p b m/, not the jaw: reads the final `jawOpen` (2026-11-11, thread of tooth in /m/).
+    parle_mouth_close.add_mouth_close(body)
     for obj in [item for item in added if item.type == "MESH" and "teeth" in item.name]:
         trim_gums(obj)
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
