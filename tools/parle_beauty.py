@@ -7,8 +7,9 @@
     critério", and the same day, on what the cast is for: "o objetivo é ter avatares tipo o Rafa e Sofia, para serem mais estilo Disney".
 
     A face is measured on a portrait from the front, at rest, by the points of the Face Mesh (MediaPipe Face Landmarker, 478 points) and,
-    for the eye as it shows and the lips against the skin, by the picture itself. Each measure is a share of the face, so the size of
-    the picture does not count. What the literature says counts, and which way (every DOI checked against Crossref, 2026-11-11):
+    for the lips against the skin, by the picture itself. Each measure is a share of the face, so the size of the picture does not
+    count; the whole face has to be on it (`whole`), and a face is read on several portraits and given the middle value of each
+    measure (`settled`). What the literature says counts, and which way (every DOI checked against Crossref, 2026-11-11):
       - A woman's face is found more attractive with bigger eyes (their height over the length of the face, r = +.50), eyes further
         apart, a smaller nose, a shorter chin, a face narrower at the mouth against the cheekbones and higher eyebrows: Cunningham
         (1986), "Measuring the physical in physical attractiveness: quasi-experiments on the sociobiology of female facial beauty",
@@ -43,10 +44,22 @@
     a face whose eyes had been grown 1.4 times went from 6.3 to 8.8 with a bag under each eye. The mark is a criterion, and every change
     is looked at on the portrait as well.
 
+    The ruler itself was wrong in three places, found on 2026-11-12 with the measures drawn over the portraits (a ruler that accuses
+    what the eye does not see is mended in the ruler):
+      - The portrait cut the chin of a big head, Sofia's among them, and the aims had been read on it (`whole`).
+      - The eye as it shows was whatever stood apart from the skin round the eye, by colour. On the lit portrait the shade at the temple
+        joined the eye and counted (Sofia 0.099 with it, 0.077 without). Without the light, three quarters of Sofia's was the line
+        drawn on her lids, and the cast has none: owner, 2026-11-06, 09 and 11, "sem cílios". And the white of the eye of a fair face
+        fell in or out of it with the threshold. It is now the opening between the lids, by the Face Mesh (`eye_shown`): what
+        Cunningham measured was the eye. How dark the eye is against the skin (Russell 2009) is then not marked: without a drawn line
+        it would mark the iris against the skin, and a darker skin would lose by its colour.
+      - The width of the mouth was not marked. No study read here gives it a direction: it is a choice of design, the mouth at rest
+        of the two faces the owner gave as the aim, small against the wide flat mouth the women of the cast had (seen on the portrait).
+
     From the side the mouth has a measure of its own, read on the silhouette of the head (`parle_profile`): the upper lip leads the
     lower one. It is marked here with the rest when the caller has it.
 
-    Numpy alone, and OpenCV for the two measures read on the picture. The portraits and their points come from the caller.
+    Numpy alone, and OpenCV for the measure read on the picture. The portraits and their points come from the caller.
 """
 import numpy as np
 
@@ -60,47 +73,53 @@ BROWS = (105, 334)
 NASION, SUBNASALE, NOSE = 168, 2, (48, 278)
 MOUTH, LIP_TOP, LIP_BOTTOM, LIP_MEET = (61, 291), 0, 17, (13, 14)
 LIPS = (61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291, 375, 321, 405, 314, 17, 84, 181, 91, 146)
-SKIN = (205, 425, 151)
 PAIRS = ((33, 263), (133, 362), (159, 386), (145, 374), (105, 334), (48, 278), (61, 291), (234, 454), (172, 397), (70, 300), (50, 280))
-# The eye as it shows is what stands apart from the skin round it by this much (CIELAB, lightness counted 0.6), in a box this many eye
-# widths wide and high about the middle of each eye: the white, the iris, the lashes and the line drawn on the lid.
-EYE_AWAY, EYE_BOX = 22.0, (0.95, 0.72)
+# The ring of points round the opening of each eye, lower lid from the outer corner to the inner one and back along the upper lid.
+LIDS = ((33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246),
+        (263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466))
 # The skin round the lips is a ring from 2 to 7% of the width of the face away from them.
 LIP_RING = (0.02, 0.07)
+# A face is whole on its portrait with this share of the picture between it and the border (`whole`).
+EDGE = 0.02
 
 # The aim, by sex: each measure on Sofia's face (frontend/game/assets/npcs/models/mulher-jeans-disney.glb) and on Rafa's
-# (home-jeans-disney.glb), 2026-11-11, and how far from it a face scores nothing. A measure with `more` scores full from the aim on, up
+# (home-jeans-disney.glb), read on 2026-11-12 on three portraits with the whole face on them (the first reading, of 2026-11-11, was on
+# one portrait that cut Sofia's chin), and how far from it a face scores nothing. A measure with `more` scores full from the aim on, up
 # to MOST times the aim: past that a feature is no longer bigger, it is another face. The corners of the mouth score full from the aim
-# up to a reach above it (`up`): Sofia's sit 1% of the width of the mouth above the middle of the lips and those of the women of the
-# game 1 to 4%; Rafa's 2% below. A man's lips score nearest to Rafa's, not darker (Russell 2003).
+# up to a reach above it (`up`): Sofia's sit level with the middle of the lips and those of the women of the game up to 4% of the
+# width of the mouth above it; Rafa's 2% below. A man's lips score nearest to Rafa's, not darker (Russell 2003). The width of the
+# mouth is a choice of design with no study behind it: nearest to the aim, with a longer reach than the rest. The two halves of a face
+# cannot be too much alike (`least`): with `less`, a face more even than Sofia's by a third lost marks for it.
 AIM = {
     "female": {
-        "eye_shown": (0.098, 0.060, "more"),
-        "eye_open": (0.089, 0.035, "more"),
+        "eye_shown": (0.024, 0.015, "more"),
+        "eye_open": (0.084, 0.035, "more"),
         "eyes_apart": (0.46, 0.06, "near"),
-        "eye_line": (0.345, 0.060, "near"),
-        "brow_high": (0.178, 0.045, "more"),
-        "nose_wide": (0.216, 0.070, "less"),
-        "chin_long": (0.180, 0.060, "less"),
-        "jaw_wide": (0.771, 0.100, "less"),
-        "lips_full": (0.348, 0.150, "near"),
-        "mouth_curve": (0.011, 0.040, "up"),
-        "lip_contrast": (0.142, 0.120, "more"),
-        "uneven": (0.015, 0.035, "less"),
+        "eye_line": (0.328, 0.060, "near"),
+        "brow_high": (0.172, 0.045, "more"),
+        "nose_wide": (0.226, 0.070, "less"),
+        "chin_long": (0.203, 0.060, "less"),
+        "jaw_wide": (0.775, 0.100, "less"),
+        "lips_full": (0.340, 0.150, "near"),
+        "mouth_wide": (0.341, 0.120, "near"),
+        "mouth_curve": (0.003, 0.040, "up"),
+        "lip_contrast": (0.145, 0.120, "more"),
+        "uneven": (0.015, 0.035, "least"),
     },
     "male": {
-        "eye_shown": (0.063, 0.040, "more"),
-        "eye_open": (0.061, 0.030, "more"),
+        "eye_shown": (0.016, 0.010, "more"),
+        "eye_open": (0.059, 0.030, "more"),
         "eyes_apart": (0.46, 0.06, "near"),
-        "eye_line": (0.309, 0.060, "near"),
+        "eye_line": (0.308, 0.060, "near"),
         "brow_high": (0.152, 0.045, "more"),
-        "nose_wide": (0.257, 0.070, "less"),
-        "chin_long": (0.254, 0.070, "near"),
-        "jaw_wide": (0.826, 0.100, "near"),
-        "lips_full": (0.233, 0.150, "near"),
-        "mouth_curve": (-0.017, 0.040, "up"),
-        "lip_contrast": (0.034, 0.120, "near"),
-        "uneven": (0.015, 0.035, "less"),
+        "nose_wide": (0.263, 0.070, "less"),
+        "chin_long": (0.251, 0.070, "near"),
+        "jaw_wide": (0.822, 0.100, "near"),
+        "lips_full": (0.241, 0.150, "near"),
+        "mouth_wide": (0.408, 0.120, "near"),
+        "mouth_curve": (-0.019, 0.040, "up"),
+        "lip_contrast": (0.032, 0.120, "near"),
+        "uneven": (0.015, 0.035, "least"),
     },
 }
 # And from the side, read on the silhouette (`parle_profile`): the upper lip ahead of the lower one.
@@ -108,9 +127,10 @@ AIM = {sex: {**rules, **parle_profile.AIM[sex]} for sex, rules in AIM.items()}
 MOST = 1.6
 NAMES = {
     **parle_profile.NAMES,
-    "eye_shown": "olho que aparece (área/rosto)", "eye_open": "olho aberto (altura/rosto)", "eyes_apart": "olhos afastados (entre centros/largura)",
+    "eye_shown": "olho que aparece (abertura/rosto)", "eye_open": "olho aberto (altura/rosto)", "eyes_apart": "olhos afastados (entre centros/largura)",
     "eye_line": "altura dos olhos no rosto", "brow_high": "sobrancelha acima do olho", "nose_wide": "largura do nariz", "chin_long": "queixo (lábio ao queixo)",
-    "jaw_wide": "mandíbula contra as maçãs", "lips_full": "lábios (altura/largura da boca)", "mouth_curve": "cantos da boca (acima do meio)",
+    "jaw_wide": "mandíbula contra as maçãs", "lips_full": "lábios (altura/largura da boca)", "mouth_wide": "largura da boca",
+    "mouth_curve": "cantos da boca (acima do meio)",
     "lip_contrast": "lábio contra a pele (contraste)", "uneven": "assimetria",
 }
 
@@ -126,6 +146,7 @@ def measures(points):
     middle = float(np.mean([spot(index)[0] for index in (TOP, CHIN, NASION, SUBNASALE)]))
     uneven = np.mean([abs((spot(a)[0] - middle) + (spot(b)[0] - middle)) + abs(spot(a)[1] - spot(b)[1]) for a, b in PAIRS]) / wide
     return {
+        "eye_shown": eye_shown(points),
         "eye_open": float(np.mean([apart(up, low) for _, _, up, low in EYES])) / tall,
         "eye_wide": eye_wide / wide,
         "eyes_apart": float(np.linalg.norm(centres[0] - centres[1])) / wide,
@@ -143,30 +164,32 @@ def measures(points):
     }
 
 
-def eye_shown(image, points):
-    """The eye as it shows on a portrait, as a share of the box of the face: round each eye, the part of the picture that is not skin
-    (the white, the iris, the lashes, a line drawn on the lid). `image` is the portrait in blue, green and red, 0 to 255. On a face
-    whose skin is as dark as its iris the two do not part, and the measure comes out near nothing: the caller leaves it out."""
-    import cv2
+def whole(points, size):
+    """Whether a face is all on its portrait: the top of the forehead, the chin and the cheekbones at least EDGE of the picture from its
+    border. `size` is the picture's width and height. The Face Mesh fits the face as a whole, so with the chin cut every point moves:
+    on 2026-11-12 Sofia's eyes read 0.089 open and her chin 0.181 long on a portrait that cut it, and 0.083 and 0.202 with the whole
+    face on the picture. The aims had been read on the cut one."""
+    spots = np.asarray([points[index][:2] for index in (TOP, CHIN, *CHEEKS)], float)
+    low, high = EDGE * np.asarray(size, float), (1 - EDGE) * np.asarray(size, float)
+    return bool((spots >= low).all() and (spots <= high).all())
 
-    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB).astype(np.float32)
+
+def settled(reads):
+    """The measures of one face read on several portraits: the middle value of each. From one framing of the same face to another the
+    Face Mesh moves a measure by up to 0.01, a sixth of what a mark has to fall from full to nothing."""
+    names = {name for found in reads for name, value in found.items() if value is not None}
+    return {name: float(np.median([found[name] for found in reads if found.get(name) is not None])) for name in names}
+
+
+def eye_shown(points):
+    """The eye as it shows, as a share of the box of the face: the opening between the lids of the two eyes, by their rings of points.
+    What is drawn round the eye, a lash or a line on the lid, is not eye."""
     spot = lambda index: np.asarray(points[index][:2], float)
     tall, wide = np.linalg.norm(spot(TOP) - spot(CHIN)), np.linalg.norm(spot(CHEEKS[0]) - spot(CHEEKS[1]))
-    patches = [lab[int(spot(index)[1]) - 5:int(spot(index)[1]) + 5, int(spot(index)[0]) - 5:int(spot(index)[0]) + 5].reshape(-1, 3) for index in SKIN]
-    skin = np.median(np.concatenate(patches), axis=0)
     shown = 0.0
-    for outer, inner, _, _ in EYES:
-        centre, half = (spot(outer) + spot(inner)) / 2, np.linalg.norm(spot(outer) - spot(inner))
-        x0, x1 = int(centre[0] - half * EYE_BOX[0]), int(centre[0] + half * EYE_BOX[0])
-        y0, y1 = int(centre[1] - half * EYE_BOX[1]), int(centre[1] + half * EYE_BOX[1])
-        away = np.linalg.norm((lab[y0:y1, x0:x1] - skin) * (0.6, 1.0, 1.0), axis=2)
-        mask = cv2.morphologyEx((away > EYE_AWAY).astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-        count, labels, stats, _ = cv2.connectedComponentsWithStats(mask)
-        if count < 2:
-            continue
-        at_middle = labels[mask.shape[0] // 2, mask.shape[1] // 2]
-        pick = at_middle if at_middle else 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
-        shown += float(stats[pick, cv2.CC_STAT_AREA])
+    for ring in LIDS:
+        x, y = np.array([spot(index) for index in ring]).T
+        shown += 0.5 * abs(float(x @ np.roll(y, 1) - y @ np.roll(x, 1)))
     return shown / float(wide * tall)
 
 
@@ -192,9 +215,11 @@ def lip_contrast(image, points):
 def mark(value, aim, reach, way):
     """How well one measure does, from 0 to 1: full at the aim, nothing `reach` away from it. With `more` or `less` the side that makes
     a face more attractive scores full too, up to MOST times the aim (or down to the aim over MOST). With `up`, a measure that may be
-    nothing or less, full is from the aim to a reach above it."""
+    nothing or less, full is from the aim to a reach above it. With `least`, full is from the aim down, without end."""
     if way == "up":
         return float(max(0.0, 1 - max(aim - value, value - aim - reach, 0.0) / reach))
+    if way == "least":
+        return float(max(0.0, 1 - max(value - aim, 0.0) / reach))
     if way == "more" and aim <= value <= aim * MOST or way == "less" and aim / MOST <= value <= aim:
         return 1.0
     edge = aim * MOST if way == "more" and value > aim else aim / MOST if way == "less" and value < aim else aim
@@ -202,8 +227,8 @@ def mark(value, aim, reach, way):
 
 
 def score(found, sex):
-    """The mark of a face, 0 to 10, and the mark of each measure, 0 to 1. `found` holds the measures (`measures`, `eye_shown` and
-    `lip_contrast` when the portraits were read, `upper_leads` when the profile was); a measure that is missing counts for nothing,
-    neither way."""
+    """The mark of a face, 0 to 10, and the mark of each measure, 0 to 1. `found` holds the measures (`measures`, `lip_contrast` when
+    the portrait without light was read, `upper_leads` when the profile was); a measure that is missing counts for nothing, neither
+    way."""
     marks = {name: mark(found[name], *rule) for name, rule in AIM[sex].items() if found.get(name) is not None}
     return (10 * float(np.mean(list(marks.values()))) if marks else 0.0), marks

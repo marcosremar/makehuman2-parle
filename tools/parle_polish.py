@@ -30,7 +30,18 @@ EYE_SCALE = 1.1
 # eerie at every level of skin (MacDorman, Green, Ho & Koch 2009, Computers in Human Behavior 25(3):695-710, DOI
 # 10.1016/j.chb.2008.12.026). Tried on 2026-11-11: at 1.22 the face is the same person with bigger eyes; at 1.4 the skin round each eye
 # stood as a bag, and grown in the plane of the face alone (1.35) the globe came out through the lids.
-EYE_SCALE_BY_SEX = {"female": 1.2}
+# On 2026-11-12, with the eye read as the opening between the lids (`parle_beauty.eye_shown`), the women's at 1.2 already showed as
+# much as Sofia's (2.4% of the box of the face): what Sofia's showed beyond that was the line drawn on her lids. The measure no longer
+# asks for more. The eye does: the head is no longer of real proportions (a quarter bigger on the women, `parle_build.HEAD`) nor its
+# skin a real one's (`fair_face`), and on a drawn face bigger eyes are not the fault they are on a photograph (eyes half as big
+# again were unpleasant on a realistic face and hardly mattered on a drawn one: Seyama & Nagayama 2007, Presence 16(4):337-351, DOI
+# 10.1162/pres.16.4.337). At 1.3, with the skin round them given more room (EYE_REACH_WIDE_M), no bag stands under the eye. Not
+# further this way: at 1.4 the skin has room only with a reach that carries the bridge of the nose 4 mm forward, each eye pushing
+# it from its side, and with the bridge kept out of the move the skin folded between it and the inner corner of each eye
+# (2026-11-12, both tried). What the eyes still lack next to Sofia's is not size by this field.
+EYE_SCALE_BY_SEX = {"female": 1.3}
+# What a kit's eyes grow past EYE_SCALE has more skin to settle in: to this far from the middle of the eye.
+EYE_REACH_WIDE_M = 0.038
 EYE_CORE_M = 0.017
 EYE_REACH_M = 0.032
 # The skin between the head and the chest shares out what a shorter neck loses (`even_follow`): a point goes whole with the head
@@ -67,6 +78,47 @@ EYE_BEHIND_ROUNDS = 6
 # The way from a point of the globe to the middle of the eye is looked at in these places, as shares of the way: the strip of lid
 # between a point under it and the opening is a millimetre or two wide.
 EYE_WAY_SHARES = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
+# The skin of the face evened out (`fair_face`). The traits of the kit and the shapes of speech whose reach is the soft of the face
+# (the cheeks, the jaw, the chin, round the mouth and beside the nose), and those whose reach keeps its points: the lids and the
+# nose, each with the share of its widest move from which a point is held whole.
+FAIR_SOFT = ("faceCheek", "faceCheekVolume", "faceJaw", "faceJawSoft", "faceChin", "faceVChin", "faceMouthWidth", "cheekSquintLeft", "cheekSquintRight",
+             "mouthSmileLeft", "mouthSmileRight", "mouthFrownLeft", "mouthFrownRight", "faceLipVolume", "faceNoseWidth", "viseme_PP", "viseme_U", "viseme_O")
+FAIR_KEPT = {"eyeBlinkLeft": 0.3, "eyeBlinkRight": 0.3, "faceNoseTip": 0.2, "faceNoseWidth": 0.7}
+FAIR_SOFT_FROM = 0.15
+# The lips are the points their own traits move by this share or more. They take part with a small weight: point against point
+# their sculpted form came out rough, a row of ridges along the upper lip (2026-11-12, in clay), and a small weight takes out what
+# goes from one point to the next and leaves the two forms of the lips. Where the two lips meet they stay: a lip is of the lower jaw
+# when the open jaw carries it this share of how far it carries the lip it carries most (it drags the upper lip a millimetre or
+# two as well), and a point this near the other lip is at the meeting.
+FAIR_LIPS = ("faceLipVolume", "faceCupidBow")
+FAIR_LIP_FROM = 0.25
+FAIR_LIP = 0.35
+FAIR_JAW_SHARE = 0.3
+FAIR_MEET_M = 0.003
+# One round is a step of this share toward the middle of a point's neighbours and a step back of that one: what is narrower than a
+# few centimetres goes and the shape of the head stays, where steps forward alone would shrink it (Taubin 1995, "A signal processing
+# approach to fair surface design", SIGGRAPH '95, pp. 351-358, DOI 10.1145/218380.218473).
+FAIR_STEP, FAIR_BACK, FAIR_ROUNDS = 0.5, -0.52, 80
+# A point with skin straight ahead of it, anywhere in the depth of a head, is inside the head (the lining of the mouth, down to the
+# throat) and stays. Looked for 5 cm ahead only, the back of Carlos's mouth, 10 cm behind his nose, was smoothed with the skin and
+# went 18 mm (2026-11-12).
+FAIR_INSIDE_M = 0.25
+# The edge of the zone is itself evened over this many rounds: the skin does not step where the zone begins. Over six the weight
+# rose to whole only some 2 cm from the nose and the lips, and the folds beside them stayed.
+FAIR_EDGE_ROUNDS = 2
+FAIR_SAME_M = 1e-5
+FAIR_HEAD_FROM = 0.5
+# The eyebrows lie this far off the skin (`brows_on_skin`).
+BROW_OFF_SKIN_M = 0.0006
+# The inside of the mouth stays behind the skin of the face (`lining_behind_skin`): this far behind it at the least, looked for
+# this far ahead of a point and behind it, and no point goes back more than this.
+LINING_BEHIND_M = 0.002
+LINING_REACH_M = 0.02
+LINING_MOST_M = 0.012
+LINING_SKIN_FACING = 0.3
+LINING_ROUNDS = 4
+# The places of a face of the lining that are looked at: its corners, the middle of its sides and its own middle.
+LINING_PLACES = ((1, 0, 0), (0, 1, 0), (0, 0, 1), (0.5, 0.5, 0), (0, 0.5, 0.5), (0.5, 0, 0.5), (1 / 3, 1 / 3, 1 / 3))
 NORMAL_PX = 512
 # Arms (owner, 2026-11-10), as a share of the height (body without hair or shoes) from joint centre to joint centre. The yardstick that hair, hat and
 # heels do not move is the arm against the leg (upper arm + forearm over thigh + shank): 0.58, 0.58 and 0.60 on the three rigged whole-body models the
@@ -294,14 +346,16 @@ def eye_scale(kit):
 
 
 def bigger_eyes(meshes, eye, scale=EYE_SCALE):
-    """Globe and lids grow together around each eye, fading out before the nose and the temple."""
+    """Globe and lids grow together around each eye, fading out before the nose and the temple; further out when they grow past
+    EYE_SCALE, so that the skin round them is not pressed into a fold."""
     centres = eye_centres(eye)
+    reach = EYE_REACH_M if scale <= EYE_SCALE else EYE_REACH_WIDE_M
 
     def field(points):
         out = points.copy()
         for centre in centres:
             away = points - centre
-            weight = smooth((EYE_REACH_M - np.linalg.norm(away, axis=1)) / (EYE_REACH_M - EYE_CORE_M))
+            weight = smooth((reach - np.linalg.norm(away, axis=1)) / (reach - EYE_CORE_M))
             out += away * (scale - 1) * weight[:, None]
         return out
 
@@ -610,6 +664,176 @@ def round_bust(meshes, rig):
     return [(1 - parle_bust.CUP) * tall for _, _, tall in cups]
 
 
+def fair_face(body, rig, rounds=FAIR_ROUNDS):
+    """The skin of the face evened out, in the rest shape and so in every shape key: how many points moved, and how far the one that
+    moved most went.
+
+    Owner, 2026-11-11: "o rosto da Lúcia está muito feio", with the aim given before: "avatares tipo o Rafa e Sofia, para serem mais
+    estilo Disney". In clay, next to Sofia's face and to the same woman's face in the game, both smooth from the eye to the chin, the
+    cast's had the folds of a real face: one from the wing of the nose to the corner of the mouth, a dent at each corner, lumps on
+    the chin, a hollow under the cheekbone. Some come with the base and some from the traits of the kit laid one over another, each
+    with a fall-off of its own. The ruler of `parle_beauty` sees none of them: it reads points, not the surface.
+
+    The zone is where the soft traits of the face act (FAIR_SOFT), on the skin of the head; the lids and the nose keep their points
+    (FAIR_KEPT), the lips move a little and not where they meet (FAIR_LIPS), and what is inside the head stays. Points at the same
+    place are one point."""
+    blocks = body.data.shape_keys.key_blocks if body.data.shape_keys else None
+    if blocks is None or not any(name in blocks for name in FAIR_SOFT):
+        return 0, 0.0
+    rest = read(blocks[0])
+    world = to_world(body, rest)
+    share = lambda name: (lambda far: far / max(far.max(), 1e-9))(np.linalg.norm(read(blocks[name]) - rest, axis=1))
+    soft = np.max([share(name) for name in FAIR_SOFT if name in blocks], axis=0)
+    kept = np.max([share(name) / least for name, least in FAIR_KEPT.items() if name in blocks] or [np.zeros(len(rest))], axis=0)
+    head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
+    weight = smooth(soft / FAIR_SOFT_FROM) * (1 - np.clip(kept, 0, 1)) * (group_share(body, head) >= FAIR_HEAD_FROM)
+    lips = np.max([share(name) for name in FAIR_LIPS if name in blocks] or [np.zeros(len(rest))], axis=0) >= FAIR_LIP_FROM
+    weight[lips] = np.minimum(weight[lips], FAIR_LIP)
+    if "jawOpen" in blocks and lips.any():
+        carried = np.linalg.norm(read(blocks["jawOpen"]) - rest, axis=1)
+        lower = lips & (carried > FAIR_JAW_SHARE * carried[lips].max())
+        for mine, other in ((lower, lips & ~lower), (lips & ~lower, lower)):
+            if not mine.any() or not other.any():
+                continue
+            across = KDTree(int(other.sum()))
+            for index in np.flatnonzero(other):
+                across.insert(world[index], int(index))
+            across.balance()
+            for index in np.flatnonzero(mine):
+                if across.find(world[index])[2] < FAIR_MEET_M:
+                    weight[index] = 0.0
+    tree = BVHTree.FromPolygons(world.tolist(), [tuple(polygon.vertices) for polygon in body.data.polygons])
+    ahead = Vector((0, -1, 0))
+    for index in np.flatnonzero(weight > 0):
+        if tree.ray_cast(Vector(world[index]) + ahead * 0.0005, ahead, FAIR_INSIDE_M)[0] is not None:
+            weight[index] = 0.0
+    place = {}
+    for index, point in enumerate(world):
+        place.setdefault(tuple(np.round(point / FAIR_SAME_M).astype(int)), []).append(index)
+    group = np.empty(len(world), int)
+    for number, members in enumerate(place.values()):
+        group[members] = number
+    count = np.bincount(group, minlength=len(place)).astype(float)
+    mean = lambda values: np.bincount(group, weights=values, minlength=len(place)) / count
+    points = np.stack([mean(world[:, axis]) for axis in range(3)], axis=1)
+    held = np.bincount(group, weights=(weight <= 0).astype(float), minlength=len(place)) > 0
+    free = np.where(held, 0.0, mean(weight))
+    edges = np.unique(np.sort(group[np.array([tuple(edge.vertices) for edge in body.data.edges], int).reshape(-1, 2)], axis=1), axis=0)
+    edges = edges[(edges[:, 0] != edges[:, 1]) & ((free[edges[:, 0]] > 0) | (free[edges[:, 1]] > 0))]
+    if not len(edges):
+        return 0, 0.0
+    near = np.maximum(np.bincount(edges.ravel(), minlength=len(place)).astype(float), 1)
+
+    def middle(values):
+        """The mean of each point's neighbours."""
+        total = np.zeros_like(values)
+        np.add.at(total, edges[:, 0], values[edges[:, 1]])
+        np.add.at(total, edges[:, 1], values[edges[:, 0]])
+        return total / (near if values.ndim == 1 else near[:, None])
+
+    for _ in range(FAIR_EDGE_ROUNDS):
+        free = np.where(free > 0, np.minimum(free, middle(free)), 0.0)
+    start = points.copy()
+    for _ in range(rounds):
+        for step in (FAIR_STEP, FAIR_BACK):
+            points = points + step * free[:, None] * (middle(points) - points)
+    matrix = np.array(body.matrix_world.inverted())[:3, :3]
+    move = ((points - start) @ matrix.T)[group]
+    for block in blocks:
+        block.data.foreach_set("co", (read(block) + move).ravel())
+    body.data.vertices.foreach_set("co", (read(body.data.vertices) + move).ravel())
+    body.data.update()
+    far = np.linalg.norm(points - start, axis=1)
+    return int((far > 1e-4).sum()), float(far.max())
+
+
+def lining_behind_skin(meshes):
+    """The inside of the mouth back behind the skin of the face where it comes through it, and how many points went.
+
+    2026-11-12: a flake showed on each of Lúcia's cheeks beside the wing of the nose, wine on one side and lilac on the other, the
+    colours of the inside of the mouth. It was the top of the lining, a face of it half a millimetre in front of the cheek: the
+    traits that draw the cheek in beside the nose do not take the lining with them (a narrower nose brought out more of it), and
+    `parle_face.keep_lining_inside` holds it for the shapes of speech, not against the rest shape of the skin.
+
+    The lining is the piece of the map the inside of the mouth sits on (`parle_mouth.mouth_piece`). A place of one of its faces has
+    come through when outer skin that turns its outer side to the front lies behind it, or less than LINING_BEHIND_M ahead of it; the
+    corners of that face go back (+y: the face looks at -y) until it is behind. Skin of the lips does not count: there the lining and
+    the skin are one."""
+    import parle_mouth
+
+    body = next((obj for obj in meshes if obj.name == "Body"), None)
+    teeth = next((obj for obj in meshes if "teeth" in obj.name), None)
+    blocks = body.data.shape_keys.key_blocks if body is not None and body.data.shape_keys else None
+    if blocks is None or teeth is None or not body.data.uv_layers.active:
+        return 0
+    loops = body.data.uv_layers.active.data
+    uv = np.zeros((len(body.data.vertices), 2))
+    for loop in body.data.loops:
+        uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
+    faces = [tuple(polygon.vertices) for polygon in body.data.polygons]
+    triangles = np.array([(face[0], second, third) for face in faces for second, third in zip(face[1:], face[2:])])
+    piece = parle_mouth.mouth_piece(rest_points(body), uv, rest_points(teeth), triangles)
+    if not piece.any():
+        return 0
+    rest = read(blocks[0])
+    share = lambda name: (lambda far: far / max(far.max(), 1e-9))(np.linalg.norm(read(blocks[name]) - rest, axis=1))
+    lips = np.max([share(name) for name in FAIR_LIPS if name in blocks] or [np.zeros(len(rest))], axis=0) >= FAIR_LIP_FROM
+    outer = [face for face in faces if not piece[list(face)].any() and not lips[list(face)].any()]
+    lining = triangles[piece[triangles].all(axis=1)]
+    front, back = Vector((0, -1, 0)), Vector((0, 1, 0))
+    gone = np.zeros(len(rest))
+    for _ in range(LINING_ROUNDS):
+        world = rest_points(body)
+        skin = BVHTree.FromPolygons(world.tolist(), outer)
+
+        def through(spot):
+            """How far back a place of the lining has to go to be behind the skin, or nothing."""
+            at = Vector(spot)
+            hit, normal, _, far = skin.ray_cast(at, back, LINING_REACH_M)
+            if hit is not None and normal.dot(front) > LINING_SKIN_FACING:
+                return far + LINING_BEHIND_M
+            hit, normal, _, far = skin.ray_cast(at, front, LINING_BEHIND_M)
+            if hit is not None and normal.dot(front) > LINING_SKIN_FACING:
+                return LINING_BEHIND_M - far
+            return 0.0
+
+        move = np.zeros_like(world)
+        for corners in lining:
+            deep = max(through(np.asarray(place) @ world[corners]) for place in LINING_PLACES)
+            if deep > 0:
+                move[corners, 1] = np.maximum(move[corners, 1], deep)
+        move[:, 1] = np.minimum(move[:, 1], LINING_MOST_M - gone)
+        if not (move[:, 1] > 1e-6).any():
+            break
+        warp(body, lambda points: points + move)
+        gone += move[:, 1]
+    return int((gone > 1e-6).sum())
+
+
+def brows_on_skin(meshes):
+    """The eyebrows laid on the skin, and how far the furthest point of them stood off it. The kit's eyebrow is a strip of its own
+    over the brow ridge; after the traits of the face, the eyes and the head have each moved the skin under it, its inner end sat
+    1 mm inside the skin and its outer end 3 mm above it, and from the side it stood out like a visor (the judge by sight,
+    2026-11-12). Every point goes to BROW_OFF_SKIN_M off the nearest skin, in the rest shape and so in every shape key."""
+    body = next((obj for obj in meshes if obj.name == "Body"), None)
+    brows = [obj for obj in meshes if "eyebrow" in obj.name]
+    if body is None or not brows or not len(body.data.polygons):
+        return 0.0
+    skin = BVHTree.FromPolygons([tuple(point) for point in rest_points(body)], [tuple(polygon.vertices) for polygon in body.data.polygons])
+    furthest = 0.0
+    for brow in brows:
+        points = rest_points(brow)
+        move = np.zeros_like(points)
+        for index, point in enumerate(points):
+            at, normal, _, far = skin.find_nearest(Vector(point))
+            if at is None:
+                continue
+            furthest = max(furthest, far)
+            move[index] = np.array(at + normal * BROW_OFF_SKIN_M) - point
+        warp(brow, lambda world, move=move: world + move)
+    return furthest
+
+
 def natural_body(meshes, rig, height, sex, kit):
     """The body of a finished character: the arms, then the build of the kit. The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish
@@ -617,7 +841,9 @@ def natural_body(meshes, rig, height, sex, kit):
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
     the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body. And under a top the bust of a
     woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves. The legs of the bottoms end on a level line
-    (`level_hems`), and the eye globes stay behind the skin where the lids do not show them (`globes_behind_skin`)."""
+    (`level_hems`). Then the face: its skin is evened out (`fair_face`), the inside of the mouth stays behind it
+    (`lining_behind_skin`), the eyebrows lie on it (`brows_on_skin`), and the eye globes stay behind the skin where the lids do not
+    show them (`globes_behind_skin`)."""
     natural_arms(meshes, rig, height, sex)
     built = natural_build(meshes, rig, height, kit)
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
@@ -629,6 +855,16 @@ def natural_body(meshes, rig, height, sex, kit):
     hems = level_hems(meshes)
     if hems:
         print("BARRA nivelada em", hems, "aberturas de perna")
+    body = next((obj for obj in meshes if obj.name == "Body"), None)
+    faired, far = fair_face(body, rig) if body is not None else (0, 0.0)
+    if faired:
+        print("ROSTO alisado:", faired, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
+    lined = lining_behind_skin(meshes)
+    if lined:
+        print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")
+    off = brows_on_skin(meshes)
+    if off:
+        print("SOBRANCELHA deitada na pele: o ponto mais longe estava a", round(off * 1000, 1), "mm")
     tucked = globes_behind_skin(meshes)
     if tucked:
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")

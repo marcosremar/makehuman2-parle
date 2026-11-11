@@ -27,7 +27,7 @@ LIP_LIGHT = 0.8
 # Stephen & McKeegan 2010, Perception 39(8):1104-1110, DOI 10.1068/p6730: directions, read in the abstracts). Measured on the portrait
 # (`parle_beauty.lip_contrast`, 2026-11-11) the cast's women had 0.06 where Sofia has 0.14 and the women of the game 0.10 to 0.18.
 # Not as far as theirs: the game's wine lips read as make-up (above), and the lip stays lighter than 0.7 of the skin.
-WOMAN_LIP_LIGHT = 0.74
+WOMAN_LIP_LIGHT = 0.71
 # 11 and a half of the drawing left the crease and the corners dark and the colour weak next to the clean face (owner, 2026-11-08).
 LIP_ROSE = 19.0
 LIP_WARM = -7
@@ -47,6 +47,15 @@ SLIT_HALF_M = 0.035
 LIP_UP_M = 0.007
 LIP_LOW_M = 0.0085
 CORNER_REACH = 1.08
+# Towards the corners the lips narrow faster than an ellipse does: as one, their colour reached the corner a third as tall as at the
+# middle and drew a band with blunt ends, which on a map with a millimetre and a half to the texel blurred into a smear past the
+# corners of the mouth (2026-11-12, on the portrait). The height of each lip goes with this power of the ellipse.
+LIP_TAPER = 1.5
+# On a woman the colour of the lower lip goes further down. The jaw rests closed as far as the lips need to meet
+# (`parle_face.CALM_LOOK`), which carries the lower lip some 3.5 mm up behind the upper one: of its 8.5 mm of colour 5 showed, a thin
+# band over the pale roll of the lip, whose most forward point is 5 mm under the meeting and whose hollow 13 mm (2026-11-12, on the
+# profile of the middle of the face). The heights above were set on 2026-11-08 with the jaw closed twice as far.
+WOMAN_LIP_LOW_M = 0.011
 FRONT_M = 0.006
 SIZE = 1024
 # The border of the lip is an edge, 1 mm wide. The upper lip's top has the two peaks of the bow, either side of a dip under the philtrum.
@@ -86,8 +95,8 @@ def slit_points(data, points):
     return slit[np.argsort(slit[:, 0])]
 
 
-def lip_points(data, points):
-    """Which points of this person's mesh are lip."""
+def lip_points(data, points, low=LIP_LOW_M):
+    """Which points of this person's mesh are lip. `low` is how far under the slit the lower lip goes."""
     top = points[:, 2].max()
     head = points[points[:, 2] > top - 0.26]
     middle = float(np.median(head[:, 0]))
@@ -95,14 +104,15 @@ def lip_points(data, points):
     tip = tip[tip[:, 1].argmin()]
     slit = slit_points(data, points)
     half = np.abs(slit[:, 0] - middle).max() * CORNER_REACH
-    across = np.sqrt(np.clip(1 - ((points[:, 0] - middle) / half) ** 2, 0, 1))
+    across = np.sqrt(np.clip(1 - ((points[:, 0] - middle) / half) ** 2, 0, 1)) ** LIP_TAPER
     height = points[:, 2] - np.interp(points[:, 0], slit[:, 0], slit[:, 2])
     front = points[:, 1] < np.interp(points[:, 0], slit[:, 0], slit[:, 1]) + FRONT_M
-    return front & (np.abs(points[:, 0] - middle) < half) & (height < LIP_UP_M * across) & (height > -LIP_LOW_M * across)
+    return front & (np.abs(points[:, 0] - middle) < half) & (height < LIP_UP_M * across) & (height > -low * across)
 
 
-def lip_maps(data, points):
+def lip_maps(data, points, low=LIP_LOW_M):
     """Texel by texel, from this person's mesh: how much is lip, the line where the lips meet, and which part is the upper lip.
+    `low` is how far under the slit the lower lip goes.
 
     Next to photographs of closed lips the old map, whole triangles blurred, had no edge and no bow, and nothing marked where the lips meet (owner, 2026-11-09).
     """
@@ -125,15 +135,16 @@ def lip_maps(data, points):
     front = place[:, :, 1] < np.interp(place[:, :, 0], centres, medians[:, 1]) + FRONT_M
     bow = 1 + BOW_PEAK * np.exp(-(((np.abs(x) - BOW_AT_M) / BOW_WIDE_M) ** 2)) - BOW_DIP * np.exp(-((x / BOW_DIP_WIDE_M) ** 2))
     inside = known & front & (np.abs(x) < half)
-    share = np.clip(np.minimum(LIP_UP_M * across * bow - height, height + LIP_LOW_M * across) / LIP_EDGE_M, 0, 1) * inside
+    high = across ** LIP_TAPER
+    share = np.clip(np.minimum(LIP_UP_M * high * bow - height, height + low * high) / LIP_EDGE_M, 0, 1) * inside
     line = np.exp(-(((height + LINE_BELOW_M) / LINE_M) ** 2)) * np.clip(across * LINE_ENDS, 0, 1) * inside
     upper = share * (height > 0)
     return cv2.GaussianBlur(share.astype(np.float32), (0, 0), 0.7), cv2.GaussianBlur(line.astype(np.float32), (0, 0), 0.5), cv2.GaussianBlur(upper.astype(np.float32), (0, 0), 1.0)
 
 
-def lip_zone(data, points):
+def lip_zone(data, points, low=LIP_LOW_M):
     """The lip on the UV map, from the cast mesh (`uvpos.npz`) and this person's own points."""
-    return lip_maps(data, points)[0]
+    return lip_maps(data, points, low)[0]
 
 
 def lab_of(bgr):

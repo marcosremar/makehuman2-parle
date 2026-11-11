@@ -19,7 +19,9 @@ import numpy as np
 SIZE = 512
 # Centres and radius of the iris in the stock map, as shares of the map.
 CENTRES = ((0.703, 0.273), (0.296, 0.676))
-IRIS_RADIUS = 0.115
+# The stock radius is 0.115, the iris of a real eye on its globe. A judge by sight read the cast's eyes as small next to Sofia's
+# and asked for the iris bigger with the opening (2026-11-12, `parle_face.FAIR_LOOK`): on a drawn face the iris fills more of the eye.
+IRIS_RADIUS = 0.13
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 GAZE_DOWN = 0.2
 # Pupil as a share of the iris radius. Light-adapted pupils under interior light are about 0.25 to 0.33 of the iris (10 to 100 cd/m2,

@@ -4,7 +4,7 @@
 O rosto vem do NPC do jogo (`cast-heads.py`), com barba e marcas de cada pessoa, e fica: é identidade. O corpo só recebe o tom, e a emenda virava colar no pescoço.
 Aqui o corpo limpa, o pescoço faz a transição, e a barba cinza do rosto escuro ganha o matiz da pele. A malha é a mesma em todo o elenco, então as zonas saem de um mapa só.
 
-    skin_style.py <pele.png> <uvpos.npz> <corpo.npz> <saída.png> [força-do-blush] [--shave] [--no-beard]
+    skin_style.py <pele.png> <uvpos.npz> <corpo.npz> <saída.png> [força-do-blush] [--shave] [--no-beard] [--bald] [--woman]
 """
 import sys
 
@@ -13,7 +13,7 @@ import numpy as np
 
 from parle_bald import bare_crown
 from parle_beard import beard_hair, beard_shape, inside_mouth
-from parle_lips import lip_maps, lip_points, lip_zone
+from parle_lips import WOMAN_LIP_LOW_M, lip_maps, lip_points, lip_zone
 from parle_neck import behind_face, neck_tone
 
 SIZE = 1024
@@ -554,7 +554,7 @@ def tidy_beard(skin, beard, lips, shape=None):
 
 
 def main():
-    words =[word for word in sys.argv[1:] if word not in ("--shave", "--no-beard", "--bald")]
+    words = [word for word in sys.argv[1:] if word not in ("--shave", "--no-beard", "--bald", "--woman")]
     source, map_path, shape_path, target = words[:4]
     strength = float(words[4]) if len(words) > 4 else BLUSH_STRENGTH
     skin, cleared = clear_philtrum(cv2.imread(source).astype(np.float32), np.load(map_path))
@@ -570,7 +570,9 @@ def main():
     tone = np.median(skin.reshape(-1, 3), axis=0)
     level = float(np.median(gray))
     blush, face, nose, beard_zone, lower = zones(np.load(map_path))
-    lips = lip_zone(np.load(map_path), np.load(shape_path)["points"])
+    # A man's lower lip keeps the reach `parle_lips` gives it. (Not this file's LIP_LOW_M, which is the old band under the nose.)
+    lip_reach = {"low": WOMAN_LIP_LOW_M} if "--woman" in sys.argv else {}
+    lips = lip_zone(np.load(map_path), np.load(shape_path)["points"], **lip_reach)
     ratio = gray / np.maximum(cv2.GaussianBlur(gray, (WIDE_PX, WIDE_PX), 0), 1)
     keep = np.clip((np.abs(ratio - 1) - QUIET) / (LOUD - QUIET), 0, 1)
     keep = cv2.GaussianBlur(keep, (0, 0), 1.2)[:, :, None]
@@ -610,7 +612,7 @@ def main():
     head = plain_face(head, face, beard, lips, np.load(map_path))
     # The lip is a layer of its own, measured on the mesh (`parle_lips.lip_zone`): its map goes beside the skin and `parle_lips.py` paints it, as many times as wanted, without redoing the skin.
     cv2.imwrite(target.replace(".png", ".lips.png"), np.clip(lips * 255, 0, 255).astype(np.uint8))
-    _, line, upper = lip_maps(np.load(map_path), np.load(shape_path)["points"])
+    _, line, upper = lip_maps(np.load(map_path), np.load(shape_path)["points"], **lip_reach)
     cv2.imwrite(target.replace(".png", ".line.png"), np.clip(np.dstack([line, upper, np.zeros_like(line)]) * 255, 0, 255).astype(np.uint8))
     clean = body * (1 - face[:, :, None]) + head * face[:, :, None]
     own_points = np.load(shape_path)["points"]

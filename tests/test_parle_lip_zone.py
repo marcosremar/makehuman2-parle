@@ -53,6 +53,20 @@ assert at(0, SLIT_Z - 0.015) < 0.05, at(0, SLIT_Z - 0.015)
 assert at(0, SLIT_Z + 0.012) < 0.05
 # The lip narrows to nothing past the mouth's corner.
 assert at(0.039, SLIT_Z - 0.004) < 0.05
+# And towards it faster than an ellipse: four fifths of the way to the corner (the slit is read 35 mm to each side) the lower lip is
+# under half its height, where the ellipse left 5 mm of the 8.5 and the colour drew a band with blunt ends (2026-11-12).
+assert at(0.03, SLIT_Z - 0.0045) < 0.3 < at(0.03, SLIT_Z - 0.003), (at(0.03, SLIT_Z - 0.0045), at(0.03, SLIT_Z - 0.003))
+# A woman's lower lip takes colour further down, since the jaw at rest hides the top of it behind the upper lip (2026-11-12), and a
+# man's stays. The skin step once gave the man's the reach of a constant of its own with the same name, the old band of 58 mm under
+# the nose, and Carlos's lip was painted down to his chin.
+from parle_lips import LIP_LOW_M, WOMAN_LIP_LOW_M  # noqa: E402
+
+zone = lip_zone({"tri": triangles, "uv": uv}, points, WOMAN_LIP_LOW_M)
+assert LIP_LOW_M < WOMAN_LIP_LOW_M < 0.013 and at(0, SLIT_Z - 0.0098) > 0.9 and at(0, SLIT_Z - 0.015) < 0.05, (at(0, SLIT_Z - 0.0098), at(0, SLIT_Z - 0.015))
+zone = lip_zone({"tri": triangles, "uv": uv}, points)
+assert at(0, SLIT_Z - 0.0098) < 0.05, "a man's lower lip goes as far down as a woman's"
+skin_step = (Path(__file__).parent.parent / "tools" / "skin_style.py").read_text()
+assert 'lip_reach = {"low": WOMAN_LIP_LOW_M} if "--woman" in sys.argv else {}' in skin_step and "import LIP_LOW_M" not in skin_step, "the skin step gives the lips a reach of its own"
 print("ok")
 
 # The shaved chin uses the same measured lip (Seu Nelson, 2026-11-08): the old fixed band 41-53 mm under the nose sat on the lower
