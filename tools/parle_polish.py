@@ -9,6 +9,8 @@ import os
 
 import bpy
 import numpy as np
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 import parle_build
 import parle_rig
@@ -31,6 +33,14 @@ ARM_FORE_SHARE = {"female": 0.142, "male": 0.148}
 ARM_SCALE_LIMITS = (0.94, 1.16)
 ARM_STILL_SHARE = 0.1
 ARM_BONES = ("Arm", "ForeArm", "Hand")
+# The top hangs outside the bottom. The build of the kit moves the trunk one way and the legs another, and the two meet at the hip, where
+# the hem of a shirt is: after it the front of the hem of Carlos's shirt stood up to 11 mm inside his trousers, and the waistband showed
+# through the plaid in two slits beside the last button (2026-11-11).
+OVER_GAP_M = 0.005
+OVER_REACH_M = 0.03
+OVER_STEP_M = 0.01
+OVER_ROUNDS = 6
+OVER_SHARED = 2
 
 
 def smooth(t):
@@ -235,13 +245,72 @@ def natural_build(meshes, rig, height, kit):
     return True
 
 
+def top_over_bottom(tops, bottoms):
+    """At rest, moves out the points of the top that stand inside the bottom, or closer to it than OVER_GAP_M. In each round the push is
+    shared with the points around, so the hem keeps its line, and the halves of a point that a seam of the picture splits go together;
+    a last pass sets whatever is still short of the gap. Returns how many points moved."""
+    if not tops or not bottoms:
+        return 0
+    points, faces = [], []
+    for obj in bottoms:
+        obj.data.calc_loop_triangles()
+        start = len(points)
+        points.extend(map(tuple, rest_points(obj)))
+        faces.extend(tuple(int(index) + start for index in triangle.vertices) for triangle in obj.data.loop_triangles)
+    tree = BVHTree.FromPolygons(points, faces)
+
+    def short(point):
+        """How far a point of the top has to go, and which way, to stand OVER_GAP_M outside the bottom."""
+        location, normal, _, _ = tree.find_nearest(Vector(point), OVER_REACH_M)
+        need = 0.0 if location is None else OVER_GAP_M - (Vector(point) - location).dot(normal)
+        return (np.array(normal) * need) if need > 0 else np.zeros(3)
+
+    count = 0
+    for obj in tops:
+        rest = rest_points(obj)
+        around = [[] for _ in rest]
+        for edge in obj.data.edges:
+            first, second = edge.vertices
+            around[first].append(second)
+            around[second].append(first)
+        spots = {}
+        twin = np.array([spots.setdefault(tuple(np.round(point, 4)), len(spots)) for point in rest])
+        halves = np.bincount(twin, minlength=len(spots))[:, None]
+        moved = np.zeros_like(rest)
+        for _ in range(OVER_ROUNDS):
+            step = np.array([short(point) for point in rest + moved])
+            lengths = np.linalg.norm(step, axis=1, keepdims=True)
+            step = step * np.minimum(1.0, OVER_STEP_M / np.maximum(lengths, 1e-9))
+            if not lengths.any():
+                break
+            for _ in range(OVER_SHARED):
+                step = np.array([(step[index] + step[near].mean(axis=0)) / 2 if near else step[index] for index, near in enumerate(around)])
+            together = np.zeros((len(spots), 3))
+            np.add.at(together, twin, step)
+            moved += (together / halves)[twin]
+        last = np.array([short(point) for point in rest + moved])
+        together = np.zeros((len(spots), 3))
+        np.add.at(together, twin, last)
+        moved += (together / halves)[twin]
+        gone = np.linalg.norm(moved, axis=1) > 1e-5
+        if gone.any():
+            count += int(gone.sum())
+            warp(obj, lambda where, moved=moved: where + moved)
+    return count
+
+
 def natural_body(meshes, rig, height, sex, kit):
     """The body of a finished character: the arms, then the build of the kit. The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
-    armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown)."""
+    armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
+    the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body."""
     natural_arms(meshes, rig, height, sex)
-    return natural_build(meshes, rig, height, kit)
+    built = natural_build(meshes, rig, height, kit)
+    over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
+    if over:
+        print("BARRA", over, "pontos da peça de cima voltaram para fora da de baixo")
+    return built
 
 
 def garment_normal(name):
