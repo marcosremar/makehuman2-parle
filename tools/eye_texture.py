@@ -36,11 +36,13 @@ LIMBUS_SHARE = 0.90
 # h_ab 32 to 37 and never b* over a* by much (Li, Hu, Yang, Xiao, Yamanari, Higashita & Liu 2026, "Quantitative measurement of iris
 # melanin concentration by polarization-sensitive anterior segment optical coherence tomography", European Journal of Ophthalmology
 # 36(4):872-880, DOI 10.1177/11206721251407025; numbers read in the Research Square preprint rs-5379311, Table 3).
-# castanho takes the light-brown L* 26 and castanho-escuro the medium-brown L* 20.5. Hue h_ab 45 and chroma 18 / 15 (a* = b* = 12.7 and
-# 10.6) sit inside the dark-brown a* (12 to 23) and b* (7.7 to 15) ranges but below each class mean: the full measured chroma is HSV
-# saturation 0.67, more than the orange we are removing. That chroma is a choice by eye, to be judged in the player. Converted to sRGB.
+# castanho takes the light-brown L* 26. castanho-escuro sits at L* 24.5: the upper part of the measured medium-brown range (16.7 to 27.1,
+# mean 20.5) and just above the light-brown floor (23.7). At the medium mean 20.5 it read as a black hole in the shop close-up, the
+# pupil lost in the iris (2026-11-11). Hue h_ab 45 and chroma 18 / 17 (a* = b* = 12.7 and 12.0) sit inside the dark-brown a* (12 to 23)
+# and b* (7.7 to 15) ranges but below each class mean: the full measured chroma is HSV saturation 0.67, more than the orange we are
+# removing. That chroma is a choice by eye, to be judged in the player. Converted to sRGB.
 IRISES = {
-    "castanho-escuro": (0.135, 0.169, 0.27),
+    "castanho-escuro": (0.16, 0.2, 0.316),
     "castanho": (0.168, 0.211, 0.335),
     "mel": (0.307, 0.47, 0.64),
 }
