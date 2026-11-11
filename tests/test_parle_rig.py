@@ -24,27 +24,16 @@ game = {"LeftShoulder": Vector((1, 0, 0))}
 ours = {"LeftShoulder": Vector((1, -0.2, 0)).normalized()}
 assert (rest_turn("LeftShoulder", game, ours) @ ours["LeftShoulder"]).y > 0.1
 
-# The arms move as Rafa's (owner, 2026-11-11): standing still, the cast held the arms 3 to 20 degrees further out than he does in the same clip,
-# because each clip came with the opening the game had tuned to a body that is gone. The arm takes his turn, counted from the chest.
+# The arm of either side, for the gap between the arm and the body: the clavicle, the arm, the forearm, the hand and the fingers.
 from mathutils import Quaternion  # noqa: E402
 
-from parle_rig import ARM_ROOT, arm_turn, moves_with_arm, same_clip  # noqa: E402
+from parle_rig import moves_with_arm, same_clip  # noqa: E402
 
 for name in ("LeftShoulder", "RightArm", "LeftForeArm", "RightHand", "LeftHandIndex2", "RightHandThumb4"):
-    assert moves_with_arm(name), f"{name} keeps the old body's motion"
+    assert moves_with_arm(name), f"{name} is not the arm's"
 for name in ("Spine2", "Neck", "Head", "LeftUpLeg", "RightFoot", "Hips"):
-    assert not moves_with_arm(name), f"{name} takes Rafa's motion, and only the arms should"
-assert ARM_ROOT == "Spine2"
+    assert not moves_with_arm(name), f"{name} passed for a bone of the arm"
 assert same_clip((0, 200), (0, 201)) and not same_clip((0, 12), (0, 200)), "a clip Rafa holds as a copy of his idle counts as his"
-out = Quaternion((0, 1, 0), 0.3)  # Rafa's arm, 0.3 rad out from his chest
-lean = Quaternion((1, 0, 0), 0.2)  # his chest, leaning
-ours = Quaternion((0, 0, 1), 0.5)  # our chest, turned another way
-got = arm_turn(ours, lean, lean @ out)
-assert got.rotation_difference(ours @ out).angle < 1e-5, "the arm is not as far from our chest as Rafa's is from his"
-still = arm_turn(Quaternion(), Quaternion(), Quaternion())
-assert still.angle < 1e-6, "an arm at rest on Rafa is not at rest on us"
-gap = Quaternion((0, 1, 0), 0.1)
-assert arm_turn(ours, lean, lean @ out, gap).rotation_difference(ours @ out @ gap).angle < 1e-5
 
 # Standing still, the clavicle rests where it was modelled (2026-11-11): the turn left over from the old clips held it 7 to 16 degrees back
 # and up, and the shoulder stood as a square mass with a groove in front of the arm.
@@ -76,6 +65,19 @@ kept = {"Spine2": 0.6, "LeftArm": 0.4}
 assert chest_weights(kept, 0.0) == kept and chest_weights({"Head": 1.0}, 1.0) == {"Head": 1.0}
 assert chest_weights({"LeftArm": 1.0}, 1.0) == {"Spine2": 1.0}, "a point the spine did not hold has nowhere to go"
 assert CHEST_KITS == ("male-slim",), "the owner asked for the slim man only"
+
+# The feet stand as far apart as Rafa's, in shares of the height (2026-11-11): on wider hips, with the legs pointed as his, they stood 6 cm wider.
+from parle_rig import STANCE_MOST, even_joints, stance_turn  # noqa: E402
+
+legs = stance_turn(0.177, 0.141, 0.48)
+down = Vector((0, 0, -1))
+assert (legs["Left"] @ down).x < 0 < (legs["Right"] @ down).x, "the legs lean out, not in"
+assert abs((legs["Left"] @ down).x * 0.48 * 2 + (0.177 - 0.141)) < 1e-4, "the ankles do not come as close as the reference's"
+assert stance_turn(0.141, 0.141, 0.48)["Left"].angle < 1e-3 and abs(stance_turn(0.9, 0.1, 0.48)["Left"].angle - STANCE_MOST) < 1e-3
+# The clavicles of the game rig start 2.3 cm from each other's mirror: they go half way each.
+left, right = even_joints(Vector((0.0659, -0.013, 1.5075)), Vector((-0.0556, -0.0068, 1.4879)))
+assert abs(left.x + right.x) < 1e-6 and abs(left.y - right.y) < 1e-6 and abs(left.z - right.z) < 1e-6, "the clavicles are not mirrored"
+assert abs(left.x - 0.06075) < 1e-5 and abs(left.z - 1.4977) < 1e-4, "the joints did not meet half way"
 
 # Standing, the head sits over the ankles (2026-11-11): with the game's clips on our spine the cast stooped, the head 5 cm in front of the ankles.
 import math  # noqa: E402

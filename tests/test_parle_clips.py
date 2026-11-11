@@ -19,18 +19,25 @@ clip = lambda name, last: SimpleNamespace(name=name, frame_range=(0, last))
 assert parle_clips.clip_name(clip("idle.001", 200)) == "idle" and parle_clips.clip_name(clip("idle_Armature", 200)) == "idle"
 assert parle_clips.clip_name(clip("talkArmSide", 80)) == "talkArmSide"
 
-# A man copies Rafa first and takes from Sofia what he lacks; a clip of another length is another motion and is copied from nobody.
+# The whole body copies Rafa first on a man and takes from Sofia what he lacks; a clip of another length is another motion, and one that
+# neither has comes from the game's own body of the character (2026-11-11: copying the arms alone left them wrong whenever the trunk of
+# the old body leaned another way than Rafa's, and the old clips swayed the hips 17 cm and slid the planted foot 10 cm).
+own = dict(actions={"idle": clip("idle", 200), "thinking": clip("thinking", 100), "idleFemale": clip("idleFemale", 240)})
 rafa = dict(actions={"idle": clip("idle.001", 200), "thinking": clip("thinking.001", 200)})
 sofia = dict(actions={"idle": clip("idle.002", 200), "idleFemale": clip("idleFemale.001", 240)})
-assert parle_clips.arm_lead([rafa, sofia], clip("idle", 200)) is rafa and parle_clips.arm_lead([sofia, rafa], clip("idle", 200)) is sofia
-assert parle_clips.arm_lead([rafa, sofia], clip("idleFemale", 240)) is sofia
-assert parle_clips.arm_lead([rafa, sofia], clip("thinking", 100)) is None, "a copy of the idle passed for the clip"
-assert parle_clips.arm_lead([], clip("idle", 200)) is None and parle_clips.arm_lead(None, clip("idle", 200)) is None
+assert parle_clips.clip_source(own, [rafa, sofia], own["actions"]["idle"]) == (rafa, rafa["actions"]["idle"])
+assert parle_clips.clip_source(own, [sofia, rafa], own["actions"]["idle"]) == (sofia, sofia["actions"]["idle"])
+assert parle_clips.clip_source(own, [rafa, sofia], own["actions"]["idleFemale"]) == (sofia, sofia["actions"]["idleFemale"])
+thinking = own["actions"]["thinking"]
+assert parle_clips.clip_source(own, [rafa, sofia], thinking) == (own, thinking), "a copy of the idle passed for the clip"
+assert parle_clips.clip_source(own, [], own["actions"]["idle"]) == (own, own["actions"]["idle"])
+assert parle_clips.clip_source(own, None, own["actions"]["idle"])[0] is own
 
 # Whose arms a kit copies first is decided here, not by who calls: a woman copies Sofia, a man Rafa.
 import parle_rig  # noqa: E402
 
-assert parle_rig.lead_order("female-slim") == ("sofia", "rafa") and parle_rig.lead_order("male-muscled") == ("rafa", "sofia")
+assert parle_rig.lead_order("female-slim") == ("sofia", "rafa"), "a woman copies Sofia first"
+assert parle_rig.lead_order("male-muscled") == ("rafa",), "a man moves as Sofia where Rafa has no clip"
 assert parle_clips.lead_files("rafa=/a/rafa.glb,sofia=/b/sofia.glb") == {"rafa": "/a/rafa.glb", "sofia": "/b/sofia.glb"} and parle_clips.lead_files("") == {}
 
 # A bone with no curve stays at its rest, and a child goes with its parent.
@@ -41,8 +48,12 @@ world = parle_clips.posed(["Spine", "Neck"], {"Spine": None, "Neck": "Spine"}, {
 assert world["Spine"].rotation_difference(turn).angle < 1e-5 and world["Neck"].rotation_difference(turn).angle < 1e-5
 
 source = (ROOT / "tools" / "parle_clips.py").read_text()
-for piece in ("def clips_on(", "def retarget(", "def aligned_rest(", "def standing_lean(", "def still_turns(", "def clear_arms(", "def open_arms(", "def standing_gap("):
+PIECES = ("def clips_on(", "def retarget(", "def aligned_rest(", "def standing(", "def still_turns(", "def clear_arms(", "def open_arms(",
+          "def standing_gap(")
+for piece in PIECES:
     assert piece in source, f"{piece} left the fork"
-for rule in ("parle_rig.arm_turn(", "parle_rig.rest_turn(", "parle_rig.trunk_lean(", "parle_rig.clavicle_as_modelled(", "parle_rig.arm_opening(", "parle_rig.skin_gap("):
+RULES = ("parle_rig.lead_order(", "parle_rig.same_clip(", "parle_rig.rest_turn(", "parle_rig.trunk_lean(", "parle_rig.clavicle_as_modelled(",
+         "parle_rig.arm_opening(", "parle_rig.skin_gap(", "parle_rig.stance_turn(", "parle_rig.even_joints(")
+for rule in RULES:
     assert rule in source, f"the clips no longer ask parle_rig: {rule}"
 print("ok")

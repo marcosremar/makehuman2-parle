@@ -31,15 +31,17 @@
       game (Mixamo) with them straight, and the clip's curl came on top of ours. Pointing, the hand closed into a
       claw: 64 degrees of curl against 38, and the index and little finger 52 degrees apart against 18 (2026-11-08,
       measured in the Unity player on Dona Rosa). The tip (Thumb4, Index4...) has no child and follows its parent.
-    - The arms move as Rafa's on the men and as Sofia's on the women (owner, 2026-11-11). The game fitted each clip to each of its old
-      bodies: standing, talking and walking it
-      opened the arms by an angle tuned by hand to that body (0.03 rad on Rafa, 0.05 to 0.18 on the men, another on the women), and the
-      clip of each old body came with it. On our bodies that tuning is for a body that is no longer there: next to Rafa in the same clip,
-      Carlos held the upper arm 3 to 6 degrees further out and the elbow 10 degrees more bent, and Lúcia, breathing, stood with the arms 20
-      degrees further out, like wings. The gestures (agreeing, counting, pointing) were the same within 1 degree. So the clavicle, the arm,
-      the forearm, the hand and the fingers take Rafa's turn in each clip, counted from the chest, and the rest of the body keeps its own.
-      A woman takes Sofia's: in the gestures (agreeing, talking, pointing) she carries the arms 10 to 20 degrees further from the body than
-      he does, and with his arms Lúcia's gestures ended 19 degrees from hers. A clip one of them lacks comes from the other.
+    - The whole body moves as Rafa's on the men and as Sofia's on the women (owner, 2026-11-11: "o Rafa pode ser para os movimentos"). The
+      game fitted each clip to each of its old bodies, with numbers tuned by hand to that body, and the clip of each old body came with
+      them. Next to Rafa in the same clip, on Carlos: the arms 3 to 6 degrees further out and the elbow 10 degrees more bent; breathing,
+      the hips swaying 9.7% of the height from side to side (17 cm) against 2.3%; talking and shifting the weight, the knees bent 29 to
+      30 degrees against 18; shifting the weight, the planted foot sliding 9.6 cm on the floor against 2.2. Lúcia, breathing, stood with the
+      arms 20 degrees further out, like wings. Copying the arms alone (the first try, counted from the chest) left them wrong whenever the
+      trunk of the old body leaned another way than Rafa's. So every bone takes the turn of Rafa's, and the hips his way over the floor,
+      in each clip he has; a woman takes Sofia's, who carries the arms 10 to 20 degrees further from the body in the gestures. A clip one
+      of them lacks comes from the other, and one neither has comes from the game's own body of the character.
+    - The feet stand as far apart as on the body the kit copies first, in shares of the height and in every clip, whoever the clip
+      comes from (`stance_turn`), and the two clavicles start at mirrored points (`even_joints`).
     - Each body keeps the gap Rafa keeps between the arm and the body. Standing, his forearm and hand stay 2.6 to 3.3 cm clear of the trunk and
       the thigh, skin to skin. His motion on a body of another girth lands the arm elsewhere, and so did the game's own tuning: the muscled
       man's forearm and hand sank into the trunk (0.8 cm clear standing, 0.7 cm inside talking) and Lúcia's hand brushed the hip (0.6 cm). The
@@ -55,6 +57,31 @@ ALIGNED = ("Shoulder", "Arm", "ForeArm", "UpLeg", "Leg") + FINGERS
 SHOULDER_HEIGHT_SHARE = 0.5
 # Added to the clavicle's direction towards the back (+y): about 9 degrees, 2 cm at the tip of a 14 cm clavicle.
 SHOULDER_BACK = 0.16
+
+
+# Past this the feet are apart for another reason than the width of the hips.
+STANCE_MOST = math.radians(6)
+
+
+def stance_turn(ours, theirs, leg):
+    """The turn of each leg, by side, that brings the ankles as far apart as on the body the motion is copied from. `ours` and `theirs` are
+    the distance between the ankles standing in the idle clip, and `leg` the length of our leg from the hip joint to the ankle, all in
+    shares of the height of each body. The legs point as the game's, so on hips wider than Rafa's the feet stood wider than his: 17.7% of
+    the height against 14.1%, 6 cm more on a man of 1.75 m, and walking 10.6% against 7.2% (2026-11-11). The turn is about the axis that
+    runs from the front to the back (z up, the front at -y, the left side at +x): the whole leg leans in from the hip, and the foot keeps
+    its own direction, flat on the floor."""
+    angle = math.asin(max(-1.0, min(1.0, (ours - theirs) / 2 / leg)))
+    angle = max(-STANCE_MOST, min(STANCE_MOST, angle))
+    return {"Left": Quaternion((0.0, 1.0, 0.0), angle), "Right": Quaternion((0.0, 1.0, 0.0), -angle)}
+
+
+def even_joints(left, right, centre=0.0):
+    """Where the same joint of the two sides goes for one to mirror the other across x = `centre`: half way between each and the mirror
+    of the other. The clavicles of the game rig start 2.3 cm apart from each other's mirror (the left one 1 cm further out and 2 cm
+    higher), every other joint to the hundredth of a millimetre: one shoulder turned about another point than the other (2026-11-11)."""
+    mirrored = Vector((2 * centre - right[0], right[1], right[2]))
+    even = (Vector(left) + mirrored) / 2
+    return even, Vector((2 * centre - even[0], even[1], even[2]))
 
 
 def clavicle_as_modelled(kit):
@@ -96,15 +123,15 @@ def trunk_lean(ahead, reach):
     return {name: Quaternion((1.0, 0.0, 0.0), -angle * (index + 1) / len(SPINE)) for index, name in enumerate(SPINE)}
 
 
-ARM_ROOT = "Spine2"
 ARM_PARTS = ("Shoulder", "Arm", "ForeArm")
 # Rafa's file holds the few clips he does not have as copies of his idle (thinking, waving): a clip of another length is another motion.
 SAME_CLIP_FRAMES = 3
 
 
 def lead_order(kit):
-    """Whose arms a kit copies first: a man Rafa's, a woman Sofia's. A clip the first lacks comes from the other."""
-    return ("sofia", "rafa") if str(kit).startswith("female") else ("rafa", "sofia")
+    """Whose motion a kit copies, in order: a woman Sofia's and then Rafa's, a man Rafa's alone. A clip none of them has comes from the
+    game's own body of the character: on a man that is better than a whole body that moves as Sofia (thinking, waving)."""
+    return ("sofia", "rafa") if str(kit).startswith("female") else ("rafa",)
 
 
 def moves_with_arm(name):
@@ -115,14 +142,6 @@ def moves_with_arm(name):
 def same_clip(own, reference):
     """Whether Rafa has this clip: `own` and `reference` are the first and the last frame of each."""
     return abs((own[1] - own[0]) - (reference[1] - reference[0])) <= SAME_CLIP_FRAMES
-
-
-def arm_turn(chest, reference_chest, reference_bone, rest_gap=None):
-    """How far an arm bone of ours turns from its rest: as far as Rafa's turned from his, seen from his chest and set on our chest.
-    The three are turns from rest in the space of each skeleton. `rest_gap` turns the rest direction of the game body's bone into Rafa's,
-    for a body that does not rest as he does."""
-    turn = chest @ reference_chest.inverted() @ reference_bone
-    return turn @ rest_gap if rest_gap is not None else turn
 
 
 # The gap of the standing clips, skin to skin, in metres: Rafa's own is 0.026 to 0.033 (idle, acknowledging, weight shift; 2026-11-11).

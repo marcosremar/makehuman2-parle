@@ -1,9 +1,10 @@
 """
     License information: data/licenses/makehuman_license.txt
 
-    The Parle game's motion clips on a MakeHuman body, in Blender: `clips_on` takes every clip of a body of the game to our skeleton, and
-    `clear_arms` keeps the arms off the finished body. What each bone does and every number are in `parle_rig`; this file reads the two
-    skeletons, measures the body in its clips and writes the actions.
+    The Parle game's motion clips on a MakeHuman body, in Blender: `clips_on` takes every clip to our skeleton, copied from Rafa or Sofia
+    where they have it and from the game's own body of the character where they do not, and `clear_arms` keeps the arms off the finished
+    body. What each bone does and every number are in `parle_rig`; this file reads the skeletons, measures the body in its clips and
+    writes the actions.
 
     A clip holds the local rotation of the bones of the game's body. Each one goes to our skeleton by the rotation of each bone in the
     space of the skeleton, counted from the rest of each, and the height of the hips follows the ratio between the two bodies.
@@ -16,6 +17,7 @@ import numpy as np
 from mathutils import Quaternion, Vector
 from mathutils.bvhtree import BVHTree
 
+import parle_build
 import parle_rig
 
 MAIN_CHILD = {"Hips": ("Spine",), "Spine2": ("Neck",), "LeftHand": ("LeftHandMiddle1",), "RightHand": ("RightHandMiddle1",)}
@@ -49,16 +51,19 @@ def directions(rig):
     return table
 
 
-def aligned_rest(old, new, new_rest, still=None, lean=None):
+def aligned_rest(old, new, new_rest, still=None, lean=None, stance=None):
     """The rest of our skeleton with each bone pointed as the game's: the two rest differently (arms and legs open at other angles), and
     without it the clip opened the legs and crossed the hands. `still` is the turn each clavicle gets from the clip when the body stands
-    still, and `lean` the turn of each bone of the spine that brings the head over the ankles (`standing_lean`)."""
+    still; `lean` is the turn of each bone of the spine that brings the head over the ankles and `stance` the turn of each leg, by side,
+    that sets the feet as far apart as on the body the motion comes from (`standing`)."""
     old_dir, new_dir = directions(old), directions(new)
     table, turns = {}, {}
     for bone in sorted(new.data.bones, key=lambda item: len(item.parent_recursive)):
         name = bone.name
         # Which bones point as in the game, and how far, is in `parle_rig`.
         turn = (lean or {}).get(name) or parle_rig.rest_turn(name, old_dir, new_dir, (still or {}).get(name))
+        if stance and turn is not None and name.endswith("Leg"):
+            turn = stance["Left" if name.startswith("Left") else "Right"] @ turn
         turns[name] = turn if turn is not None else turns[bone.parent.name] if bone.parent and "Hand" in name else Quaternion()
         table[name] = turns[name] @ new_rest[name]
     return table
@@ -92,39 +97,104 @@ def posed(names, parents, rest, table, frame):
     return world
 
 
-def arm_source(path, old):
-    """A body the arms copy their motion from (Rafa or Sofia, `parle_rig`): its skeleton, its rest and its clips. Its mesh leaves the scene at once."""
-    known = set(bpy.data.actions)
-    before = set(bpy.data.objects)
+def even_clavicles(rig):
+    """Sets the two clavicles of our skeleton to start at mirrored points (`parle_rig.even_joints`). Before any clip is taken to it: the
+    clips are written against the rest of each bone."""
+    middle = (rig.data.bones["LeftArm"].head_local.x + rig.data.bones["RightArm"].head_local.x) / 2
+    left, right = parle_rig.even_joints(rig.data.bones["LeftShoulder"].head_local, rig.data.bones["RightShoulder"].head_local, middle)
+    moved = (left - rig.data.bones["LeftShoulder"].head_local).length
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    rig.data.edit_bones["LeftShoulder"].head, rig.data.edit_bones["RightShoulder"].head = left, right
+    bpy.ops.object.mode_set(mode="OBJECT")
+    print("CLAVÍCULA cada lado andou", round(moved * 1000, 1), "mm para as duas ficarem espelhadas")
+
+
+def body_source(rig, actions, objects=()):
+    """A body the clips are read from: its skeleton, its rest, its clips by name and the objects that came with it."""
+    parents = {bone.name: bone.parent.name if bone.parent else None for bone in rig.data.bones}
+    return dict(rig=rig, names=order(rig), parents=parents, rest=rests(rig), actions={clip_name(action): action for action in actions}, objects=list(objects))
+
+
+def lead_source(path):
+    """A body of the game whose motion ours copies (Rafa or Sofia, `parle_rig.lead_order`), read from its file."""
+    known, before = set(bpy.data.actions), set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
-    lead = [obj for obj in bpy.data.objects if obj not in before]
-    rig = next(obj for obj in lead if obj.type == "ARMATURE")
-    theirs, ours = directions(rig), directions(old)
-    source = dict(names=order(rig), parents={bone.name: bone.parent.name if bone.parent else None for bone in rig.data.bones}, rest=rests(rig),
-                  gap={name: ours[name].rotation_difference(theirs[name]) for name in ours if name in theirs and parle_rig.moves_with_arm(name)},
-                  actions={clip_name(action): action for action in bpy.data.actions if action not in known})
-    for action in source["actions"].values():
+    objects = [obj for obj in bpy.data.objects if obj not in before]
+    actions = [action for action in bpy.data.actions if action not in known]
+    for action in actions:
         action.use_fake_user = True
-    for obj in lead:
-        bpy.data.objects.remove(obj, do_unlink=True)
-    return source
+    return body_source(next(obj for obj in objects if obj.type == "ARMATURE"), actions, objects)
 
 
-def still_turns(sources):
-    """The turn each clavicle gets from the clip when the body the arms are copied from stands still, in the middle of its `idle`: undone
+def ground(source, action):
+    """The height the soles of a body stand on at the start of that clip: Rafa's file keeps him 4 cm over its own origin. It also leaves in
+    `source` how far apart its ankles are in the middle of the clip (`stance_of`)."""
+    rig = source["rig"]
+    rig.animation_data_create()
+    rig.animation_data.action = action
+    slots = rig.animation_data.action_suitable_slots
+    if slots:
+        rig.animation_data.action_slot = slots[0]
+    bpy.context.scene.frame_set(int(action.frame_range[0]))
+    bpy.context.view_layer.update()
+    graph = bpy.context.evaluated_depsgraph_get()
+    lows = []
+    for obj in bpy.data.objects:
+        if obj.type != "MESH" or obj.find_armature() is not rig or not len(obj.data.vertices):
+            continue
+        shown = obj.evaluated_get(graph)
+        mesh = shown.to_mesh()
+        points = np.empty(len(mesh.vertices) * 3)
+        mesh.vertices.foreach_get("co", points)
+        world = np.array(shown.matrix_world)
+        lows.append(float((points.reshape(-1, 3) @ world[:3, :3].T + world[:3, 3])[:, 2].min()))
+        shown.to_mesh_clear()
+    floor = min(lows) if lows else 0.0
+    bpy.context.scene.frame_set(int(sum(action.frame_range) / 2))
+    bpy.context.view_layer.update()
+    source["stance"] = stance_of(rig, floor)[0]
+    rig.animation_data.action = None
+    return floor
+
+
+def stance_of(rig, floor):
+    """How far apart the ankles are and how long the leg is from the hip joint to the ankle, in shares of the height of the body (the floor
+    to the top of the head), in the pose the skeleton is in."""
+    at = lambda name: rig.matrix_world @ rig.pose.bones[name].head
+    tall = at("HeadTop_End").z - floor
+    leg = ((at("LeftFoot") - at("LeftUpLeg")).length + (at("RightFoot") - at("RightUpLeg")).length) / 2
+    return abs(at("LeftFoot").x - at("RightFoot").x) / tall, leg / tall
+
+
+def still_turns(source):
+    """The turn each clavicle gets from the clip when the body the motion is copied from stands still, in the middle of its `idle`: undone
     in the rest, our clavicle stands where it was modelled (`parle_rig.rest_turn`)."""
-    lead = next((source for source in sources if "idle" in source["actions"]), None)
-    if lead is None:
+    idle = source["actions"].get("idle")
+    if idle is None:
         return {}
-    action = lead["actions"]["idle"]
-    seen = posed(lead["names"], lead["parents"], lead["rest"], curves(action), sum(action.frame_range) / 2)
-    return {name: seen[name] @ lead["rest"][name].inverted() @ lead["gap"].get(name, Quaternion()) for name in seen if name.endswith("Shoulder")}
+    seen = posed(source["names"], source["parents"], source["rest"], curves(idle), sum(idle.frame_range) / 2)
+    return {name: seen[name] @ source["rest"][name].inverted() for name in seen if name.endswith("Shoulder")}
 
 
-def standing_lean(old, new, body, idle, old_rest, new_rest, posed_rest, ratio, arms):
-    """How far the spine leans for the head to sit over the ankles (`parle_rig.trunk_lean`): the body plays the idle clip with no lean and
-    the middle of the head is measured. With the MakeHuman spine the cast stooped, the head 5 cm in front of the ankles."""
-    made, slot = retarget(idle, old, new, old_rest, new_rest, posed_rest, ratio, arms)
+def hips_to_come(rig, kit, height):
+    """How much further apart the hip joints will stand once the build of the kit is on the body (`parle_build`, run on the finished body,
+    after the clips): the legs ride with the width of the trunk at the hips. Measured before it, the feet of the slim man read 15.8% of the
+    height apart and ended at 17.7%."""
+    profile = parle_build.load_profile(kit)
+    if profile is None:
+        return 0.0
+    joints = {name: np.array(rig.matrix_world @ rig.data.bones[name].head_local) for name in parle_build.BONES}
+    _, rides = parle_build.build_field(profile, joints, height)
+    apart = lambda moved: abs((joints["LeftUpLeg"] + moved["LeftUpLeg"])[0] - (joints["RightUpLeg"] + moved["RightUpLeg"])[0])
+    return float(apart(rides) - apart({"LeftUpLeg": 0.0, "RightUpLeg": 0.0}))
+
+
+def standing(source, new, body, idle, new_rest, posed_rest, wanted=None, kit=""):
+    """How our body stands in the idle clip of `source` as it comes, and what sets it right: the lean of the spine that brings the head over
+    the ankles (`parle_rig.trunk_lean`; with the MakeHuman spine the cast stooped, the head 5 cm in front of the ankles) and the turn of
+    the legs that sets the ankles `wanted` apart, in shares of the height (`parle_rig.stance_turn`; as they come, without it)."""
+    made, slot = retarget(idle, source, new, new_rest, posed_rest)
     new.animation_data.action = made
     new.animation_data.action_slot = slot
     bpy.context.scene.frame_set(int(sum(idle.frame_range) / 2))
@@ -138,46 +208,43 @@ def standing_lean(old, new, body, idle, old_rest, new_rest, posed_rest, ratio, a
     middle = (min(skull) + max(skull)) / 2 - (new.matrix_world @ new.data.bones["Head"].head_local).y
     ahead = -(at("Head").y + middle - (at("LeftFoot").y + at("RightFoot").y) / 2) / tall
     reach = sum(at("Head").z - at(name).z for name in parle_rig.SPINE) / len(parle_rig.SPINE) / tall
+    apart, leg = stance_of(new, 0.0)
+    apart += hips_to_come(new, kit, tall) / (at("HeadTop_End").z - 0.0)
     new.animation_data.action = None
     bpy.data.actions.remove(made)
     lean = parle_rig.trunk_lean(ahead, reach)
-    turned = round(math.degrees(lean[parle_rig.SPINE[-1]].angle), 1)
-    print("POSTURA cabeça à frente do tornozelo", round(ahead * 100, 2), "% da altura; a coluna inclina", turned, "graus")
-    return lean
+    wanted = apart if wanted is None else wanted
+    stance = parle_rig.stance_turn(apart, wanted, leg)
+    turned, closed = round(math.degrees(lean[parle_rig.SPINE[-1]].angle), 1), round(math.degrees(stance["Left"].angle), 1)
+    print("POSTURA cabeça à frente do tornozelo", round(ahead * 100, 2), "% da altura; a coluna inclina", turned, "graus; tornozelos a",
+          round(apart * 100, 1), "% da altura, no corpo copiado", round(wanted * 100, 1), "; a perna fecha", closed, "graus")
+    return lean, stance
 
 
-def arm_lead(sources, action):
-    """Whom the arms copy this clip from: the first body of the list that has it, with the same length (`parle_rig.same_clip`)."""
-    for source in sources or []:
-        theirs = source["actions"].get(clip_name(action))
+def clip_source(own, leads, action):
+    """Whose motion a clip is copied from, and that body's clip: the first of `leads` that has it with the same length
+    (`parle_rig.same_clip`), or `own`, the game's body of this character, when none has."""
+    for lead in leads or []:
+        theirs = lead["actions"].get(clip_name(action))
         if theirs is not None and parle_rig.same_clip(tuple(action.frame_range), tuple(theirs.frame_range)):
-            return source
-    return None
+            return lead, theirs
+    return own, action
 
 
-def retarget(action, old, new, old_rest, new_rest, posed_rest, hip_ratio, arms=None):
+def retarget(action, source, new, new_rest, posed_rest):
+    """A clip of `source` on our skeleton `new`, as a new action and its slot: each bone turns from its pointed rest (`posed_rest`) by what the
+    source's bone turned from its own, in the space of the skeleton, and the hips stand over the floor by the ratio between the two bodies."""
+    old, old_rest = source["rig"], source["rest"]
     table = curves(action)
     frames = sorted({point.co.x for curve in action.fcurves for point in curve.keyframe_points})
-    old_parent = {bone.name: bone.parent.name if bone.parent else None for bone in old.data.bones}
     new_parent = {bone.name: bone.parent.name if bone.parent else None for bone in new.data.bones}
-    old_names, root = order(old), parle_rig.ARM_ROOT
-    # The arms move as Rafa's or Sofia's (owner, 2026-11-11): the clip of each old body came with the opening the game had tuned to it.
-    arms = arm_lead(arms, action)
-    lead = arms["actions"][clip_name(action)] if arms else None
-    lead_table = curves(lead) if lead else None
-    (first, last), (lead_first, lead_last) = action.frame_range, lead.frame_range if lead else (0, 0)
+    names = order(new)
     keys = {}
     for frame in frames:
-        old_world, new_world = posed(old_names, old_parent, old_rest, table, frame), {}
-        at = lead_first + (frame - first) * (lead_last - lead_first) / max(last - first, 1e-6)
-        seen = posed(arms["names"], arms["parents"], arms["rest"], lead_table, at) if lead else {}
-        for name in order(new):
+        old_world, new_world = posed(source["names"], source["parents"], old_rest, table, frame), {}
+        for name in names:
             parent = new_parent[name]
-            turn = old_world[name] @ old_rest[name].inverted() if name in old_world else None
-            if turn is not None and name in seen and root in seen and root in old_world and parle_rig.moves_with_arm(name):
-                turn = parle_rig.arm_turn(old_world[root] @ old_rest[root].inverted(), seen[root] @ arms["rest"][root].inverted(),
-                                          seen[name] @ arms["rest"][name].inverted(), arms["gap"].get(name))
-            want = turn @ posed_rest[name] if turn is not None else None
+            want = old_world[name] @ old_rest[name].inverted() @ posed_rest[name] if name in old_world else None
             base = new_world[parent] @ new_rest[parent].inverted() if parent else Quaternion()
             new_world[name] = want if want is not None else base @ new_rest[name]
             local = new_rest[name].inverted() @ base.inverted() @ new_world[name]
@@ -196,10 +263,11 @@ def retarget(action, old, new, old_rest, new_rest, posed_rest, hip_ratio, arms=N
             curve.update()
     hips = table.get("Hips", {}).get("location")
     if hips:
-        positions = [hip_position(old, hips, frame) for frame in frames]
+        floor = Vector((0.0, 0.0, source.get("floor", 0.0)))
+        positions = [hip_position(old, hips, frame) - floor for frame in frames]
         head = new.data.bones["Hips"].head_local
         to_bone = new.data.bones["Hips"].matrix_local.to_quaternion().inverted()
-        local = [to_bone @ (position * hip_ratio - head) for position in positions]
+        local = [to_bone @ (position * source.get("ratio", 1.0) - head) for position in positions]
         for axis in range(3):
             curve = bag.fcurves.new('pose.bones["Hips"].location', index=axis)
             curve.keyframe_points.add(len(frames))
@@ -329,30 +397,43 @@ def lead_files(text):
 
 def clips_on(old, new, body, actions, kit, leads=None):
     """Every clip in `actions`, of the game's body `old`, on our skeleton `new`: one action each, on its own NLA track, and the list of them.
-    `body` is our skin, `kit` the kit of the body, and `leads` the files of the bodies the arms copy their motion from, by name; which of
-    them a kit copies first is in `parle_rig.lead_order`."""
-    leads = leads or {}
-    arms = [arm_source(leads[name], old) for name in parle_rig.lead_order(kit) if leads.get(name)]
-    old_rest, new_rest = rests(old), rests(new)
-    idle = next((action for action in actions if action.name.startswith("idle")), actions[0])
-    standing = hip_position(old, curves(idle)["Hips"]["location"], idle.frame_range[0]).z
+    `body` is our skin, `kit` the kit of the body, and `leads` the files of the bodies whose motion ours copies, by name; which of them a
+    kit copies first is in `parle_rig.lead_order`. The whole body copies them, and `old` gives only the clips none of them has."""
+    files = leads or {}
+    even_clavicles(new)
+    own = body_source(old, actions)
+    copied = [lead_source(files[name]) for name in parle_rig.lead_order(kit) if files.get(name)]
+    new_rest = rests(new)
     # MakeHuman leaves the sole under the origin: measured to the origin only, the hips came down and the foot went 13 cm into the floor.
     grounded = [body, *(obj for obj in new.children if obj.name.startswith("Footwear"))]
     sole = min((new.matrix_world.inverted() @ obj.matrix_world @ vertex.co).z for obj in grounded for vertex in obj.data.vertices)
-    ratio = (new.data.bones["Hips"].head_local.z - sole) / standing
     new.animation_data_create()
-    # The clavicle standing where it was modelled is for the men only: on the women the breasts sat higher and flatter (`parle_rig`).
-    still = still_turns(arms) if parle_rig.clavicle_as_modelled(kit) else None
-    lean = standing_lean(old, new, body, idle, old_rest, new_rest, aligned_rest(old, new, new_rest, still), ratio, arms)
-    posed_rest = aligned_rest(old, new, new_rest, still, lean)
-    made_actions = []
+    for source in [own, *copied]:
+        idle = source["idle"] = source["actions"].get("idle") or next(iter(source["actions"].values()))
+        source["floor"] = ground(source, idle)
+        upright = hip_position(source["rig"], curves(idle)["Hips"]["location"], idle.frame_range[0]).z - source["floor"]
+        source["ratio"] = (new.data.bones["Hips"].head_local.z - sole) / upright
+    # One stance for the character, the one of the body its kit copies first, whoever a clip comes from: in the nine clips Lúcia takes
+    # from Rafa her feet came 2.6% of the height closer than in the ones she takes from Sofia.
+    apart = (copied[0] if copied else own)["stance"]
+    for source in [own, *copied]:
+        # The clavicle standing where it was modelled is for the men only: on the women the breasts sat higher and flatter (`parle_rig`).
+        still = still_turns(source) if parle_rig.clavicle_as_modelled(kit) else None
+        lean, stance = standing(source, new, body, source["idle"], new_rest, aligned_rest(source["rig"], new, new_rest, still), apart, kit)
+        source["posed"] = aligned_rest(source["rig"], new, new_rest, still, lean, stance)
+    made_actions, taken = [], Counter()
     for action in actions:
-        made, slot = retarget(action, old, new, old_rest, new_rest, posed_rest, ratio, arms)
+        source, theirs = clip_source(own, copied, action)
+        made, slot = retarget(theirs, source, new, new_rest, source["posed"])
         made_actions.append(made)
         track = new.animation_data.nla_tracks.new()
-        track.name = action.name.split("_")[0]
-        strip = track.strips.new(made.name, int(min(curve.range()[0] for curve in action.fcurves)), made)
+        track.name = clip_name(action)
+        strip = track.strips.new(made.name, int(min(curve.range()[0] for curve in theirs.fcurves)), made)
         strip.action_slot = slot
-    taken = Counter(arms.index(lead) for lead in (arm_lead(arms, action) for action in actions) if lead is not None)
-    print("CLIPES", len(actions), "razão do quadril", round(ratio, 3), "braço copiado em", [taken[index] for index in range(len(arms))])
+        taken[id(source)] += 1
+    for lead in copied:
+        for obj in lead["objects"]:
+            bpy.data.objects.remove(obj, do_unlink=True)
+    ratios = [round(source["ratio"], 3) for source in (*copied, own)]
+    print("CLIPES", len(actions), "copiados de cada corpo", [taken[id(source)] for source in (*copied, own)], "razão do quadril", ratios)
     return made_actions
