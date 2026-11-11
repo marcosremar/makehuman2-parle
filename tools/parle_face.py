@@ -21,6 +21,8 @@ from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).parent))
 import parle_mouth  # noqa: E402
+import parle_normals  # noqa: E402
+import parle_teeth  # noqa: E402
 import parle_tongue  # noqa: E402
 
 EYE_TUCK_REACH_M = 0.02
@@ -487,6 +489,18 @@ def tongue_follows_jaw(meshes):
     print("LINGUA segue a mandibula em", carried, "formas")
 
 
+def teeth_atlas(teeth):
+    """Gives the teeth the atlas `parle_teeth.tooth_map` paints: every polygon corner, from the rest shape."""
+    rest = key_points(teeth.data.shape_keys.key_blocks[0])
+    loops = [(polygon.loop_indices[0], second, third) for polygon in teeth.data.polygons for second, third in zip(polygon.loop_indices[1:], polygon.loop_indices[2:])]
+    corners = np.array([[teeth.data.loops[index].vertex_index for index in triangle] for triangle in loops])
+    atlas = parle_teeth.atlas(rest, corners)
+    target = teeth.data.uv_layers.active.data
+    for triangle, uv in zip(loops, atlas):
+        for index, value in zip(triangle, uv):
+            target[index].uv = value.tolist()
+
+
 def shade_map_of(obj, shade, gums=False, only=None, wine=None, inside=False):
     """Multiplies the object's colour map by `shade`, one value per point, through its UV islands. `only`: a map the mesh shares; see parle_mouth."""
     image = next(node.image for node in obj.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image)
@@ -663,6 +677,7 @@ def clean_face(body, added, job, env):
                 for link in [link for link in material.node_tree.links if link.to_socket.name == "Alpha"]:
                     material.node_tree.links.remove(link)
                 set_map(obj, teeth_map)
+                teeth_atlas(obj)
     wine = body_wine(body)
     shade_mouth([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys], wine)
     teeth_for_inside = next((obj for obj in added if obj.type == "MESH" and "teeth" in obj.name), None)
@@ -679,6 +694,23 @@ def clean_face(body, added, job, env):
                     shader.inputs["Roughness"].default_value = EYE_ROUGHNESS
                 for polygon in obj.data.polygons:
                     polygon.use_smooth = True
+
+
+def soften_under_chin(body):
+    """Custom normals for the export: last thing before it, on the rest shape the game plays. See `parle_normals`."""
+    mesh = body.data
+    points = np.array([vertex.co[:] for vertex in mesh.vertices])
+    point_of = np.array([loop.vertex_index for loop in mesh.loops])
+    corners = np.array([item.vector[:] for item in mesh.corner_normals])
+    average = np.zeros_like(points)
+    np.add.at(average, point_of, corners)
+    average /= np.maximum(np.linalg.norm(average, axis=1, keepdims=True), 1e-9)
+    share = parle_normals.under_chin_share(points, average)[point_of][:, None] * parle_normals.TURN
+    turned = corners * (1 - share) + parle_normals.AHEAD[None] * share
+    turned /= np.maximum(np.linalg.norm(turned, axis=1, keepdims=True), 1e-9)
+    mesh.normals_split_custom_set(turned.tolist())
+    mesh.update()
+    print("QUEIXO normais", int((share > 0.01).sum()))
 
 
 def write_eye_opening(kit, out):

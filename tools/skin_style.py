@@ -87,8 +87,9 @@ EVEN_SIDE = (0.035, 0.07)
 EVEN_BIN_M = 0.005
 EVEN_SOFT_BINS = 1.5
 EVEN_LEAST, EVEN_MOST = 0.8, 1.25
-# The blush came out as a pink ball on each cheek, like make-up (owner, 2026-11-08): weaker and wider.
-BLUSH_STRENGTH = 0.5
+# The blush came out as a pink ball on each cheek, like make-up (owner, 2026-11-08): weaker and wider. The player's own flush (`NpcFaceShading`) adds to it on the cheeks and
+# the nose, and at 0.5 the two together read as a face rosier than its neck (Lúcia, scoreboard of 2026-11-10). 0.2 keeps a trace; no source, a design choice to pilot.
+BLUSH_STRENGTH = 0.2
 BLUSH_REACH_M = 0.042
 # The eyelash cards are gone (parle_face): a thin darker line on the upper lid's rim stands in for them, as on the Rafa.
 LASH_DARK = 0.5
