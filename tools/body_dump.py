@@ -8,6 +8,8 @@
     cc: a Character Creator body (`CC_Base_Body`); `flat=1` takes it off the tiptoes.
     slots: one skinned mesh, keeping the faces of the materials in `slots=`; `flip=1` when it faces +y. plain: a mesh with no rig, `keep=<prefix>`.
     `arm=<degrees>` puts the upper arms that far below the horizontal. `photos=<folder>` with `name=` adds clay photos (front, side, back).
+    `hang=<degrees>` writes a second dump beside the first, `<out less .npz>.hang.npz`, with the upper arms that far below the horizontal:
+    the body with its arms hanging, where `body_measure.bideltoid` reads the breadth across the shoulders.
     A reference model is only measured here: neither its mesh nor its texture goes into the cast.
 """
 import math
@@ -97,8 +99,13 @@ elif "keep" in opts:
     keep = [obj for obj in meshes if obj.name.startswith(opts["keep"])]
 for obj in meshes:
     obj.hide_render = obj not in keep
-if rig is not None:
-    if kind == "kit" and "arm" not in opts:
+
+
+def pose(arm):
+    """Stands the body as it was modelled, or with the upper arms `arm` degrees below the horizontal."""
+    if rig is None:
+        return
+    if kind == "kit" and arm is None:
         rig.data.pose_position = "REST"
     else:
         rig.animation_data_clear()
@@ -106,10 +113,10 @@ if rig is not None:
             bone.matrix_basis = mathutils.Matrix.Identity(4)
         rig.data.pose_position = "POSE"
     bpy.context.view_layer.update()
-    if "arm" in opts:
+    if arm is not None:
         for a, b in (("shoulder", "elbow"), ("shoulder_r", "elbow_r")):
             way = mathutils.Vector((joint(b) - joint(a)).tolist())
-            aim(rig.pose.bones[names[a]], way, declined(way, float(opts["arm"])))
+            aim(rig.pose.bones[names[a]], way, declined(way, arm))
     if opts.get("flat") == "1":
         for side in ("", "_r"):
             way = mathutils.Vector((joint("toe" + side) - joint("ankle" + side)).tolist())
@@ -117,33 +124,43 @@ if rig is not None:
             toe = rig.pose.bones[names["toe" + side]]
             way = rig.matrix_world.to_3x3() @ (toe.tail - toe.head)
             aim(toe, way, declined(way, 0))
-deps = bpy.context.evaluated_depsgraph_get()
-all_points, all_faces, base = [], [], 0
-for obj in keep:
-    done = obj.evaluated_get(deps)
-    mesh = done.to_mesh()
-    mesh.calc_loop_triangles()
-    flat_points = np.empty(len(mesh.vertices) * 3)
-    mesh.vertices.foreach_get("co", flat_points)
-    triangles = np.empty(len(mesh.loop_triangles) * 3, np.int32)
-    mesh.loop_triangles.foreach_get("vertices", triangles)
-    world = np.array(done.matrix_world)
-    all_points.append(flat_points.reshape(-1, 3) @ world[:3, :3].T + world[:3, 3])
-    all_faces.append(triangles.reshape(-1, 3) + base)
-    base += len(mesh.vertices)
-    done.to_mesh_clear()
-points, faces = np.concatenate(all_points), np.concatenate(all_faces)
-joints = {key: joint(key) for key in names}
-# The face looks to -y when the toes point there: the feet are ahead of the shins.
-low, tall = float(points[:, 2].min()), float(np.ptp(points[:, 2]))
-feet = points[points[:, 2] < low + 0.03 * tall]
-shin = points[(points[:, 2] > low + 0.08 * tall) & (points[:, 2] < low + 0.2 * tall)]
-flip = bool(int(opts["flip"])) if "flip" in opts else bool(feet[:, 1].mean() > shin[:, 1].mean())
-arm_deg = None
-if "elbow" in joints:
-    arm_deg = round(math.degrees(math.atan2(-(joints["elbow"] - joints["shoulder"])[2], abs((joints["elbow"] - joints["shoulder"])[0]))), 1)
-print("DUMP", opts.get("name", os.path.basename(out)), "points", len(points), "faces", len(faces), "tall", round(tall, 4), "flip", flip, "arm", arm_deg, flush=True)
-np.savez(out, points=points, faces=faces, flip=flip, **{"j_" + key: value for key, value in joints.items()})
+
+
+def write(path, label):
+    """Dumps the body as it stands: its points and faces, its joints and whether it faces +y. Returns the points, the floor, the stature
+    and that turn, for the photos."""
+    deps = bpy.context.evaluated_depsgraph_get()
+    all_points, all_faces, base = [], [], 0
+    for obj in keep:
+        done = obj.evaluated_get(deps)
+        mesh = done.to_mesh()
+        mesh.calc_loop_triangles()
+        flat_points = np.empty(len(mesh.vertices) * 3)
+        mesh.vertices.foreach_get("co", flat_points)
+        triangles = np.empty(len(mesh.loop_triangles) * 3, np.int32)
+        mesh.loop_triangles.foreach_get("vertices", triangles)
+        world = np.array(done.matrix_world)
+        all_points.append(flat_points.reshape(-1, 3) @ world[:3, :3].T + world[:3, 3])
+        all_faces.append(triangles.reshape(-1, 3) + base)
+        base += len(mesh.vertices)
+        done.to_mesh_clear()
+    points, faces = np.concatenate(all_points), np.concatenate(all_faces)
+    joints = {key: joint(key) for key in names}
+    # The face looks to -y when the toes point there: the feet are ahead of the shins.
+    low, tall = float(points[:, 2].min()), float(np.ptp(points[:, 2]))
+    feet = points[points[:, 2] < low + 0.03 * tall]
+    shin = points[(points[:, 2] > low + 0.08 * tall) & (points[:, 2] < low + 0.2 * tall)]
+    flip = bool(int(opts["flip"])) if "flip" in opts else bool(feet[:, 1].mean() > shin[:, 1].mean())
+    arm_deg = None
+    if "elbow" in joints:
+        arm_deg = round(math.degrees(math.atan2(-(joints["elbow"] - joints["shoulder"])[2], abs((joints["elbow"] - joints["shoulder"])[0]))), 1)
+    print("DUMP", label, "points", len(points), "faces", len(faces), "tall", round(tall, 4), "flip", flip, "arm", arm_deg, flush=True)
+    np.savez(path, points=points, faces=faces, flip=flip, **{"j_" + key: value for key, value in joints.items()})
+    return points, low, tall, flip
+
+
+pose(float(opts["arm"]) if "arm" in opts else None)
+points, low, tall, flip = write(out, opts.get("name", os.path.basename(out)))
 if "photos" in opts:
     scene = bpy.context.scene
     scene.render.engine, scene.view_settings.view_transform = "BLENDER_EEVEE_NEXT", "AgX"
@@ -175,3 +192,6 @@ if "photos" in opts:
         sun.rotation_euler.rotate_axis("Y", math.radians(25))
         scene.render.filepath = os.path.join(opts["photos"], f"{opts.get('name', 'body')}.{label}.png")
         bpy.ops.render.render(write_still=True)
+if "hang" in opts and "elbow" in names:
+    pose(float(opts["hang"]))
+    write(out[:-len(".npz")] + ".hang.npz", opts.get("name", os.path.basename(out)) + " (arms hanging)")

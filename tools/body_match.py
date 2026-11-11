@@ -6,9 +6,13 @@
     `want` and a round no longer brings it closer (owner, 10/11/2026: the loop only stops when the body is that close to the reference, and
     the body has to be as close as it can), when it stalls short of it, or after `rounds`.
       python tools/body_match.py match <kit.glb> <reference.json> <profile.json> kit=<name> height=<m> sex=<male|female> [chest=<npy>] [want=95] [rounds=12] [work=<folder>]
+      python tools/body_match.py shoulders <kit.glb> <reference.json> <profile.json> height=<m> sex=<male|female> [chest=<npy>] [rounds=8] [work=<folder>]
       python tools/body_match.py reference <out.json> <measure.json> [<measure.json> ...]
     `reference` keeps the mean of the measures of one or more bodies: a kit between two reference bodies is matched to their mean. Only measures
-    of a reference are kept, never its mesh or its texture.
+    of a reference are kept, never its mesh or its texture. A reference measured with its arms hanging too (`body_measure.py hanging=`)
+    has the breadth across its shoulders, and the loop then reads the cast's the same way, a second dump each round.
+    `shoulders` takes a profile that is already there and finds the ratio of its shoulders alone, every curve left as it is: for a kit
+    whose reference gained that breadth after the kit was matched.
 """
 import copy
 import json
@@ -50,16 +54,36 @@ RISE_LIMITS = (0.0, 0.02)
 # cut above the tip of the shoulder on a body with a longer neck: read as 7 to 10% of the height too narrow there, the women had their
 # arms pushed 1 to 3 cm out on each side, and stood 2 to 4 cm wider across the deltoids than the reference women, with the shoulders of a
 # man over their hips (owner, 2026-11-11: "o ombro da mulher está muito largo").
-SHOULDER_REACH = 0.45
+SHOULDER_REACH = body_measure.SHOULDER_TIP
+# That was not enough (owner, the same day: "os ombros da mulher estão largos demais"): the rows with the arms out say how high the arm
+# leaves the trunk as much as how broad the shoulders are (`body_measure.SHOULDER_TIP`). When the reference was also measured with its arms
+# hanging, the loop dumps the cast that way too, HANG_DEG below the horizontal, and the breadth read there (`body_measure.bideltoid`)
+# sets the ratio of the shoulders (`parle_build`'s `girdle`), as far from the kit's own as any ratio of the trunk may go. The curve of
+# the trunk then pulls nothing above the armpit: its rows there hold it where it is, and it passes from the chest to the neck. Without
+# them the levels between the armpit and the neck took the pull of the neck every round, and a neck held at its limit, never as thick
+# as the reference's, drove them to their own limit, 25% wider than the kit. The row of the chest at the armpit itself leaves too: it
+# is cut through the roots of the arms, and with the arms closer it reads narrower whatever the chest (the slim woman's fell 4% while
+# the curve there rose 7%). 78 degrees is the arm of the cast standing in its idle clip, 10 to 13 degrees from the vertical; at the
+# vertical the arm of a broad body goes into its hip. A round counts as near once that breadth is within GIRDLE_NEAR of the
+# reference's, 5 mm on a woman of 1.60 m: the loop does not stop before, and keeps a near round over one that is not.
+HANG_DEG = 78
+GIRDLE_NEAR = 0.003
+GIRDLE_LIMITS = LIMITS
+
+
+def hang_path(out):
+    """Where `body_dump.py hang=` writes the body with its arms hanging, beside the dump `out`."""
+    return out[:-len(".npz")] + ".hang.npz"
 
 
 def dump(kit_glb, out, options):
-    if os.path.exists(out):
-        os.remove(out)
+    for path in (out, hang_path(out)):
+        if os.path.exists(path):
+            os.remove(path)
     done = subprocess.run([BLENDER, "-b", "--factory-startup", "-noaudio", "-P", os.path.join(HERE, "body_dump.py"), "--", out, kit_glb, "kind=kit"] + options, capture_output=True, text=True)
-    if not os.path.exists(out):
+    if not os.path.exists(out) or (any(item.startswith("hang=") for item in options) and not os.path.exists(hang_path(out))):
         raise SystemExit("the dump failed:\n" + (done.stdout + done.stderr)[-3000:])
-    return body_measure.measure(out)
+    return body_measure.measure(out, hang_path(out) if os.path.exists(hang_path(out)) else None)
 
 
 def rows(found, reference, group, field):
@@ -92,6 +116,19 @@ def pull(name, curve, params, ratios):
     return list(np.clip(soft(np.array(curve) * gain), *limits(name)))
 
 
+def hanging(found, reference):
+    """Whether both bodies had the breadth across their shoulders read with the arms hanging."""
+    return bool(found.get("bideltoid") and reference.get("bideltoid"))
+
+
+def closer(found, reference, frame):
+    """The ratio that brings the breadth across the shoulders of the cast, arms hanging, to the reference's: the breadth is the joints
+    of the arms apart plus an arm, so the joints come closer, or go apart, by the whole gap."""
+    joints = frame["joints"]
+    apart = abs(joints["shoulder"][0] - joints["shoulder_r"][0]) / frame["tall"]
+    return 1 + (reference["bideltoid"] - found["bideltoid"]) / apart
+
+
 def update(profile, found, frame, reference):
     """One round: every curve is pulled by the ratio of the reference's measure to the cast's, read where the cast's rows are."""
     joints, tall, move = frame["joints"], frame["tall"], np.asarray(frame["move"], float)
@@ -102,6 +139,10 @@ def update(profile, found, frame, reference):
         pairs = rows(found, reference, "torso", field)
         # Above the armpit the width of the trunk is the width of the shoulders, read across the arms: the arms ride with their joints.
         girdle = [item for item in rows(found, reference, "shoulder", "width") if SHOULDER_TRUNK[0] <= item[0]["k"] <= SHOULDER_TRUNK[1]] if curve == "trunk_x" else []
+        if curve == "trunk_x" and hanging(found, reference):
+            # Two bodies measured with their arms hanging have the ratio of the shoulders for that: the rows above the armpit hold the
+            # curve where it is, and the row at the armpit, cut through the roots of the arms, leaves.
+            pairs, girdle = [item for item in pairs if item[0]["u"] < 1], [(row, 1.0, 1.0) for row, _, _ in girdle]
         params = [level(row["z"]) for row, _, _ in pairs + girdle] + [level(found["neck"])]
         ratios = [want / have for _, have, want in pairs + girdle] + [reference[neck_field] / found[neck_field]]
         profile[curve] = pull(curve, profile[curve], params, ratios)
@@ -118,8 +159,13 @@ def update(profile, found, frame, reference):
     params, ratios = list(parle_build.arm_param(spots, *chain)[0]), [ratio for _, ratio in pairs]
     girth = pull("arm_depth", np.sqrt(np.array(profile["arm_depth"]) * np.array(profile["arm_thick"])), params, ratios)
     profile["arm_depth"], profile["arm_thick"] = list(girth), list(girth)
-    reach = [(want - have) / 2 for row, have, want in rows(found, reference, "shoulder", "width") if row["k"] <= SHOULDER_REACH]
-    profile["arm_out"] = float(np.clip(profile["arm_out"] + STEP * np.mean(reach), -ARM_OUT_LIMIT, ARM_OUT_LIMIT))
+    # With the breadth across the shoulders read with the arms hanging, the ratio of the shoulders alone brings it to the reference's,
+    # and the arm stays where the trunk carries it.
+    if hanging(found, reference):
+        profile["girdle"] = float(np.clip((profile.get("girdle") or 1.0) * closer(found, reference, frame) ** STEP, *GIRDLE_LIMITS))
+    else:
+        reach = [(want - have) / 2 for row, have, want in rows(found, reference, "shoulder", "width") if row["k"] <= SHOULDER_REACH]
+        profile["arm_out"] = float(np.clip(profile["arm_out"] + STEP * np.mean(reach), -ARM_OUT_LIMIT, ARM_OUT_LIMIT))
     lift(profile, found, frame, reference)
 
 
@@ -149,6 +195,8 @@ def at_limit(profile):
             held[name] = count
     if abs(profile["arm_out"]) >= ARM_OUT_LIMIT - 1e-6:
         held["arm_out"] = 1
+    if not GIRDLE_LIMITS[0] + 1e-6 < (profile.get("girdle") or 1.0) < GIRDLE_LIMITS[1] - 1e-6:
+        held["girdle"] = 1
     rise = np.array(profile.get("shoulder_rise") or [0.0])
     stuck = int(np.sum(rise >= RISE_LIMITS[1] - 1e-6))
     if stuck:
@@ -173,28 +221,65 @@ def match(kit_glb, reference_path, out, opts):
     reference = json.load(open(reference_path))
     work = opts.get("work") or tempfile.mkdtemp()
     os.makedirs(work, exist_ok=True)
-    base = dump_options(opts)
+    base = dump_options(opts) + ([f"hang={HANG_DEG}"] if reference.get("bideltoid") else [])
     profile, arm_deg = parle_build.identity(opts["kit"]), float(reference["arm_angle"])
-    best, history = None, []
+    best, history, round_npz, best_npz = None, [], os.path.join(work, "round.npz"), os.path.join(work, "best.npz")
     for turn in range(int(opts.get("rounds", 12)) + 1):
         parle_build.save_profile(profile, os.path.join(work, "profile.json"))
-        found, frame = dump(kit_glb, os.path.join(work, "round.npz"), base + [f"body={os.path.join(work, 'profile.json')}", f"arm={arm_deg:.1f}"])
+        found, frame = dump(kit_glb, round_npz, base + [f"body={os.path.join(work, 'profile.json')}", f"arm={arm_deg:.1f}"])
         percent, parts = body_measure.similarity(found, reference)
         history.append(percent)
-        print(f"round {turn}: {percent:.2f}% arm {arm_deg:.1f} {parts}", flush=True)
+        near = not hanging(found, reference) or abs(found["bideltoid"] - reference["bideltoid"]) <= GIRDLE_NEAR
+        across = f" shoulders {found['bideltoid']} of {reference['bideltoid']}" if hanging(found, reference) else ""
+        print(f"round {turn}: {percent:.2f}% arm {arm_deg:.1f}{across} {parts}", flush=True)
         if turn == 0:
             profile["crotch"] = crotch_share(found, frame)
-        if best is None or percent > best["similarity"]:
-            best = dict(copy.deepcopy(profile), similarity=round(percent, 2), parts=parts, arm_deg=round(arm_deg, 1))
-            os.replace(os.path.join(work, "round.npz"), os.path.join(work, "best.npz"))
+        if best is None or (near, percent) > (best["near"], best["similarity"]):
+            best = dict(copy.deepcopy(profile), similarity=round(percent, 2), parts=parts, arm_deg=round(arm_deg, 1), near=near)
+            best["bideltoid"] = found.get("bideltoid")
+            for path, kept in ((round_npz, best_npz), (hang_path(round_npz), hang_path(best_npz))):
+                if os.path.exists(path):
+                    os.replace(path, kept)
         # Past `want` it goes on while a round still brings the body closer; short of it, it gives up when three rounds bring nothing.
-        if (percent >= float(opts.get("want", 95)) and turn and percent - history[turn - 1] < 0.2) or (turn >= 3 and percent - history[turn - 3] < 0.05):
+        enough = percent >= float(opts.get("want", 95)) and turn and percent - history[turn - 1] < 0.2
+        if near and (enough or (turn >= 3 and percent - history[turn - 3] < 0.05)):
             break
         update(profile, found, frame, reference)
         arm_deg = float(np.clip(arm_deg + reference["arm_angle"] - found["arm_angle"], 10, 60))
+    best.pop("near")
     best.update(reference=os.path.basename(reference_path), before=round(history[0], 2), rounds=len(history) - 1, at_limit=at_limit(best))
     parle_build.save_profile(best, out)
     print(f"done: {best['before']}% -> {best['similarity']}% in {best['rounds']} rounds, at the limit: {best['at_limit']}", flush=True)
+
+
+def shoulders(kit_glb, reference_path, out, opts):
+    """Brings the breadth across the shoulders of the profile at `out` to the reference's, arms hanging, by the ratio of the shoulders
+    alone. Its curves stay as they are: matched again from nothing, the kits of women came back with other things moved by the chance
+    of a measure (the neck of one was read 2 mm lower, under the jaw, and came out 15% deeper than the kit's, where it had been 1 to
+    7%), and only their shoulders were to change (2026-11-11). The arm's own way out goes back to none: it was set by the rows this
+    breadth replaces. Stops within a third of GIRDLE_NEAR, or keeps the nearest of `rounds`."""
+    reference, profile = json.load(open(reference_path)), json.load(open(out))
+    work = opts.get("work") or tempfile.mkdtemp()
+    os.makedirs(work, exist_ok=True)
+    base = dump_options(opts) + [f"hang={HANG_DEG}", f"body={os.path.join(work, 'profile.json')}", f"arm={profile['arm_deg']:.1f}"]
+    profile.update(arm_out=0.0, girdle=profile.get("girdle") or 1.0)
+    best, round_npz, best_npz = None, os.path.join(work, "round.npz"), os.path.join(work, "best.npz")
+    for turn in range(int(opts.get("rounds", 8)) + 1):
+        parle_build.save_profile(profile, os.path.join(work, "profile.json"))
+        found, frame = dump(kit_glb, round_npz, base)
+        gap = found["bideltoid"] - reference["bideltoid"]
+        percent, parts = body_measure.similarity(found, reference)
+        print(f"round {turn}: shoulders {found['bideltoid']} of {reference['bideltoid']} with the ratio {profile['girdle']:.4f}, {percent:.2f}% {parts}", flush=True)
+        if best is None or abs(gap) < abs(best["bideltoid"] - reference["bideltoid"]):
+            best = dict(copy.deepcopy(profile), similarity=round(percent, 2), parts=parts, bideltoid=found["bideltoid"])
+            for path, kept in ((round_npz, best_npz), (hang_path(round_npz), hang_path(best_npz))):
+                os.replace(path, kept)
+        if abs(gap) <= GIRDLE_NEAR / 3:
+            break
+        profile["girdle"] = float(np.clip(profile["girdle"] * closer(found, reference, frame) ** STEP, *GIRDLE_LIMITS))
+    best.update(reference=os.path.basename(reference_path), at_limit=at_limit(best))
+    parle_build.save_profile(best, out)
+    print(f"done: shoulders {best['bideltoid']} of {reference['bideltoid']}, ratio {best['girdle']:.4f}, at the limit: {best['at_limit']}", flush=True)
 
 
 def mean_measure(out, paths):
@@ -205,7 +290,7 @@ def mean_measure(out, paths):
         if any(item is None for item in items):
             return None
         if isinstance(items[0], dict):
-            return {key: mean([item[key] for item in items]) for key in items[0]}
+            return {key: mean([item.get(key) for item in items]) for key in items[0]}
         if isinstance(items[0], list):
             return [mean(list(row)) for row in zip(*items)]
         return round(float(np.mean(items)), 4)
@@ -216,7 +301,7 @@ def mean_measure(out, paths):
 if __name__ == "__main__":
     paths = [item for item in sys.argv[2:] if "=" not in item]
     options = dict(item.split("=", 1) for item in sys.argv[2:] if "=" in item)
-    if sys.argv[1] == "match":
-        match(paths[0], paths[1], paths[2], options)
+    if sys.argv[1] in ("match", "shoulders"):
+        (match if sys.argv[1] == "match" else shoulders)(paths[0], paths[1], paths[2], options)
     else:
         mean_measure(paths[0], paths[1:])

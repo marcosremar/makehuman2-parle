@@ -107,6 +107,35 @@ assert all(np.abs(ride).max() == 0 for ride in still.values()), "the lift moved 
 older = {key: value for key, value in high.items() if key != "shoulder_rise"}
 assert np.abs(shift(older, spots)).max() == 0, "a profile saved before the shoulder line moved something"
 
+# The shoulders (2026-11-11): the women stood 2 to 3% of their stature broader across the shoulders than the reference women, and the curve
+# of the trunk, smoothed every round, could not hold shoulders narrower than both the chest and the neck. One ratio is the width of the trunk
+# at the level of the joints of the arms, whatever the curve says there, and the arms ride with it; from the armpit down and at the neck the
+# curve stays.
+slender = parle_build.identity("test")
+slender["trunk_x"], slender["girdle"] = [1.1] * len(parle_build.TRUNK_W), 0.9
+field, rides = parle_build.build_field(slender, JOINTS, HEIGHT)
+reach, joint_w = JOINTS["LeftArm"][0], (JOINTS["LeftArm"][2] - hip) / (neck - hip)
+assert abs(rides["LeftArm"][0] + reach * 0.1) < 1e-9 and abs(rides["RightArm"][0] - reach * 0.1) < 1e-9, f"the arms do not come in with the shoulders: {rides}"
+levels = [joint_w, joint_w - parle_build.GIRDLE_BELOW, joint_w - 0.3, 1.0, 1.1, joint_w - parle_build.GIRDLE_BELOW / 2]
+spots = np.array([[0.1, 0.05, hip + w * (neck - hip)] for w in levels])
+moved = shift(slender, spots)
+assert abs(moved[0, 0] + 0.1 * 0.1) < 1e-9, f"the trunk at the level of the joints is not as wide as the ratio of the shoulders says: {moved[0]}"
+assert np.allclose(moved[1:5, 0], 0.1 * 0.1), f"the chest from the armpit down, or the neck, moved with the shoulders: {moved[1:5, 0]}"
+assert -0.1 * 0.1 < moved[5, 0] < 0.1 * 0.1, f"the trunk does not pass from the chest to the shoulders little by little: {moved[5]}"
+assert np.abs(moved[:, 1:]).max() == 0, "the shoulders moved something up, down, forward or back"
+older = {key: value for key, value in slender.items() if key != "girdle"}
+assert abs(parle_build.build_field(older, JOINTS, HEIGHT)[1]["LeftArm"][0] - reach * 0.1) < 1e-9, "a profile saved before the shoulders had a ratio moved them"
+assert parle_build.identity("test")["girdle"] is None and np.abs(shift(dict(plain, girdle=1.0), cloud)).max() == 0, "the kit's own shoulders moved something"
+
+# Cloth goes the way of the skin under it (2026-11-11): with a share of the arm of its own, the back of a shirt's armhole went a centimetre
+# further in than the skin when the shoulders came in, and the skin showed under the sleeve. On the skin a point of cloth takes the skin's
+# share of the arm, and far from it its own.
+own, under = np.array([0.6, 0.6, 0.6, 0.6]), np.array([0.1, 0.1, 0.1, 0.1])
+taken = parle_build.share_over_skin(own, under, np.array([0.0, 0.015, 0.0275, 0.04]), 0.015, 0.04)
+assert np.allclose(taken[:2], 0.1) and abs(taken[3] - 0.6) < 1e-9 and 0.1 < taken[2] < 0.6, f"cloth does not take the share of the skin it lies on: {taken}"
+polish = (Path(__file__).parent.parent / "tools" / "parle_polish.py").read_text()
+assert "arms = over_skin(obj, arms, skin, skin_arms)" in polish and "parle_build.share_over_skin(" in polish, "the build moves cloth by its own share of the arm again"
+
 # A profile comes back as it was saved; a kit without one has none.
 folder = tempfile.mkdtemp()
 parle_build.save_profile(broad, os.path.join(folder, "kit.json"))

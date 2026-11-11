@@ -1,10 +1,12 @@
 """
     License information: data/licenses/makehuman_license.txt
 
-    Silhouette of an unclothed body in the A pose, by slices, as shares of the stature: `python tools/body_measure.py <dump.npz> [<out.json>]`.
+    Silhouette of an unclothed body in the A pose, by slices, as shares of the stature:
+    `python tools/body_measure.py <dump.npz> [<out.json>] [hanging=<dump.hang.npz>]`.
     The dump comes from `tools/body_dump.py`. Runs outside Blender (numpy and scipy). Trunk: level slices from the crotch to the armpit. Shoulder: whole
     width with the arms between the armpit and the neck, and the height of the shoulder line at shares of the half chest. Leg: level slices of one
-    leg. Arm: upright slices from the side of the chest to the wrist. `similarity` compares two bodies measure by measure.
+    leg. Arm: upright slices from the side of the chest to the wrist. With `hanging=`, the same body dumped with its arms hanging
+    (`body_dump.py hang=`), the breadth across the shoulders too (`bideltoid`). `similarity` compares two bodies measure by measure.
 """
 import json
 import sys
@@ -21,6 +23,15 @@ ARM_SHARES = np.linspace(0.1, 1.0, 10)
 WELD = 2e-4
 ARM_WIDEST = 0.11
 MIDDLE = 0.012
+LANDMARKS = ("crotch", "armpit", "neck", "neck_width", "neck_depth")
+# The shoulder rows up to this share of armpit to neck are cut across the arms; above it they are cut over the tip of the shoulder. With the
+# arms out, 27 degrees below the horizontal, the width of such a row is where the top of the arm crosses its level: a body whose arm leaves
+# the trunk 1% of the stature higher reads 4% of the stature wider, as broad or as narrow as its shoulders may be. Matched to the reference
+# women on these rows, the three kits of women stood 2.1 to 2.9% of the stature broader across the shoulders than them once the arms hung,
+# 3.4 to 4.6 cm: 25.7 to 26.5%, as broad as the men of the cast, 25.8 to 26.4% (owner, 2026-11-11: "os ombros da mulher estão largos
+# demais"). A body that was also dumped with its arms hanging says how broad its shoulders are by `bideltoid`, and those rows count no
+# more; nor does the width of the trunk at the armpit itself, a row cut through the roots of the arms.
+SHOULDER_TIP = 0.45
 
 
 def load(path):
@@ -144,10 +155,21 @@ def arm_rows(points, faces, start):
     return rows, round(float(np.degrees(np.arctan(-slope))), 1)
 
 
-def measure(path):
+def bideltoid(path, armpit):
+    """The breadth across the shoulders of a body dumped with its arms hanging, as a share of the stature: the whole width, arms and all,
+    at the level of the armpit, which is found on the same body with its arms out. With the arms down that width hardly changes from one
+    level to the next (0.1 to 0.3% of the stature for each 1% of level), so where exactly the armpit was found matters little."""
+    points, faces, _ = load(path)
+    cloud = np.concatenate([loop["points"] for loop in level(points, faces, armpit)])
+    return round(float(np.ptp(cloud[:, 0])), 4)
+
+
+def measure(path, hanging=None):
     points, faces, frame = load(path)
     crotch, armpit, neck, neck_width, neck_depth = landmarks(points, faces)
     out = dict(stature_m=round(frame["tall"], 4), crotch=round(crotch, 4), armpit=round(armpit, 4), neck=round(neck, 4), neck_width=round(neck_width, 4), neck_depth=round(neck_depth, 4))
+    if hanging:
+        out["bideltoid"] = bideltoid(hanging, armpit)
     torso = []
     for share in TORSO_SHARES:
         z = crotch + 0.004 + share * (armpit - 0.004 - crotch - 0.004)
@@ -186,13 +208,17 @@ def measure(path):
 
 
 def flatten(found):
-    """Every measure that counts for the likeness, by name."""
-    flat = {key: found[key] for key in ("crotch", "armpit", "neck", "neck_width", "neck_depth")}
+    """Every measure that counts for the likeness, by name. A body that has the breadth across its shoulders with the arms hanging counts
+    that, and not the widths cut across its arms: the shoulder rows up to the tip of the shoulder (SHOULDER_TIP) and the trunk at the armpit."""
+    flat = {key: found[key] for key in LANDMARKS}
     flat["armpit"], flat["neck"] = found["armpit"] - found["crotch"], found["neck"] - found["armpit"]
+    flat["bideltoid"] = found.get("bideltoid")
     for group, fields in (("torso", ("width", "depth")), ("shoulder", ("width",)), ("line", ("rise",)), ("leg", ("width", "depth")), ("arm", ("depth", "thick"))):
         for index, row in enumerate(found[group]):
+            arms = row is not None and ((group == "shoulder" and row["k"] <= SHOULDER_TIP) or (group == "torso" and row["u"] >= 1))
             for field in fields:
-                flat[f"{group}.{field}.{index:02d}"] = None if row is None else row[field]
+                left_out = arms and field == "width" and flat["bideltoid"] is not None
+                flat[f"{group}.{field}.{index:02d}"] = None if row is None or left_out else row[field]
     return flat
 
 
@@ -202,12 +228,14 @@ def similarity(cast, reference):
     gaps = {key: min(1.0, abs(a[key] - b[key]) / abs(b[key])) for key in b if a.get(key) is not None and b[key] is not None and abs(b[key]) > 1e-6}
     parts = {}
     for key, gap in gaps.items():
-        parts.setdefault(".".join(key.split(".")[:2]) if "." in key else "landmarks", []).append(gap)
+        parts.setdefault("landmarks" if key in LANDMARKS else ".".join(key.split(".")[:2]), []).append(gap)
     return 100 * (1 - float(np.mean(list(gaps.values())))), {part: round(100 * (1 - float(np.mean(values))), 1) for part, values in parts.items()}
 
 
 if __name__ == "__main__":
-    result, _ = measure(sys.argv[1])
-    if len(sys.argv) > 2:
-        json.dump(result, open(sys.argv[2], "w"), indent=1)
+    paths = [item for item in sys.argv[1:] if "=" not in item]
+    options = dict(item.split("=", 1) for item in sys.argv[1:] if "=" in item)
+    result, _ = measure(paths[0], options.get("hanging"))
+    if len(paths) > 1:
+        json.dump(result, open(paths[1], "w"), indent=1)
     print(json.dumps({key: value for key, value in result.items() if not isinstance(value, list)}))

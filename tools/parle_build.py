@@ -30,6 +30,14 @@ CURVES = {"trunk_x": TRUNK_W, "trunk_y": TRUNK_W, "arm_depth": ARM_T, "arm_thick
 # It starts above the fold behind the armpit: from 0.7 it reached the back of the arm, which stood out as a flap with the arm down.
 RISE_S = np.linspace(0, 1.6, 9)
 RISE_W, RISE_FRONT, RISE_ARM = (0.78, 0.92), (0.05, 0.012), (1.2, 1.6)
+# The shoulders: one ratio, `girdle`, that the trunk takes at the level of the joints of the arms in place of its curve's, and the arms ride
+# with their joints: 1 is the kit's own shoulders. It is whole at that level and gives way to the curve little by little, up to the base
+# of the neck above and, below, down to the armpit, GIRDLE_BELOW of hip to neck under the joints (0.11 to 0.12 on the kits): the chest
+# and the neck keep the widths their own measures gave them. The curve could not hold this alone: it is smoothed every round of the
+# loop, and shoulders narrower than both the chest under them and the neck over them are a dip three stations wide that the smoothing
+# fills again. Left to the curve, the women stayed 0.4 to 1% of the stature broader across the shoulders than the reference women,
+# however many rounds the loop ran (2026-11-11). A profile with no ratio (None) has the shoulders of its curve, as before.
+GIRDLE_BELOW = 0.12
 # Widths of the blends, as shares of the height or in metres: trunk to legs, left leg to right leg, upper arm to forearm, wrist to hand.
 # The trunk hands over to the legs across 10 cm: with a short band, a pelvis made deeper than the thighs left a ledge at the groin.
 CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
@@ -44,7 +52,7 @@ def smooth(t):
 def identity(kit, crotch=0.2):
     """The profile that moves nothing. `crotch` is how far down the thigh the legs part, as a share of hip to knee."""
     curves = {name: [1.0] * len(stations) for name, stations in CURVES.items()}
-    return dict(kit=kit, reference="", similarity=None, crotch=crotch, arm_out=0.0, shoulder_rise=[0.0] * len(RISE_S), **curves)
+    return dict(kit=kit, reference="", similarity=None, crotch=crotch, arm_out=0.0, girdle=None, shoulder_rise=[0.0] * len(RISE_S), **curves)
 
 
 def load_profile(kit):
@@ -62,6 +70,18 @@ def save_profile(profile, path):
 def trunk_param(z, joints):
     hip = (joints["LeftUpLeg"][2] + joints["RightUpLeg"][2]) / 2
     return (z - hip) / (joints["Neck"][2] - hip)
+
+
+def share_over_skin(own, skin, away, near, far):
+    """The share of an arm for points of cloth: the share of the skin under each where the cloth lies on it, within `near` metres, and
+    its `own` from `far` on. `skin` is the share of the nearest point of the skin and `away` how far that point is."""
+    return own + (skin - own) * smooth((far - away) / (far - near))
+
+
+def girdle_share(w, joint_w):
+    """How much a trunk level takes the ratio of the shoulders in place of its curve's: wholly at the level of the joints of the arms,
+    `joint_w`, not at all from the base of the neck up nor from the armpit down."""
+    return smooth((w - (joint_w - GIRDLE_BELOW)) / GIRDLE_BELOW) * smooth((1 - w) / (1 - joint_w))
 
 
 def leg_param(z, top, knee, foot):
@@ -98,10 +118,15 @@ def build_field(profile, joints, height):
     cut, band = hip - profile["crotch"] * (hip - knee), CROTCH_BAND * height
     side_sign = 1.0 if joints["LeftUpLeg"][0] > mid else -1.0
 
+    girdle, joint_w = profile.get("girdle"), trunk_param((joints["LeftArm"][2] + joints["RightArm"][2]) / 2, joints)
+
     def trunk(points):
         w = trunk_param(points[:, 2], joints)
+        wide = np.interp(w, TRUNK_W, profile["trunk_x"])
+        if girdle is not None:
+            wide = wide + (girdle - wide) * girdle_share(w, joint_w)
         out = np.zeros_like(points)
-        out[:, 0] = (points[:, 0] - mid) * (np.interp(w, TRUNK_W, profile["trunk_x"]) - 1)
+        out[:, 0] = (points[:, 0] - mid) * (wide - 1)
         out[:, 1] = (points[:, 1] - np.interp(points[:, 2], spine[:, 2], spine[:, 1])) * (np.interp(w, TRUNK_W, profile["trunk_y"]) - 1)
         return out
 

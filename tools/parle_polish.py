@@ -11,6 +11,7 @@ import bpy
 import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
+from mathutils.kdtree import KDTree
 
 import parle_build
 import parle_rig
@@ -38,6 +39,13 @@ ARM_BONES = ("Arm", "ForeArm", "Hand")
 # through the plaid in two slits beside the last button (2026-11-11).
 OVER_GAP_M = 0.005
 OVER_REACH_M = 0.03
+# Cloth goes the way of the skin under it. The build moves a point by where it is and by how much of it follows each arm, and a garment
+# has weights of its own: where its share of the arm is not the skin's beneath, the two part. It showed once the shoulders of the slim
+# woman came in while her chest stayed (2026-11-11): at the back of the armhole the shirt went a centimetre further in than the skin,
+# and the skin of the trunk showed under the sleeve when the arm swung back. Lying on the skin, a point of cloth takes the skin's share;
+# from SKIN_FAR_M on it keeps its own, as a loose sleeve does.
+SKIN_NEAR_M = 0.015
+SKIN_FAR_M = 0.04
 OVER_STEP_M = 0.01
 OVER_ROUNDS = 6
 OVER_SHARED = 2
@@ -213,9 +221,18 @@ def group_share(obj, names):
     return np.clip(share, 0, 1)
 
 
+def over_skin(obj, own, skin, skin_arms):
+    """The share of each arm for the points of a garment: the skin's where the cloth lies on it, its own away from it (SKIN_NEAR_M,
+    SKIN_FAR_M). `skin` is the tree of the points of the skin at rest and `skin_arms` their share of each arm."""
+    found = [skin.find(Vector(point)) for point in rest_points(obj)]
+    nearest, away = np.array([index for _, index, _ in found]), np.array([distance for _, _, distance in found])
+    return {side: parle_build.share_over_skin(own[side], skin_arms[side][nearest], away, SKIN_NEAR_M, SKIN_FAR_M) for side in own}
+
+
 def natural_build(meshes, rig, height, kit):
     """The build of the kit's profile (`parle_build`): trunk, arms and legs get the widths found against a reference body. Run last, after the arms.
-    The head keeps its shape, the spine stays, and each arm and leg goes as a whole with its bones, so every clip still plays. No profile, no change."""
+    The head keeps its shape, the spine stays, and each arm and leg goes as a whole with its bones, so every clip still plays. Cloth goes
+    the way of the skin under it (`over_skin`). No profile, no change."""
     profile = parle_build.load_profile(kit)
     if profile is None:
         return False
@@ -224,10 +241,17 @@ def natural_build(meshes, rig, height, kit):
     joints = {name: np.array(rig.matrix_world @ rig.data.bones[name].head_local) for name in parle_build.BONES}
     field, rides = parle_build.build_field(profile, joints, height)
     head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
+    body = next((obj for obj in meshes if obj.name.split(".")[0] == "Body" and obj.vertex_groups), None)
+    skin, skin_arms = KDTree(len(body.data.vertices) if body else 0), {side: arm_share(body, side) for side in parle_build.SIDES} if body else {}
+    for index, point in enumerate(rest_points(body) if body else ()):
+        skin.insert(point, index)
+    skin.balance()
     for obj in meshes:
         if not obj.vertex_groups:
             continue
         arms, top = {side: arm_share(obj, side) for side in parle_build.SIDES}, group_share(obj, head)
+        if body is not None and obj is not body:
+            arms = over_skin(obj, arms, skin, skin_arms)
         warp(obj, lambda points: points + field(points, arms, top))
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode="EDIT")

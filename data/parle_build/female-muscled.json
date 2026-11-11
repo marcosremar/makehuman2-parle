@@ -1,9 +1,9 @@
 {
  "kit": "female-muscled",
  "reference": "reference-women.json",
- "similarity": 95.04,
+ "similarity": 94.99,
  "crotch": 0.1823,
- "arm_out": -0.004,
+ "arm_out": 0.0,
  "shoulder_rise": [
   0.0,
   0.0,
@@ -150,15 +150,16 @@
   1.0
  ],
  "parts": {
-  "landmarks": 90.7,
-  "torso.width": 97.5,
+  "landmarks": 90.6,
+  "bideltoid": 99.9,
+  "torso.width": 98.3,
   "torso.depth": 91.9,
-  "shoulder.width": 91.8,
-  "line.rise": 95.2,
+  "shoulder.width": 81.3,
+  "line.rise": 94.7,
   "leg.width": 98.1,
   "leg.depth": 96.7,
-  "arm.depth": 93.7,
-  "arm.thick": 94.0
+  "arm.depth": 93.4,
+  "arm.thick": 94.2
  },
  "arm_deg": 26.9,
  "before": 88.86,
@@ -168,7 +169,8 @@
   "arm_depth": 2,
   "arm_thick": 2,
   "leg_x": 6,
-  "leg_y": 9,
-  "arm_out": 1
- }
+  "leg_y": 9
+ },
+ "girdle": 0.7927749689361981,
+ "bideltoid": 0.2359
 }
