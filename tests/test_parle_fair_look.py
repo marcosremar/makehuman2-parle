@@ -64,6 +64,10 @@ peak = lambda brows: float(brows[np.abs(brows[:, 0]) == 0.03, 2].mean())
 ends = np.abs(arched[:, 0]) != 0.03
 assert abs(peak(lower) - 0.002) < 2e-4 and np.allclose(lower[np.isin(np.abs(arched[:, 0]), (0.01, 0.05))], arched[np.isin(np.abs(arched[:, 0]), (0.01, 0.05))], atol=2e-4), f"half the arch of an eyebrow is {peak(lower) * 1000:.2f} mm high, not 2"
 assert np.allclose(lower[0::2, 2] - lower[1::2, 2], arched[0::2, 2] - arched[1::2, 2], atol=1e-9) and parle_face.BROW_ARCH["female"] < parle_face.BROW_ARCH["male"] == 1, "a flatter eyebrow changes its thickness, or the men's is flattened"
+# Flattened, it sat at the height of its ends and pressed on the lid: the women's goes up whole, a few millimetres.
+lifted = brow + parle_face.brow_line_move(brow, 1.0, 1.0, 1.0, 1.0, 0.003)
+assert np.allclose(lifted[:, 2] - brow[:, 2], 0.003, atol=1e-9) and np.allclose(lifted[:, :2], brow[:, :2], atol=1e-9), "a lifted eyebrow does not go up whole"
+assert 0.002 <= parle_face.BROW_LIFT_M["female"] <= 0.005 and parle_face.BROW_LIFT_M["male"] == 0, f"how far the eyebrows are lifted: {parle_face.BROW_LIFT_M}"
 
 # The jaw rests closed just as far as the lips need to meet. A quarter of `jawOpen` carried the lower lip 7 mm up over the upper one and
 # 5 mm out in front of it, a mouth with one lip (2026-11-11, `parle_profile`); with none the lips stand apart and the teeth show (2026-11-07).

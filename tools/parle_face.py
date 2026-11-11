@@ -80,9 +80,9 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 #     drawn bigger (`eye_texture.IRIS_RADIUS`). Not the kit's faceEyeSize: the globe has no such shape, so the lids opened round a
 #     globe that stayed, and it was dented where they met it. Nor a bigger eye still (`parle_polish.EYE_SCALE_BY_SEX`);
 #   - eyebrows in a high arch, far from the eye: half the arch (`BROW_ARCH`), level over the eye as Sofia's, shorter and a little
-#     thinner than the kit's. Their height and slope stay much as they were: let down (`faceBrowHeight` -0.3 to -0.05) they pressed
-#     on the lid and were the darkest shape on the face, with the inner end let down too (`faceBrowAngle` 0.1 to 0.35, `browInnerUp`
-#     0.2) they climbed to a far peak, a scowl, and thicker than the kit's they were a frown;
+#     thinner than the kit's, and lifted clear of the lid (`BROW_LIFT_M`). Their slope stays the calm look's: with the inner end let
+#     down (`faceBrowAngle` 0.1 to 0.35, `browInnerUp` 0.2) they climbed to a far peak, a scowl, and thicker than the kit's they
+#     were a frown;
 #   - a square lower face with a weak chin: the jaw narrows to -0.7, which is past what was called "a bias, not another face"; with
 #     the skin evened out (`parle_polish.fair_face`) it no longer pinches. The cheek keeps its volume (with -0.3 it went flat to
 #     hollow) and the chin its roundness (`CHIN_LONGER`);
@@ -109,6 +109,10 @@ BROW_LONG = {"female": 0.85, "male": 1.0}
 # And how much of its arch: its middle line comes this much of the way from the straight line between its two ends. The kit's
 # climbs to a peak well above the lid; Sofia's runs nearly level over the eye.
 BROW_ARCH = {"female": 0.5, "male": 1.0}
+# With half the arch the whole eyebrow sat where its two ends were, 8 mm over the middle of the eye, and pressed on the lid ("the
+# darkest, hardest shape on the face", the judge by sight, 2026-11-12): it goes up by this much. The kit's faceBrowHeight is not the
+# way: its whole reach on the eyebrow is 3 mm.
+BROW_LIFT_M = {"female": 0.003, "male": 0.0}
 # With the jaw a quarter closed, the upper teeth sat wholly behind the upper lip: speaking, the mouth showed the lower teeth and the
 # tongue under a bare lip, and read as a snarl (owner, 2026-11-08). Measured on the pharmacy's attendant at the player's widest "a"
 # (`viseme_aa` 0.55): incisor tip 1 mm above the lip's edge. Teeth go 3.5 mm down and the tongue 3 mm more, behind the lower teeth.
@@ -283,10 +287,10 @@ def move_rest(obj, move):
     obj.data.update()
 
 
-def brow_line_move(points, thin, outer=1.0, long=1.0, arch=1.0):
+def brow_line_move(points, thin, outer=1.0, long=1.0, arch=1.0, lift=0.0):
     """Thinner around its middle line, side by side: `thin` of its thickness is left at the inner end, and `outer` of that at the
-    outer end, falling evenly along the eyebrow; `long` of its length is left, from the inner end; and `arch` of the rise of its
-    middle line over the straight line between its two ends."""
+    outer end, falling evenly along the eyebrow; `long` of its length is left, from the inner end; `arch` of the rise of its
+    middle line over the straight line between its two ends; and the whole of it goes up by `lift`."""
     middle = points[:, 0].mean()
     move = np.zeros_like(points)
     for side in (points[:, 0] < middle, points[:, 0] >= middle):
@@ -296,7 +300,7 @@ def brow_line_move(points, thin, outer=1.0, long=1.0, arch=1.0):
         along = (away - away.min()) / max(np.ptp(away), 1e-9)
         ends = np.polyval(curve, (points[side, 0][away.argmin()], points[side, 0][away.argmax()]))
         level = ends[0] + (ends[1] - ends[0]) * along
-        move[side, 2] = level + (line - level) * arch + (points[side, 2] - line) * thin * (1 - (1 - outer) * along) - points[side, 2]
+        move[side, 2] = level + (line - level) * arch + (points[side, 2] - line) * thin * (1 - (1 - outer) * along) - points[side, 2] + lift
         move[side, 0] = np.sign(points[side, 0] - middle) * (away - away.min()) * (long - 1)
     return move
 
@@ -571,7 +575,7 @@ def calm_speech(meshes, shares):
         obj.data.update()
 
 
-def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0):
+def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0, brow_lift=0.0):
     look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {}), **({"faceCupidBow": bow} if bow else {}), **({"faceVChin": longer} if longer else {}), **(fair or {})}
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
@@ -594,7 +598,7 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
         if back and ("teeth" in obj.name or "tongue" in obj.name):
             move[:, 1] += back
         if "eyebrow" in obj.name:
-            move = move + brow_line_move(rest + move, brow, brow_outer, brow_long, brow_arch)
+            move = move + brow_line_move(rest + move, brow, brow_outer, brow_long, brow_arch, brow_lift)
         if "teeth" in obj.name or "tongue" in obj.name:
             move[:, 2] -= TEETH_DOWN_M if "teeth" in obj.name else TONGUE_DOWN_M
         if move.any():
@@ -793,7 +797,7 @@ def clean_face(body, added, job, env):
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], FAIR_LOOK[sex], BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex])
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], FAIR_LOOK[sex], BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex])
     soften_pout(body, POUT_FORWARD[sex])
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
