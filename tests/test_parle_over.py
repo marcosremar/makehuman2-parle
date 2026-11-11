@@ -129,3 +129,19 @@ skirt.data.update()
 assert parle_polish.level_hems([skirt]) == 1 and np.ptp(parle_polish.rest_points(skirt)[wavy[:, 2] < 0.53, 2]) < 1e-4, "the hem of a skirt was not levelled as one opening"
 assert parle_polish.level_hems([tube("Outfit_Top", 0.16, 0.9, 1.4)]) == 0, "the hem of a shirt was taken for the leg of a bottom"
 print("ok")
+
+# A neck a quarter shorter (2026-11-11, the women): by their weights alone, the points of the skin step from the neck's share of the
+# loss to the head's in a ring or two, and all the loss closed up there in a dark fold. The skin shares it out evenly from the chest,
+# which keeps none, to the head, which keeps all. A neck of 21 rings: 6 of the chest, 9 of the neck, 6 of the head.
+throat = tube("Body", 0.06, 1.30, 1.50, rings=21, around=16)
+rows = np.repeat(np.arange(21), 16)
+rigid, loose = (rows >= 15).astype(float), ((rows >= 6) & (rows < 15)).astype(float)
+stepped = np.where(rows >= 15, 1.0, np.where(rows >= 13, 0.9, np.where(rows >= 6, 0.2, 0.0)))
+even = parle_polish.even_follow(throat, stepped, rigid, loose).reshape(21, 16)
+assert np.ptp(even, axis=1).max() < 1e-6, "the points of one ring of the neck come down by different shares"
+by_ring = even.mean(axis=1)
+assert np.abs(by_ring[:6]).max() == 0 and np.abs(by_ring[15:] - 1).max() == 0, f"the chest came down, or the head did not come down whole: {by_ring}"
+steps = np.diff(by_ring[5:16])
+assert steps.min() > 0.05 and steps.max() < 0.15, f"the loss of the neck is not shared out evenly ring by ring (a tenth each): {steps.round(3)}"
+assert np.diff(stepped.reshape(21, 16).mean(axis=1)).max() > 0.6, "the neck of this test never stepped"
+print("ok")

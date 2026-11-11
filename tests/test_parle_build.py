@@ -29,7 +29,9 @@ zero = np.zeros(len(cloud))
 
 def shift(profile, points, arms=None, head=None, neck=None):
     field, _ = parle_build.build_field(profile, JOINTS, HEIGHT)
-    return field(points, arms or {side: np.zeros(len(points)) for side in parle_build.SIDES}, np.zeros(len(points)) if head is None else head, neck)
+    head = np.zeros(len(points)) if head is None else head
+    follow = parle_build.neck_follow(points, head, np.zeros(len(points)) if neck is None else neck, JOINTS)
+    return field(points, arms or {side: np.zeros(len(points)) for side in parle_build.SIDES}, head, follow)
 
 
 plain = parle_build.identity("test")
@@ -158,6 +160,7 @@ assert np.abs(shift(lady, up, neck=np.zeros(5))).max() == 0 and np.abs(shift(par
 polish = (Path(__file__).parent.parent / "tools" / "parle_polish.py").read_text()
 assert "parle_build.head_ratio(profile" in polish and "rig.scale = [rig.scale[0] * stature /" in polish, "the bones of the head do not grow with it, or the body does not keep its stature"
 assert "parle_build.neck_ratio(profile" in polish and 'rig.data.edit_bones["Neck"], "tail", base + down' in polish, "the bones do not come down with the head where the neck is shorter"
+assert "skin_follow = even_follow(body" in polish and 'over_skin(obj, {"neck": follow}, skin, {"neck": skin_follow})' in polish, "the skin does not share the neck's loss out evenly, or cloth does not go with the skin"
 
 # A profile comes back as it was saved; a kit without one has none.
 folder = tempfile.mkdtemp()

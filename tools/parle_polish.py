@@ -33,6 +33,12 @@ EYE_SCALE = 1.1
 EYE_SCALE_BY_SEX = {"female": 1.2}
 EYE_CORE_M = 0.017
 EYE_REACH_M = 0.032
+# The skin between the head and the chest shares out what a shorter neck loses (`even_follow`): a point goes whole with the head
+# from this much of its weight on it, follows neither head nor neck below this much on both, and the rest is evened in these rounds.
+NECK_WHOLE = 0.999
+NECK_NONE = 0.05
+NECK_EVEN_ROUNDS = 400
+NECK_SAME_M = 1e-5
 # The pieces whose openings for the legs end on a level line. A hem is in the lowest share of the bottoms, where the open edge leans
 # no more than this from level (the sine); an opening has at least these points, and the plane that fits it stands at least this
 # upright. A skirt's hem has points at the middle (this near it) from the front to the back, this share of the hem's depth.
@@ -405,6 +411,34 @@ def group_share(obj, names):
     return np.clip(share, 0, 1)
 
 
+def even_follow(obj, follow, rigid, loose):
+    """`follow` (how much of the neck's loss each point of a skin comes down by) made even over the mesh: the points that go whole
+    with the head (`rigid` all of their weight) keep 1, those that follow neither the head nor the neck (`rigid` and `loose` nothing)
+    keep 0, and every other takes the mean of its neighbours until the way from one to the other is even. By their weights alone the
+    points step from the neck's share to the head's in a ring or two under the jaw and at the nape, and a neck a quarter shorter
+    closed up all there, in a dark fold (2026-11-11). Points at the same place are one point."""
+    points, follow = rest_points(obj), np.asarray(follow, float)
+    place = {}
+    for index, point in enumerate(points):
+        place.setdefault(tuple(np.round(point / NECK_SAME_M).astype(int)), []).append(index)
+    group = np.empty(len(points), int)
+    for number, members in enumerate(place.values()):
+        group[members] = number
+    count = np.bincount(group, minlength=len(place)).astype(float)
+    value = np.bincount(group, weights=follow, minlength=len(place)) / count
+    whole = np.bincount(group, weights=np.asarray(rigid, float), minlength=len(place)) / count
+    none = np.bincount(group, weights=np.asarray(rigid, float) + np.asarray(loose, float), minlength=len(place)) / count
+    value[whole >= NECK_WHOLE] = 1.0
+    free = (whole < NECK_WHOLE) & (none > NECK_NONE)
+    edges = np.unique(np.sort(group[np.array([tuple(edge.vertices) for edge in obj.data.edges], int).reshape(-1, 2)], axis=1), axis=0)
+    edges = edges[(edges[:, 0] != edges[:, 1]) & (free[edges[:, 0]] | free[edges[:, 1]])]
+    near = np.bincount(edges.ravel(), minlength=len(place)).astype(float)
+    for _ in range(NECK_EVEN_ROUNDS if free.any() and len(edges) else 0):
+        total = np.bincount(edges[:, 0], weights=value[edges[:, 1]], minlength=len(place)) + np.bincount(edges[:, 1], weights=value[edges[:, 0]], minlength=len(place))
+        value = np.where(free & (near > 0), total / np.maximum(near, 1), value)
+    return value[group]
+
+
 def over_skin(obj, own, skin, skin_arms):
     """The share of each arm for the points of a garment: the skin's where the cloth lies on it, its own away from it (SKIN_NEAR_M,
     SKIN_FAR_M). `skin` is the tree of the points of the skin at rest and `skin_arms` their share of each arm."""
@@ -437,13 +471,18 @@ def natural_build(meshes, rig, height, kit):
     for index, point in enumerate(rest_points(body) if body else ()):
         skin.insert(point, index)
     skin.balance()
+    follows = lambda obj: parle_build.neck_follow(rest_points(obj), group_share(obj, head), group_share(obj, {"Neck"}), joints)
+    # The skin shares the neck's loss out evenly, and cloth goes the way of the skin under it; hair, glasses and the rest go by their own weights.
+    skin_follow = even_follow(body, follows(body), group_share(body, head), group_share(body, {"Neck"})) if body is not None and short != 1 else None
     for obj in meshes:
         if not obj.vertex_groups:
             continue
-        arms, top, mid = {side: arm_share(obj, side) for side in parle_build.SIDES}, group_share(obj, head), group_share(obj, {"Neck"})
+        arms, top, follow = {side: arm_share(obj, side) for side in parle_build.SIDES}, group_share(obj, head), follows(obj)
         if body is not None and obj is not body:
             arms = over_skin(obj, arms, skin, skin_arms)
-        warp(obj, lambda points: points + field(points, arms, top, mid))
+        if skin_follow is not None:
+            follow = skin_follow if obj is body else over_skin(obj, {"neck": follow}, skin, {"neck": skin_follow})["neck"] if obj.name.startswith("Outfit_") else follow
+        warp(obj, lambda points: points + field(points, arms, top, follow))
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode="EDIT")
     moves = []
