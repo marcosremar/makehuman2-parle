@@ -46,10 +46,12 @@ def arch_centre(points):
     return np.array((float(points[:, 0].mean()), float(points[:, 1].max()) + BEHIND_ARCH_M))
 
 
-def box(values, low, high, inset=MARGIN):
-    """`values` stretched to [low, high], inside the margin that keeps the filter from reading the next cell."""
-    span = max(float(values.max() - values.min()), 1e-9)
-    share = (values - values.min()) / span
+def box(values, low, high, inset=MARGIN, members=None):
+    """`values` stretched to [low, high], inside the margin that keeps the filter from reading the next cell. The stretch is read off `members`
+    only: read off the whole mouth, a tooth took a tenth of its cell and the player's filter mixed it with the background (braces, 2026-11-11)."""
+    own = values if members is None else values[members]
+    span = max(float(own.max() - own.min()), 1e-9)
+    share = (values - own.min()) / span
     return low + (high - low) * (inset + (1 - 2 * inset) * share)
 
 
@@ -77,7 +79,13 @@ def atlas(points, triangles):
     ids, counts = np.unique(label, return_counts=True)
     gums = ids[counts >= GUM_LEAST]
     teeth = ids[counts < GUM_LEAST]
-    middle = float(np.median([points[label == part, 2].mean() for part in teeth]))
+    # The arch of a tooth is the arch of the gum it sits in: by height, a curved arch put the upper and lower incisors in one row (2026-11-11).
+    gum_order = sorted(gums, key=lambda part: -points[label == part, 2].mean())
+    gum_points = [points[label == part] for part in gum_order]
+
+    def arch_of(part):
+        mine = points[label == part]
+        return int(np.argmin([np.linalg.norm(mine[:, None] - other[None], axis=2).min(axis=1).mean() for other in gum_points]))
     out = facing_out(points, triangles, centre)
     owner = label[triangles[:, 0]]
     uv = np.zeros((len(triangles), 3, 2))
@@ -85,11 +93,16 @@ def atlas(points, triangles):
 
     def place(chosen, across, up, left, top, width, height):
         corners = triangles[chosen]
-        pixels[chosen, :, 0] = box(across, left, left + width)[corners]
-        pixels[chosen, :, 1] = box(-up, top, top + height)[corners]
+        if not len(corners):
+            return
+        members = np.unique(corners)
+        pixels[chosen, :, 0] = box(across, left, left + width, members=members)[corners]
+        pixels[chosen, :, 1] = box(-up, top, top + height, members=members)[corners]
 
-    for arch, keep in enumerate((lambda z: z > middle, lambda z: z <= middle)):
-        own = [part for part in teeth if keep(points[label == part, 2].mean())]
+    arches = {part: arch_of(part) for part in teeth} if len(gum_points) == TOOTH_ROWS else None
+    middle = float(np.median([points[label == part, 2].mean() for part in teeth]))
+    for arch in range(TOOTH_ROWS):
+        own = [part for part in teeth if (arches[part] == arch if arches else (points[label == part, 2].mean() > middle) == (arch == 0))]
         own.sort(key=lambda part: np.arctan2(points[label == part, 0].mean() - centre[0], centre[1] - points[label == part, 1].mean()))
         for order, part in enumerate(own[:ARCH_TEETH]):
             members = label == part
@@ -102,7 +115,7 @@ def atlas(points, triangles):
             for half, faces in enumerate((out, ~out)):
                 chosen = (owner == part) & faces
                 place(chosen, across, points[:, 2], left, top + half * TOOTH_H / 2, TOOTH_W, TOOTH_H / 2)
-    for arch, part in enumerate(sorted(gums, key=lambda part: -points[label == part, 2].mean())):
+    for arch, part in enumerate(gum_order):
         members = label == part
         turn = np.arctan2(points[:, 0] - centre[0], centre[1] - points[:, 1])
         for half, faces in enumerate((out, ~out)):

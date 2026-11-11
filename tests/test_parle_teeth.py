@@ -82,3 +82,37 @@ edge = image[top + 16, left]
 centre = image[top + 16, left + teeth.TOOTH_W // 2]
 assert edge.mean() < centre.mean(), "a thin darker line separates a tooth from the next"
 print("ok")
+
+# Dentes de aparelho no placar de 11/11/2026 (Ivone, Lúcia): cada dente ocupava ~10 % da célula, porque a escala vinha de todos os pontos da
+# boca e não do dente, e o filtro do player misturava o dente com o fundo; e o arco saía da altura mediana, que numa arcada com curva (molar mais
+# alto que o incisivo) punha incisivos de cima e de baixo na mesma fileira. Os dentes precisam encher a célula e cair no arco da gengiva deles.
+def curved_mouth():
+    """Four teeth per arch on a curve: the molars sit 11 mm above the incisors, so a lower molar is higher than an upper incisor."""
+    points, triangles, offset, arch_of = [], [], 0, []
+    for arch, z0 in enumerate((0.005, -0.005)):
+        for x in (-0.02, -0.006, 0.006, 0.02):
+            lift = 0.011 if abs(x) > 0.015 else 0.0
+            corners, faces = box(np.array((x, -0.05 + abs(x) * 0.8, z0 + lift)), np.array((0.003, 0.003, 0.003)))
+            points.append(corners); triangles.append(faces + offset); offset += 8; arch_of.append(arch)
+    for arch, z0 in enumerate((0.0115, -0.0115)):
+        for step in range(teeth.GUM_LEAST // 8 + 1):
+            x = -0.022 + 0.044 * step / (teeth.GUM_LEAST // 8)
+            corners, faces = box(np.array((x, -0.048 + abs(x) * 0.8, z0 + (0.011 if abs(x) > 0.015 else 0.0))), np.array((0.002, 0.004, 0.002)))
+            points.append(corners); triangles.append(faces + offset); offset += 8
+    triangles = np.concatenate(triangles)
+    per_gum = teeth.GUM_LEAST // 8 + 1
+    links = [(start, start + 1, start + 8) for gum in range(2) for start in range(64 + gum * per_gum * 8, 64 + (gum + 1) * per_gum * 8 - 8, 8)]
+    return np.concatenate(points), np.concatenate([triangles, np.array(links)]), arch_of
+
+
+cpoints, ctriangles, carch = curved_mouth()
+cowner = teeth.parts(cpoints, ctriangles)[ctriangles[:, 0]]
+cuv = teeth.atlas(cpoints, ctriangles)
+for index, arch in enumerate(carch):
+    mine = cowner == teeth.parts(cpoints, ctriangles)[index * 8]
+    rows = (1 - cuv[mine, :, 1]) * teeth.SIZE
+    assert rows.max() <= (arch + 1) * teeth.TOOTH_H + 1 and rows.min() >= arch * teeth.TOOTH_H - 1, f"tooth {index} left its arch row {arch}: {rows.min():.0f}..{rows.max():.0f}"
+    cols = cuv[mine, :, 0] * teeth.SIZE
+    assert cols.max() - cols.min() > 0.6 * teeth.TOOTH_W, f"tooth {index} must fill its cell across: {cols.max() - cols.min():.1f} px of {teeth.TOOTH_W}"
+    assert rows.max() - rows.min() > 0.6 * teeth.TOOTH_H, f"tooth {index} must fill its cell up and down: {rows.max() - rows.min():.1f} px of {teeth.TOOTH_H}"
+print("ok celula cheia")
