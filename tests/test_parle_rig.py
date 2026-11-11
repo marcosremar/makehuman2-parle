@@ -56,6 +56,27 @@ assert (clip @ (turn @ ours["LeftShoulder"]) - ours["LeftShoulder"]).length < 1e
 assert (rest_turn("LeftShoulder", game, ours) @ ours["LeftShoulder"]).y > 0.1, "without a body to copy, the clavicle no longer points as in the game"
 assert rest_turn("LeftArm", {"LeftArm": Vector((1, 0, 0))}, {"LeftArm": Vector((0, 0, -1))}, clip).angle > 1.5, "the arm stopped pointing as in the game"
 
+from parle_rig import clavicle_as_modelled  # noqa: E402
+
+assert clavicle_as_modelled("male-slim") and clavicle_as_modelled("male-muscled"), "the men's shoulder is square again"
+assert not clavicle_as_modelled("female-slim") and not clavicle_as_modelled("female-normal"), "the women's breasts sit higher and flatter again"
+
+# On the slim man the front of the chest follows the spine alone (2026-11-11): with the arms hanging, the skin around the nipple followed the
+# arm, sank a centimetre and left a mound 9.5 mm tall under each nipple.
+from parle_rig import CHEST_KITS, chest_share, chest_weights  # noqa: E402
+
+assert chest_share(0.75, 0.45, 0.1) == 1.0, "the nipple still follows the arm"
+assert chest_share(0.75, 0.95, 0.1) == 0.0 and chest_share(0.75, 0.45, 0.0) == 0.0, "the armpit or the back lost the arm"
+assert chest_share(0.2, 0.45, 0.1) == 0.0 and chest_share(1.2, 0.45, 0.1) == 0.0, "the belly or the neck was taken for the chest"
+assert 0 < chest_share(0.75, 0.75, 0.1) < 1, "the weight comes back in one step, a crease on the chest"
+moved = chest_weights({"Spine2": 0.6, "Spine1": 0.3, "LeftArm": 0.06, "LeftShoulder": 0.04}, 1.0)
+assert set(moved) == {"Spine2", "Spine1"} and abs(sum(moved.values()) - 1.0) < 1e-9, f"the weight of the arm was lost or kept: {moved}"
+assert abs(moved["Spine2"] / moved["Spine1"] - 2.0) < 1e-9, "the spine did not take it in the measure it already held"
+kept = {"Spine2": 0.6, "LeftArm": 0.4}
+assert chest_weights(kept, 0.0) == kept and chest_weights({"Head": 1.0}, 1.0) == {"Head": 1.0}
+assert chest_weights({"LeftArm": 1.0}, 1.0) == {"Spine2": 1.0}, "a point the spine did not hold has nowhere to go"
+assert CHEST_KITS == ("male-slim",), "the owner asked for the slim man only"
+
 # Standing, the head sits over the ankles (2026-11-11): with the game's clips on our spine the cast stooped, the head 5 cm in front of the ankles.
 import math  # noqa: E402
 

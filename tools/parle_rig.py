@@ -21,6 +21,12 @@
       brings the head to HEAD_AHEAD, measured on each body in its own idle clip: the chest opens and the shoulders come back over the
       hips. The neck, the head and the arms keep their own direction. Leaning by the game's old body instead (its hips-to-neck line)
       worked on the men and sent the women further forward: their old bodies are not Rafa's.
+    - On the slim man the front of the chest follows the spine alone (owner, 2026-11-11: "o peitoral está com tetas"). At rest his chest is
+      flat. The skin of the chest follows the arm bone a little (4% of its weight 5 cm from the nipple, none at the nipple), and with the
+      arms hanging, far from the A pose it was modelled in, the skin around the nipple sank a centimetre and left the middle standing: a
+      mound 9.5 mm tall under each nipple, measured against the rim of the patch in the idle clip. With the arm's and the clavicle's
+      weight taken off the front of the chest it is 0.0 mm. The weight goes to the spine and comes back towards the armpit, where the fold
+      of the arm belongs. Skin and cloth alike, by where the point is. The other kits wait for the owner's word.
     - Each finger phalanx points as in the game: MakeHuman rests with the fingers half curled and spread, the
       game (Mixamo) with them straight, and the clip's curl came on top of ours. Pointing, the hand closed into a
       claw: 64 degrees of curl against 38, and the index and little finger 52 degrees apart against 18 (2026-11-08,
@@ -49,6 +55,13 @@ ALIGNED = ("Shoulder", "Arm", "ForeArm", "UpLeg", "Leg") + FINGERS
 SHOULDER_HEIGHT_SHARE = 0.5
 # Added to the clavicle's direction towards the back (+y): about 9 degrees, 2 cm at the tip of a 14 cm clavicle.
 SHOULDER_BACK = 0.16
+
+
+def clavicle_as_modelled(kit):
+    """Whether the clavicle of this kit rests where it was modelled when the body stands still. The men's does: the turn left over from the
+    old clips made their shoulder a square mass with a groove in front. The women's keeps that turn: with the clavicle as modelled their
+    breasts sat higher and flatter, and the owner liked them better before (2026-11-11)."""
+    return str(kit).startswith("male")
 
 
 def rest_turn(name, old_dir, new_dir, standing=None):
@@ -143,3 +156,39 @@ def opened(turn, rest, outward, radians):
     body. `rest` is the bone's rest in the space where the body stands upright and that axis is y; `outward` is +1 for the arm on +x, -1 for the other."""
     swing = Quaternion((0.0, 1.0, 0.0), -outward * radians)
     return rest.inverted() @ swing @ rest @ turn
+
+
+# The front of the chest that follows the spine alone. Heights are shares of the way from the hip joints to the shoulder joints (the bottom
+# of the ribs to over the collarbones), sides are shares of the way from the midline to the shoulder joint, and `ahead` is how far in
+# front of the spine the point is, as a share of the height: the back and the flank keep the arm.
+CHEST_KITS = ("male-slim",)
+CHEST_LEVELS = (0.3, 0.45, 1.0, 1.12)
+CHEST_SIDES = (0.55, 0.9)
+CHEST_AHEAD = (0.03, 0.06)
+CHEST_BONES = ("Shoulder", "Arm", "ForeArm")
+
+
+def _ramp(value, low, high):
+    t = max(0.0, min(1.0, (value - low) / (high - low)))
+    return t * t * (3 - 2 * t)
+
+
+def chest_share(level, side, ahead):
+    """How much of the weight of the arm and of the clavicle a point gives to the spine: all of it on the front of the chest, none past it."""
+    rise, full, top, gone = CHEST_LEVELS
+    return _ramp(level, rise, full) * (1 - _ramp(level, top, gone)) * (1 - _ramp(side, *CHEST_SIDES)) * _ramp(ahead, *CHEST_AHEAD)
+
+
+def chest_weights(weights, share):
+    """The weights of one point, `{bone: weight}`, with `share` of what the arm and the clavicle hold given to the bones of the spine, in the
+    measure each already holds it (to the top one when none does)."""
+    taken = {name: weight * share for name, weight in weights.items() if name.startswith(("Left", "Right")) and name.endswith(CHEST_BONES)}
+    total = sum(taken.values())
+    if total <= 0:
+        return dict(weights)
+    spine = {name: weights.get(name, 0.0) for name in SPINE}
+    held = sum(spine.values())
+    out = {name: weight - taken.get(name, 0.0) for name, weight in weights.items()}
+    for name in SPINE:
+        out[name] = out.get(name, 0.0) + total * (spine[name] / held if held > 0 else float(name == SPINE[-1]))
+    return {name: weight for name, weight in out.items() if weight > 1e-6}

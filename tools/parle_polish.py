@@ -11,6 +11,7 @@ import bpy
 import numpy as np
 
 import parle_build
+import parle_rig
 
 CLOTHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local/mhd/data/clothes/hm08")
 
@@ -126,6 +127,46 @@ def arm_share(obj, side):
     for vertex in obj.data.vertices if groups else ():
         share[vertex.index] = sum(item.weight for item in vertex.groups if item.group in groups)
     return np.clip(share * 2, 0, 1)
+
+
+def chest_follows_spine(meshes, rig, kit):
+    """On the kits of `parle_rig.CHEST_KITS`, the front of the chest gives the weight of the arm and of the clavicle to the spine
+    (`parle_rig.chest_share`): skin and cloth alike, by where each point is. Run before anything reads the poses of the body."""
+    if str(kit) not in parle_rig.CHEST_KITS:
+        return 0
+    bpy.context.view_layer.update()
+    joint = lambda name: np.array(rig.matrix_world @ rig.data.bones[name].head_local)
+    shoulder, hip = (joint("LeftArm") + joint("RightArm")) / 2, (joint("LeftUpLeg") + joint("RightUpLeg")) / 2
+    half = abs(joint("LeftArm")[0] - shoulder[0])
+    spine = np.array(sorted((joint(name) for name in ("Hips", "Spine", "Spine1", "Spine2", "Neck")), key=lambda point: point[2]))
+    height = joint("Head")[2] * 1.08 - min(joint("LeftToeBase")[2], joint("RightToeBase")[2])
+    changed = 0
+    for obj in meshes:
+        if not obj.vertex_groups:
+            continue
+        names = [group.name for group in obj.vertex_groups]
+        points = rest_points(obj)
+        level = (points[:, 2] - hip[2]) / (shoulder[2] - hip[2])
+        side = np.abs(points[:, 0] - shoulder[0]) / half
+        ahead = (np.interp(points[:, 2], spine[:, 2], spine[:, 1]) - points[:, 1]) / height
+        for vertex in obj.data.vertices:
+            share = parle_rig.chest_share(level[vertex.index], side[vertex.index], ahead[vertex.index])
+            if share <= 0:
+                continue
+            before = {names[item.group]: item.weight for item in vertex.groups}
+            after = parle_rig.chest_weights(before, share)
+            if after == before:
+                continue
+            changed += 1
+            for name in set(before) | set(after):
+                if name not in after:
+                    obj.vertex_groups[name].remove([vertex.index])
+                elif name in names:
+                    obj.vertex_groups[name].add([vertex.index], after[name], "REPLACE")
+                else:
+                    obj.vertex_groups.new(name=name).add([vertex.index], after[name], "REPLACE")
+                    names.append(name)
+    return changed
 
 
 def natural_arms(meshes, rig, height, sex):

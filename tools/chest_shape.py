@@ -28,6 +28,10 @@ STRENGTH = {"male-muscled": 1.0, "male-normal": 0.9, "male-slim": 0.4}
 # straight ledge with a square notch at the breastbone; six times over it is the soft edge of a chest that does not train (2026-11-11).
 # On the slim man 0.7 read as a band strapped across the chest (2026-11-11).
 SOFT = {"male-muscled": 1, "male-normal": 6, "male-slim": 8}
+# How wide the skin is laid again around each nipple, in shares of crotch to neck pit; elsewhere it is the nipple alone (2.5 cm). On the
+# slim man the base mesh's chest is a cone under each nipple, and it stayed as a small breast under whatever came on top of it (owner,
+# 2026-11-11: "o peitoral está com tetas").
+PATCH = {"male-slim": 0.1}
 
 
 def main():
@@ -49,8 +53,12 @@ def main():
     if "--plain" not in sys.argv:
         chart = np.load(RELIEF)
         relief = chart["relief"].astype(np.float64), chart["known"].astype(np.float64)
-        tuned = dict(word.split("=", 1) for word in sys.argv[4:] if word.startswith(("strength=", "soft=")))  # to try a value out
-        fine = moulded(original + shift, data["faces"].astype(np.int64), relief, trunk, float(tuned.get("strength", STRENGTH[kit])), int(tuned.get("soft", SOFT[kit])))
+        tuned = dict(word.split("=", 1) for word in sys.argv[4:] if word.startswith(("strength=", "soft=", "patch=")))  # to try a value out
+        patch = float(tuned["patch"]) if "patch" in tuned else PATCH.get(kit)
+        height = {str(name): float(joint[2]) for name, joint in zip(data["joint_names"], data["joints"])}
+        joints = ((height["LeftArm"] + height["RightArm"]) / 2, (height["LeftUpLeg"] + height["RightUpLeg"]) / 2)
+        strength, soft = float(tuned.get("strength", STRENGTH[kit])), int(tuned.get("soft", SOFT[kit]))
+        fine = moulded(original + shift, data["faces"].astype(np.int64), relief, trunk, strength, soft, patch, joints)
         shift = shift + fine
         gaps, near = cKDTree(original).query(base)
         moved += fine[near] * (gaps < 0.02)[:, None]

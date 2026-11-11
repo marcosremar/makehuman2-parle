@@ -54,19 +54,19 @@ GAIN = (1.3, 1.0)
 # bands across the back. On the front only what is smooth over this share of the height goes: the step under the pectorals is the same
 # from one side to the other, and with all of it out the plates never came through, only the mounds in the middle (2026-11-11).
 POSTURE_SHARE = (0.15, 0.0)
-# A man's nipples. They sit between these heights, in shares of crotch to neck pit (not the levels of the chart, which move with the
-# armpit: on a body whose arms hang closer the nipple fell out of the band), and these distances from the midline, in half widths of
-# the trunk: higher and further out is the fold in front of the armpit, a ridge that has to stay. A nipple stands this far in front of the skin smoothed
-# NIPPLE_RINGS rings around, in shares of crotch to neck pit (2.5 mm; a chest that curves gives under 1 mm). The patch laid again around
-# it is this wide to each side (2.5 cm, the cone and the ring around it), and this share of the bump comes back. A step that only pulled
-# the tip back to its neighbours left the cone as a flat-topped bump (2026-11-11).
-NIPPLE_LEVELS = (0.55, 0.72)
-NIPPLE_SIDES = (0.25, 0.85)
-NIPPLE_RINGS = 3
-NIPPLE_PEAK = 0.005
+# The pit of the neck over the shoulder joints and the crotch under the hip joints, in shares of the height between the two.
+PIT_OVER_SHOULDER = 0.147
+CROTCH_UNDER_HIP = 0.371
+# A man's nipples. They sit between these heights, in shares of crotch to neck pit, and these distances from the midline, in half widths
+# of the trunk. The mesh around one has edges shorter than NIPPLE_EDGE of that height (8 mm; the chest around it, 2 to 3 cm). The patch
+# laid again around it is NIPPLE_PATCH wide to each side (3 cm), and NIPPLE_KEPT of what stood out comes back. Twice the wrong thing was
+# laid flat: looked for as the point furthest in front of its neighbours, the nipple lost to the top of the pectoral and to a corner of
+# the ribs, whose edges are ten times longer (2026-11-11).
+NIPPLE_LEVELS = (0.62, 0.8)
+NIPPLE_SIDES = (0.2, 0.7)
+NIPPLE_EDGE = 0.012
 NIPPLE_PATCH = 0.045
 NIPPLE_KEPT = 0.2
-NIPPLE_ROUNDS = 60
 # The flanks belong to the profile of the kit, which sets the width of the trunk level by level: the relief is whole up to the first
 # of these and gone at the second, in half widths of the trunk from the midline.
 EDGE = (0.8, 1.0)
@@ -116,6 +116,20 @@ def landmarks(points):
     torso = points[(points[:, 2] > crotch) & (points[:, 2] < pit) & (np.abs(points[:, 0] - centre) < height * 0.1)]
     axis = float((torso[:, 1].min() + torso[:, 1].max()) / 2)
     return centre, axis, crotch, pit
+
+
+def rigged_landmarks(points, shoulder, hip):
+    """Midline, crotch and the pit of the neck of a body that has a skeleton, from the heights of its shoulder and hip joints.
+
+    Read from the surface (`landmarks`), the dip between the pectorals of a slim man passed for the pit of his neck, 12 cm low, and his
+    crotch came out 6 cm higher than the muscled man's: the chart of his trunk was a quarter short, the plates of the sculpture landed
+    on his ribs and his nipples fell outside the patch that lays them flat (2026-11-11). The shares are those the surface gives on the
+    muscled man, where it reads right and where every size of the chart was judged."""
+    reach = shoulder - hip
+    centre = float(np.median(points[:, 0]))
+    crotch, pit = hip - CROTCH_UNDER_HIP * reach, shoulder + PIT_OVER_SHOULDER * reach
+    torso = points[(points[:, 2] > crotch) & (points[:, 2] < pit) & (np.abs(points[:, 0] - centre) < np.ptp(points[:, 2]) * 0.1)]
+    return centre, float((torso[:, 1].min() + torso[:, 1].max()) / 2), float(crotch), float(pit)
 
 
 def surface(points, faces, step):
@@ -218,9 +232,10 @@ def relief_map(points, marks, pits, widths):
     return np.array(reliefs), np.array(knowns)
 
 
-def torso_chart(points, faces):
-    """Landmarks, armpits, widths and relief of a torso, with its surface on the chart closer than a cell."""
-    marks = landmarks(points)
+def torso_chart(points, faces, marks=None):
+    """Landmarks, armpits, widths and relief of a torso, with its surface on the chart closer than a cell. `marks` are the landmarks of a
+    body that has a skeleton (`rigged_landmarks`); without them they are read from the surface."""
+    marks = landmarks(points) if marks is None else marks
     span = marks[3] - marks[2]
     level = (points[:, 2] - marks[2]) / span
     near = (level > CHART_LOW - 0.1) & (level < CHART_HIGH + 0.1)
@@ -254,13 +269,14 @@ def muscles(count):
     return sum(read_target(path, count) for path in MUSCLES)
 
 
-def without_peaks(points, depth, edges, where, span, centre=0.0):
-    """`depth` (y, the front of the body at the smaller values) with the nipple of each side of `where` taken down.
+def without_nipples(points, depth, edges, where, span, centre=0.0, patch=None):
+    """`depth` (y, the front of the body at the smaller values) with the nipple of each side of `where` laid flat.
 
-    The base mesh models a nipple as a cone with a blunt tip, two or three rings of vertices wide, so no single point is its peak. It is
-    found as what stands furthest in front of the same skin smoothed a few rings around, on each side of `centre`, when that is more than
-    NIPPLE_PEAK of `span`. The patch around it, NIPPLE_PATCH of `span` to each side, is laid again as the skin that joins its rim (each
-    point the mean of its neighbours), and a share of the bump comes back so the chest is not ironed flat."""
+    The base mesh models a nipple as a small cone with a blunt tip, drawn with triangles a few millimetres wide in the middle of a chest
+    whose triangles are 2 to 3 cm wide: it is found as the point of `where` with the shortest edges, on each side of `centre`, when they
+    are shorter than NIPPLE_EDGE of `span`. The patch around it, NIPPLE_PATCH of `span` to each side (or `patch`), is laid again as the
+    skin that joins its rim, each point the mean of its neighbours, and a share of what stood out comes back so the chest is not ironed
+    flat. With a wider patch the mound under the nipple goes with it."""
     depth = np.asarray(depth, float).copy()
     near = [[] for _ in range(len(depth))]
     for a, b in edges:
@@ -269,33 +285,38 @@ def without_peaks(points, depth, edges, where, span, centre=0.0):
     inside = np.array([index for index in np.flatnonzero(where) if near[index]], dtype=int)
     if not len(inside):
         return depth
-    smooth = depth.copy()
-    for _ in range(NIPPLE_RINGS):
-        smooth[inside] = [np.mean(smooth[near[index]]) for index in inside]
-    bump = smooth - depth
+    reach = np.array([np.mean(np.linalg.norm(points[near[index]] - points[index], axis=1)) for index in inside])
     for side in (points[inside, 0] >= centre, points[inside, 0] < centre):
-        if not side.any():
+        if not side.any() or reach[side].min() > NIPPLE_EDGE * span:
             continue
-        tip = inside[side][np.argmax(bump[inside[side]])]
-        if bump[tip] < NIPPLE_PEAK * span:
-            continue
+        tip = inside[side][np.argmin(reach[side])]
         flat = np.hypot(points[inside, 0] - points[tip, 0], points[inside, 2] - points[tip, 2])
-        patch = inside[flat < NIPPLE_PATCH * span]
-        laid = depth.copy()
-        for _ in range(NIPPLE_ROUNDS):
-            laid[patch] = [np.mean(laid[near[index]]) for index in patch]
-        depth[patch] = laid[patch] + NIPPLE_KEPT * np.clip(depth[patch] - laid[patch], None, 0)
+        ring = inside[flat < (NIPPLE_PATCH if patch is None else patch) * span]
+        place = {int(index): row for row, index in enumerate(ring)}
+        # Each point of the patch is the mean of its neighbours, and the rim keeps its depth: one linear system, small enough to solve whole.
+        system, known = np.zeros((len(ring), len(ring))), np.zeros(len(ring))
+        for row, index in enumerate(ring):
+            system[row, row] = len(near[index])
+            for other in near[index]:
+                if int(other) in place:
+                    system[row, place[int(other)]] -= 1
+                else:
+                    known[row] += depth[other]
+        laid = np.linalg.solve(system, known)
+        depth[ring] = laid + NIPPLE_KEPT * np.clip(depth[ring] - laid, None, 0)
     return depth
 
 
-def moulded(points, faces, relief, trunk, strength=1.0, soft=0):
+def moulded(points, faces, relief, trunk, strength=1.0, soft=0, patch=None, joints=None):
     """The muscles of the sculpture in the place of the body's own, as depth on the front and on the back.
 
     `relief` is the pair relief_map gave for the sculpture, and `trunk` is the share of each vertex that belongs to the torso bones.
     `strength` is how much of the sculpture's relief a body takes: all of it on a muscled man, less on a man who is not. `soft` is how
-    many times each vertex then takes half of what its neighbours got: on a man who does not train the edge of a plate is not a ledge."""
+    many times each vertex then takes half of what its neighbours got: on a man who does not train the edge of a plate is not a ledge.
+    `patch` is how wide the skin is laid again around each nipple, in shares of crotch to neck pit (`without_nipples`). `joints` are the
+    heights of the shoulder and the hip joints of the body (`rigged_landmarks`)."""
     merged, twin, edges, welded_faces = welded(points, faces)
-    marks, pits, widths, (own, known) = torso_chart(merged, welded_faces)
+    marks, pits, widths, (own, known) = torso_chart(merged, welded_faces, None if joints is None else rigged_landmarks(merged, *joints))
     row, column, side, _ = chart(merged, marks, pits, widths)
     span = marks[3] - marks[2]
     level = row / HEIGHTS * (CHART_HIGH - CHART_LOW) + CHART_LOW
@@ -311,8 +332,8 @@ def moulded(points, faces, relief, trunk, strength=1.0, soft=0):
     area = area * smoothstep((EDGE[1] - np.abs(side)) / (EDGE[1] - EDGE[0])) * smoothstep((np.abs(facing) - FACING[0]) / (FACING[1] - FACING[0]))
     area = area * smoothstep((np.minimum(read(relief[1]), read(known)) - 0.5) / 0.4)
     # A soft ceiling: a hard one cuts the largest muscles flat and leaves a ledge around them.
-    keep = np.where(back, 1.0 - OWN_TAKEN[1], 1.0 - OWN_TAKEN[0])
-    wanted = (read(relief[0]) * np.where(back, GAIN[1], GAIN[0]) * strength - read(own) * (1.0 - keep)) * span
+    taken = np.where(back, OWN_TAKEN[1], OWN_TAKEN[0])
+    wanted = (read(relief[0]) * np.where(back, GAIN[1], GAIN[0]) * strength - read(own) * taken) * span
     most = np.where(back, MOST_RELIEF_M[1], MOST_RELIEF_M[0])
     detail = np.tanh(wanted / most) * most * area
     for _ in range(soft):
@@ -327,5 +348,5 @@ def moulded(points, faces, relief, trunk, strength=1.0, soft=0):
     # The base mesh models a man's nipples as cones 6 to 9 mm tall: bare-chested they stood out as points, and under a T-shirt they marked the cloth.
     height = (merged[:, 2] - marks[2]) / span
     chest = (~back) & (np.abs(side) > NIPPLE_SIDES[0]) & (np.abs(side) < NIPPLE_SIDES[1]) & (height > NIPPLE_LEVELS[0]) & (height < NIPPLE_LEVELS[1]) & (bones > 0.3)
-    shift[:, 1] = without_peaks(merged, merged[:, 1] + shift[:, 1], edges, chest, span, marks[0]) - merged[:, 1]
+    shift[:, 1] = without_nipples(merged, merged[:, 1] + shift[:, 1], edges, chest, span, marks[0], patch) - merged[:, 1]
     return shift[twin]
