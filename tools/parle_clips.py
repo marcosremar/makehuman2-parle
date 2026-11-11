@@ -322,11 +322,17 @@ def clear_arms(rig, actions, skirted):
     print("BRAÇO vão de pé", None if first is None else round(first, 4), "->", None if gap is None else round(gap, 4), "abertura", round(total, 3), "rad")
 
 
-def clips_on(old, new, body, actions, kit, leads=()):
+def lead_files(text):
+    """`rafa=<file>,sofia=<file>` as a table: the bodies the arms may copy their motion from."""
+    return dict(item.split("=", 1) for item in text.split(",") if "=" in item)
+
+
+def clips_on(old, new, body, actions, kit, leads=None):
     """Every clip in `actions`, of the game's body `old`, on our skeleton `new`: one action each, on its own NLA track, and the list of them.
-    `body` is our skin, `kit` the kit of the body, and `leads` the files of the bodies the arms copy their motion from, the first that has a
-    clip winning it (Rafa first on a man, Sofia first on a woman)."""
-    arms = [arm_source(path, old) for path in leads if path]
+    `body` is our skin, `kit` the kit of the body, and `leads` the files of the bodies the arms copy their motion from, by name; which of
+    them a kit copies first is in `parle_rig.lead_order`."""
+    leads = leads or {}
+    arms = [arm_source(leads[name], old) for name in parle_rig.lead_order(kit) if leads.get(name)]
     old_rest, new_rest = rests(old), rests(new)
     idle = next((action for action in actions if action.name.startswith("idle")), actions[0])
     standing = hip_position(old, curves(idle)["Hips"]["location"], idle.frame_range[0]).z

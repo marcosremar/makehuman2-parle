@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Gives a rigged body dump the torso muscles of a man, and the shoulders of a muscled one, keeping the originals so it can run twice.
 
-    python tools/chest_shape.py <body.npz> <base.npy> <shift.npy> [kit=<male-muscled|male-normal|male-slim>] [--plain]
+    python tools/chest_shape.py <body.npz> <base.npy> <shift.npy> [kit=<name>] [shirtless=<0|1>] [--plain]
 
 Every bare-chested man takes the chest of the sculpture in the place of the base mesh's own, which is two round mounds: on the normal man
 of the beach they hung like breasts (owner, 2026-11-11). The muscled man takes all of its relief and the deltoid targets; the others take
-a share of it and keep their shoulders.
+a share of it and keep their shoulders. Under a shirt the muscled man goes without the relief, which only tears the cloth (`shirtless=0`,
+or `--plain`); the others take theirs, smoothed, so the cloth does not show two points. A kit that is not a man's is left as it is.
 
 The dump is the one core/garment_weights reads. The base mesh moves too: clothes and necklaces fit it through
 their .mhclo, so they follow the new torso. The shift is one displacement per vertex of the rigged body.
@@ -36,7 +37,12 @@ PATCH = {"male-slim": 0.1}
 
 def main():
     path, base_path, target = sys.argv[1:4]
-    kit = next((word.split("=", 1)[1] for word in sys.argv[4:] if word.startswith("kit=")), "male-muscled")
+    asked = dict(word.split("=", 1) for word in sys.argv[4:] if "=" in word)
+    kit = asked.get("kit", "male-muscled")
+    if kit not in STRENGTH:
+        print("PEITO sem passo para", kit)
+        return
+    plain = "--plain" in sys.argv or (kit == "male-muscled" and asked.get("shirtless", "1") == "0")
     data = dict(np.load(path, allow_pickle=False))
     original = data.setdefault("points_before", data["points"]).astype(np.float64)
     kept = base_path.replace(".npy", ".antes.npy")
@@ -49,11 +55,10 @@ def main():
     torso = np.array([name.startswith(("Spine", "Hips")) for name in names])
     trunk = data["weights"][:, torso].sum(axis=1)
     moved = base + move
-    # Under a shirt the relief does not show and only tears the cloth: --plain leaves it out.
-    if "--plain" not in sys.argv:
+    if not plain:
         chart = np.load(RELIEF)
         relief = chart["relief"].astype(np.float64), chart["known"].astype(np.float64)
-        tuned = dict(word.split("=", 1) for word in sys.argv[4:] if word.startswith(("strength=", "soft=", "patch=")))  # to try a value out
+        tuned = {name: value for name, value in asked.items() if name in ("strength", "soft", "patch")}  # to try a value out
         patch = float(tuned["patch"]) if "patch" in tuned else PATCH.get(kit)
         height = {str(name): float(joint[2]) for name, joint in zip(data["joint_names"], data["joints"])}
         joints = ((height["LeftArm"] + height["RightArm"]) / 2, (height["LeftUpLeg"] + height["RightUpLeg"]) / 2)

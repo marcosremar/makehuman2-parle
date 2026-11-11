@@ -103,6 +103,19 @@ first, second = body_shape.rigged_landmarks(cloud, 1.429, 0.965), body_shape.rig
 assert first[2:] == second[2:], "the chest moved the landmarks of a body with a skeleton"
 assert abs(first[3] - 1.497) < 0.002 and abs(first[2] - 0.793) < 0.002, f"the landmarks are not where the muscled man's read: {first}"
 
+# Who goes without the relief is decided here, not by who calls: the muscled man under a shirt, and a kit that is not a man's is left alone.
+with tempfile.TemporaryDirectory() as folder:
+    body, mesh, shift = (str(Path(folder) / name) for name in ("w.npz", "p.npy", "shift.npy"))
+    np.savez_compressed(body, **dump)
+    np.save(mesh, base)
+    done = subprocess.run([sys.executable, "tools/chest_shape.py", body, mesh, shift, "kit=male-muscled", "shirtless=0"], cwd=ROOT, capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr[-600:]
+    assert np.abs(np.load(mesh) - base - added).max() < 1e-5, "under a shirt the muscled man got more than his shoulders"
+    np.save(mesh, base)
+    none = shift + ".none.npy"
+    done = subprocess.run([sys.executable, "tools/chest_shape.py", body, mesh, none, "kit=female-slim", "shirtless=1"], cwd=ROOT, capture_output=True, text=True)
+    assert done.returncode == 0 and not Path(none).exists() and np.abs(np.load(mesh) - base).max() == 0, "a woman's body went through the men's chest"
+
 source = (ROOT / "tools" / "chest_shape.py").read_text()
 assert "delta" not in source and "pectoral" not in source, "the step takes the sculpture out of the trunk again"
 print("torso: the step adds", len(body_shape.MUSCLES), "targets and", int(touched(added).sum()), "vertices move")

@@ -102,6 +102,11 @@ ARM_PARTS = ("Shoulder", "Arm", "ForeArm")
 SAME_CLIP_FRAMES = 3
 
 
+def lead_order(kit):
+    """Whose arms a kit copies first: a man Rafa's, a woman Sofia's. A clip the first lacks comes from the other."""
+    return ("sofia", "rafa") if str(kit).startswith("female") else ("rafa", "sofia")
+
+
 def moves_with_arm(name):
     """The clavicle, the arm, the forearm, the hand and the fingers of either side."""
     return name.startswith(("Left", "Right")) and (name.endswith(ARM_PARTS) or "Hand" in name)

@@ -27,6 +27,12 @@ assert parle_clips.arm_lead([rafa, sofia], clip("idleFemale", 240)) is sofia
 assert parle_clips.arm_lead([rafa, sofia], clip("thinking", 100)) is None, "a copy of the idle passed for the clip"
 assert parle_clips.arm_lead([], clip("idle", 200)) is None and parle_clips.arm_lead(None, clip("idle", 200)) is None
 
+# Whose arms a kit copies first is decided here, not by who calls: a woman copies Sofia, a man Rafa.
+import parle_rig  # noqa: E402
+
+assert parle_rig.lead_order("female-slim") == ("sofia", "rafa") and parle_rig.lead_order("male-muscled") == ("rafa", "sofia")
+assert parle_clips.lead_files("rafa=/a/rafa.glb,sofia=/b/sofia.glb") == {"rafa": "/a/rafa.glb", "sofia": "/b/sofia.glb"} and parle_clips.lead_files("") == {}
+
 # A bone with no curve stays at its rest, and a child goes with its parent.
 turn = Quaternion((0, 0, 1), 0.5)
 curve = lambda value: SimpleNamespace(evaluate=lambda frame: value)
