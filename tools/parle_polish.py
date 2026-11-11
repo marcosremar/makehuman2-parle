@@ -226,7 +226,8 @@ def over_skin(obj, own, skin, skin_arms):
     """The share of each arm for the points of a garment: the skin's where the cloth lies on it, its own away from it (SKIN_NEAR_M,
     SKIN_FAR_M). `skin` is the tree of the points of the skin at rest and `skin_arms` their share of each arm."""
     found = [skin.find(Vector(point)) for point in rest_points(obj)]
-    nearest, away = np.array([index for _, index, _ in found]), np.array([distance for _, _, distance in found])
+    # A piece with weights but no points (the short hair of the cast) gives empty lists, which numpy would read as floats.
+    nearest, away = np.array([index for _, index, _ in found], dtype=int), np.array([distance for _, _, distance in found], dtype=float)
     return {side: parle_build.share_over_skin(own[side], skin_arms[side][nearest], away, SKIN_NEAR_M, SKIN_FAR_M) for side in own}
 
 

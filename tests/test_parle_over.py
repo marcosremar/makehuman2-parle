@@ -74,3 +74,16 @@ for corner in (1, 2, 4, 7):
 for corner in (0, 3, 5, 6, 8, 9, 10, 11):
     assert np.allclose(after[corner], before[corner], atol=1e-4), (corner, after[corner], before[corner])
 print("ok")
+
+# A piece with bone weights but no points rides the skin without breaking (2026-11-11): the short hair of the office worker has
+# vertex groups and no vertex, and its empty list of nearest points came out as floats, which numpy refuses as indices.
+bpy.ops.wm.read_factory_settings(use_empty=True)
+empty = bpy.data.objects.new("Acc_Hair_short", bpy.data.meshes.new("Acc_Hair_short"))
+bpy.context.scene.collection.objects.link(empty)
+empty.vertex_groups.new(name="upperarm01.L")
+tree = parle_polish.KDTree(1)
+tree.insert((0, 0, 0), 0)
+tree.balance()
+shares = parle_polish.over_skin(empty, {"L": np.zeros(0)}, tree, {"L": np.ones(1)})
+assert shares["L"].shape == (0,), shares
+print("ok")
