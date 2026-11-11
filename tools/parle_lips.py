@@ -56,7 +56,9 @@ LINE_BELOW_M = 0.0013
 SLIT_BIN_M = 0.003
 SLIT_DEGREE = 4
 LINE_ENDS = 4.0
-LINE_DARK = 0.68
+# Darkens less, and blue and green more than red (BGR): with the mouth open the line's texels stretch over the inner lip, and at 0.68 neutral
+# they drew black wedges at the corners and a smeared-lipstick ring (owner, scoreboard of 2026-11-11). Calibrated by eye, no source: to pilot.
+LINE_DARK = np.array((0.4, 0.4, 0.22), np.float32)
 # Light comes from above: the upper lip faces down and is darker than the lower.
 UPPER_SHADE = 10.0
 
@@ -150,7 +152,7 @@ def painted(skin, share, colour=None, man=False, line=None, upper=None):
     lip = cv2.cvtColor(np.clip(lip, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR).astype(np.float32)
     mixed = skin * (1 - share[:, :, None]) + lip * share[:, :, None]
     if line is not None:
-        mixed *= 1 - LINE_DARK * line[:, :, None]
+        mixed *= 1 - LINE_DARK[None, None, :] * line[:, :, None]
     return mixed.round().astype(np.uint8)
 
 

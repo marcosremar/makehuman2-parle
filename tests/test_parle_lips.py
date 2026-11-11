@@ -28,4 +28,16 @@ assert (painted(skin, share) == natural).all()
 # A colour from the look replaces the hue.
 coral = painted(skin, share, "#e06060")
 assert cv2.cvtColor(coral, cv2.COLOR_BGR2LAB)[32, 32, 1] > lab[32, 32, 1]
+
+# A linha onde os lábios se encontram (11/11/2026): com a boca aberta esses texels esticam sobre a face de dentro do lábio, e a 0,68 de
+# escuro neutro viravam cunhas pretas nos cantos e um contorno de batom borrado. Ela escurece pouco e puxa para o vermelho da mucosa.
+line = np.zeros((64, 64), np.float32)
+line[32, 20:44] = 1
+lined = painted(skin, share, line=line)
+plain = painted(skin, share)
+lined_lab = cv2.cvtColor(lined, cv2.COLOR_BGR2LAB).astype(int)
+plain_lab = cv2.cvtColor(plain, cv2.COLOR_BGR2LAB).astype(int)
+assert lined_lab[32, 32, 0] < plain_lab[32, 32, 0], "the line is still a line"
+assert lined_lab[32, 32, 0] > 0.6 * plain_lab[32, 32, 0], f"the line must not go near black: {lined_lab[32, 32]} against {plain_lab[32, 32]}"
+assert lined_lab[32, 32, 1] >= plain_lab[32, 32, 1], f"the line leans red, like wet mucosa: {lined_lab[32, 32]} against {plain_lab[32, 32]}"
 print("ok")
