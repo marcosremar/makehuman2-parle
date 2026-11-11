@@ -13,8 +13,19 @@
       game (Mixamo) with them straight, and the clip's curl came on top of ours. Pointing, the hand closed into a
       claw: 64 degrees of curl against 38, and the index and little finger 52 degrees apart against 18 (2026-11-08,
       measured in the Unity player on Dona Rosa). The tip (Thumb4, Index4...) has no child and follows its parent.
+    - The arms move as Rafa's (owner, 2026-11-11). The game fitted each clip to each of its old bodies: standing, talking and walking it
+      opened the arms by an angle tuned by hand to that body (0.03 rad on Rafa, 0.05 to 0.18 on the men, another on the women), and the
+      clip of each old body came with it. On our bodies that tuning is for a body that is no longer there: next to Rafa in the same clip,
+      Carlos held the upper arm 3 to 6 degrees further out and the elbow 10 degrees more bent, and Lúcia, breathing, stood with the arms 20
+      degrees further out, like wings. The gestures (agreeing, counting, pointing) were the same within 1 degree. So the clavicle, the arm,
+      the forearm, the hand and the fingers take Rafa's turn in each clip, counted from the chest, and the rest of the body keeps its own.
+    - Each body keeps the gap Rafa keeps between the arm and the body. Standing, his forearm and hand stay 2.6 to 3.3 cm clear of the trunk and
+      the thigh, skin to skin. His motion on a body of another girth lands the arm elsewhere, and so did the game's own tuning: the muscled
+      man's forearm and hand sank into the trunk (0.8 cm clear standing, 0.7 cm inside talking) and Lúcia's hand brushed the hip (0.6 cm). The
+      Unity player has no step that takes the hand out of the body, so the clip has to bring it out: the arms open about the shoulder until
+      the standing clips have his gap.
 """
-from mathutils import Vector
+from mathutils import Quaternion, Vector
 
 FINGERS = tuple(f"Hand{finger}{joint}" for finger in ("Thumb", "Index", "Middle", "Ring", "Pinky") for joint in (1, 2, 3))
 ALIGNED = ("Shoulder", "Arm", "ForeArm", "UpLeg", "Leg") + FINGERS
@@ -31,3 +42,65 @@ def rest_turn(name, old_dir, new_dir):
     if name.endswith("Shoulder"):
         wanted = Vector((wanted.x, wanted.y + SHOULDER_BACK, new_dir[name].z + (wanted.z - new_dir[name].z) * SHOULDER_HEIGHT_SHARE)).normalized()
     return new_dir[name].rotation_difference(wanted)
+
+
+ARM_ROOT = "Spine2"
+ARM_PARTS = ("Shoulder", "Arm", "ForeArm")
+# Rafa's file holds the few clips he does not have as copies of his idle (thinking, waving): a clip of another length is another motion.
+SAME_CLIP_FRAMES = 3
+
+
+def moves_with_arm(name):
+    """The clavicle, the arm, the forearm, the hand and the fingers of either side."""
+    return name.startswith(("Left", "Right")) and (name.endswith(ARM_PARTS) or "Hand" in name)
+
+
+def same_clip(own, reference):
+    """Whether Rafa has this clip: `own` and `reference` are the first and the last frame of each."""
+    return abs((own[1] - own[0]) - (reference[1] - reference[0])) <= SAME_CLIP_FRAMES
+
+
+def arm_turn(chest, reference_chest, reference_bone, rest_gap=None):
+    """How far an arm bone of ours turns from its rest: as far as Rafa's turned from his, seen from his chest and set on our chest.
+    The three are turns from rest in the space of each skeleton. `rest_gap` turns the rest direction of the game body's bone into Rafa's,
+    for a body that does not rest as he does."""
+    turn = chest @ reference_chest.inverted() @ reference_bone
+    return turn @ rest_gap if rest_gap is not None else turn
+
+
+# The gap of the standing clips, skin to skin, in metres: Rafa's own is 0.026 to 0.033 (idle, acknowledging, weight shift; 2026-11-11).
+ARM_GAP_M = 0.025
+# The game opened the arms of its widest body by 0.18 rad by hand; past this the body stands like a gunslinger.
+ARM_OPENING_MOST = 0.2
+STANDING = ("idle", "idleBreathing", "idleWeightShift", "idleFemale")
+# The side of a surface is read from the face nearest to the point. Far from the body that face may look the other way; nothing sinks this deep.
+INSIDE_MOST_M = 0.08
+# The knuckle sits under the skin of the back of the hand, and the palm is on the other side of it: no part of the arm is thinner than this around its bone.
+ARM_SKIN_LEAST_M = 0.01
+# Where the arm is watched, from the elbow (0) to the wrist (1); the wrist and the knuckles come on top.
+FOREARM_SPOTS = (0.0, 0.35, 0.65)
+
+
+def arm_spots(elbow, wrist, knuckle):
+    """The points on the centre line of a forearm and hand whose gap to the body is watched. The upper arm is left out: it always runs along the trunk."""
+    return [elbow.lerp(wrist, share) for share in FOREARM_SPOTS] + [wrist, knuckle]
+
+
+def skin_gap(point, body_hit, arm_distance):
+    """Gap from the skin of the arm around `point` to the body: `body_hit` is (where, normal, distance) of the nearest face of the body, and
+    `arm_distance` is how far the arm's own skin is from the point. Negative when the arm is inside."""
+    where, normal, distance = body_hit
+    outside = (point - where).dot(normal) > 0 or distance > INSIDE_MOST_M
+    return (distance if outside else -distance) - max(arm_distance, ARM_SKIN_LEAST_M)
+
+
+def arm_opening(gap, reach):
+    """How much more the arms open, in radians, for a standing gap of `gap` metres on an arm `reach` metres long from the shoulder to the wrist."""
+    return float(min(max((ARM_GAP_M - gap) / reach, 0.0), ARM_OPENING_MOST))
+
+
+def opened(turn, rest, outward, radians):
+    """The turn of an upper arm (a pose bone's own rotation), opened by `radians` about the axis that runs from the front to the back of the
+    body. `rest` is the bone's rest in the space where the body stands upright and that axis is y; `outward` is +1 for the arm on +x, -1 for the other."""
+    swing = Quaternion((0.0, 1.0, 0.0), -outward * radians)
+    return rest.inverted() @ swing @ rest @ turn
