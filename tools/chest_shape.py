@@ -23,10 +23,11 @@ from core.body_shape import moulded, muscles  # noqa: E402
 
 RELIEF = "data/sculpt/male-torso-relief.npz"
 # How much of the sculpture's relief each kit takes: the plates of a man who trains are not those of a slim one.
-STRENGTH = {"male-muscled": 1.0, "male-normal": 0.9, "male-slim": 0.7}
+STRENGTH = {"male-muscled": 1.0, "male-normal": 0.9, "male-slim": 0.4}
 # How many times the relief is smoothed over the mesh. Not smoothed, on the normal man the lower edge of the chest came out as a hard
 # straight ledge with a square notch at the breastbone; six times over it is the soft edge of a chest that does not train (2026-11-11).
-SOFT = {"male-muscled": 1, "male-normal": 6, "male-slim": 6}
+# On the slim man 0.7 read as a band strapped across the chest (2026-11-11).
+SOFT = {"male-muscled": 1, "male-normal": 6, "male-slim": 8}
 
 
 def main():
