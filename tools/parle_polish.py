@@ -14,6 +14,7 @@ from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
 
 import parle_build
+import parle_bust
 import parle_rig
 
 CLOTHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local/mhd/data/clothes/hm08")
@@ -348,17 +349,42 @@ def seamless_normals(obj):
     return int((count > 1).sum())
 
 
+def round_bust(meshes, rig):
+    """Under a top each breast of a woman takes the shape of a cup, as in a bra (`parle_bust`): the pieces of the top, and the skin
+    with them. Run at rest on the finished body. Returns how far each tip came back, in metres; nothing when no top covers the bust."""
+    tops = [obj for obj in meshes if obj.name.startswith("Outfit_Top")]
+    if not tops:
+        return []
+    joint = lambda name: np.array(rig.matrix_world @ rig.data.bones[name].head_local)
+    hip, shoulder = (joint("LeftUpLeg")[2] + joint("RightUpLeg")[2]) / 2, (joint("LeftArm")[2] + joint("RightArm")[2]) / 2
+    middle = (joint("LeftArm")[0] + joint("RightArm")[0]) / 2
+    cloth = np.concatenate([rest_points(obj) for obj in tops])
+    reach, cups = parle_bust.REACH * float(np.ptp(np.concatenate([rest_points(obj) for obj in meshes if obj.name.split(".")[0] == "Body"])[:, 2])), []
+    for side in (1, -1):
+        tip = parle_bust.tip_of(cloth, hip, shoulder, middle, abs(joint("LeftArm")[0] - middle), side)
+        found = parle_bust.rim_of(cloth, tip, reach) if tip is not None else None
+        if found is not None and found[1] >= parle_bust.TALL_LEAST_M:
+            cups.append((tip, *found))
+    for obj in [obj for obj in meshes if obj in tops or obj.name.split(".")[0] == "Body"] if cups else ():
+        warp(obj, lambda points: points + sum(parle_bust.cupped(points, tip, axis, tall, reach) for tip, axis, tall in cups))
+    return [(1 - parle_bust.CUP) * tall for _, _, tall in cups]
+
+
 def natural_body(meshes, rig, height, sex, kit):
     """The body of a finished character: the arms, then the build of the kit. The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
-    the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body."""
+    the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body. And under a top the bust of a
+    woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves."""
     natural_arms(meshes, rig, height, sex)
     built = natural_build(meshes, rig, height, kit)
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
     if over:
         print("BARRA", over, "pontos da peça de cima voltaram para fora da de baixo")
+    cups = round_bust(meshes, rig) if sex == "female" else []
+    if cups:
+        print("BUSTO em taça debaixo da roupa: a ponta de cada seio voltou", [round(back * 1000, 1) for back in cups], "mm")
     return built
 
 
