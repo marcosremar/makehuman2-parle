@@ -22,6 +22,14 @@ TRUNK_W = np.linspace(-0.25, 1.15, 29)
 ARM_T = np.linspace(0, 2, 11)
 LEG_Q = np.linspace(0, 2, 21)
 CURVES = {"trunk_x": TRUNK_W, "trunk_y": TRUNK_W, "arm_depth": ARM_T, "arm_thick": ARM_T, "leg_x": LEG_Q, "leg_y": LEG_Q}
+# Shoulder line: how far up the top of the shoulder goes, in shares of the height, at shares of the way from the midline to the shoulder joint.
+# It is the trapezius: nothing at the armpit, all of it from the top of the shoulder up, and only from the spine back, so the collarbones and
+# the pit of the neck stay. No ratio moved this line: the muscled man's stood 16 to 40 mm lower than the reference body's (2026-11-11). The
+# skin on top of the shoulder follows the arm bone from well before the joint (40 to 100% of it): lifted with the trunk only, the line rose
+# next to the neck and nowhere else. So the lift is added after the arm takes its skin, and fades over the deltoid, past the joint.
+# It starts above the fold behind the armpit: from 0.7 it reached the back of the arm, which stood out as a flap with the arm down.
+RISE_S = np.linspace(0, 1.6, 9)
+RISE_W, RISE_FRONT, RISE_ARM = (0.78, 0.92), (0.05, 0.012), (1.2, 1.6)
 # Widths of the blends, as shares of the height or in metres: trunk to legs, left leg to right leg, upper arm to forearm, wrist to hand.
 # The trunk hands over to the legs across 10 cm: with a short band, a pelvis made deeper than the thighs left a ledge at the groin.
 CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
@@ -35,7 +43,8 @@ def smooth(t):
 
 def identity(kit, crotch=0.2):
     """The profile that moves nothing. `crotch` is how far down the thigh the legs part, as a share of hip to knee."""
-    return dict(kit=kit, reference="", similarity=None, crotch=crotch, arm_out=0.0, **{name: [1.0] * len(stations) for name, stations in CURVES.items()})
+    curves = {name: [1.0] * len(stations) for name, stations in CURVES.items()}
+    return dict(kit=kit, reference="", similarity=None, crotch=crotch, arm_out=0.0, shoulder_rise=[0.0] * len(RISE_S), **curves)
 
 
 def load_profile(kit):
@@ -96,6 +105,16 @@ def build_field(profile, joints, height):
         out[:, 1] = (points[:, 1] - np.interp(points[:, 2], spine[:, 2], spine[:, 1])) * (np.interp(w, TRUNK_W, profile["trunk_y"]) - 1)
         return out
 
+    lift, reach = profile.get("shoulder_rise") or [0.0] * len(RISE_S), abs(joints["LeftArm"][0] - mid)
+
+    def rise(points):
+        w, s = trunk_param(points[:, 2], joints), np.abs(points[:, 0] - mid) / reach
+        ahead = (np.interp(points[:, 2], spine[:, 2], spine[:, 1]) - points[:, 1]) / height
+        share = smooth((w - RISE_W[0]) / (RISE_W[1] - RISE_W[0])) * smooth((RISE_FRONT[0] - ahead) / (RISE_FRONT[0] - RISE_FRONT[1]))
+        out = np.zeros_like(points)
+        out[:, 2] = np.interp(s, RISE_S, lift) * height * share * (1 - smooth((s - RISE_ARM[0]) / (RISE_ARM[1] - RISE_ARM[0])))
+        return out
+
     rides = {}
     for side in SIDES:
         rides[side + "UpLeg"] = trunk(joints[side + "UpLeg"][None])[0]
@@ -129,6 +148,6 @@ def build_field(profile, joints, height):
         for side in SIDES:
             share = np.asarray(arms[side])[:, None]
             out = (1 - share) * out + share * arm(points, side)
-        return out * (1 - np.asarray(head))[:, None]
+        return (out + rise(points)) * (1 - np.asarray(head))[:, None]
 
     return field, rides

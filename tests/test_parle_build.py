@@ -89,6 +89,24 @@ mirror = shift(legs, cloud * (-1, 1, 1))
 assert np.allclose(both * (-1, 1, 1), mirror, atol=1e-12), "left does not mirror right"
 assert np.abs(both[:, 2]).max() == 0, "something moved up or down"
 
+# The shoulder line (2026-11-11): the muscled man's stood 16 to 40 mm lower than the reference body's and no ratio moved it. A lift takes the
+# top of the shoulder up from the spine back, the skin that follows the arm included (most of the top of the shoulder does, and lifted with the
+# trunk only the line rose next to the neck and nowhere else); the collarbones, the fold behind the armpit, the arm past the deltoid and the arm's bone stay.
+high = parle_build.identity("test")
+high["shoulder_rise"] = [0.02] * len(parle_build.RISE_S)
+top, pit, reach = hip + 0.95 * (neck - hip), hip + 0.76 * (neck - hip), JOINTS["LeftArm"][0]
+spots = np.array([[0.1, 0.1, top], [-0.1, 0.1, top], [0.1, -0.15, top], [0.1, 0.1, pit], [1.6 * reach, 0.1, top]])
+lifted = shift(high, spots)
+assert np.allclose(lifted[:2, 2], 0.02 * HEIGHT), f"the top of the shoulder did not go up by its share of the height: {lifted[:2, 2]}"
+assert np.abs(lifted[2:]).max() == 0, f"the collarbones, the armpit or the arm went up: {lifted[2:, 2]}"
+assert np.abs(lifted[:, :2]).max() == 0, "the lift moved something sideways"
+sleeve = shift(high, spots[:1], {"Left": np.ones(1), "Right": np.zeros(1)})
+assert abs(sleeve[0, 2] - 0.02 * HEIGHT) < 1e-9, f"the skin of the arm on top of the shoulder did not go up: {sleeve}"
+_, still = parle_build.build_field(high, JOINTS, HEIGHT)
+assert all(np.abs(ride).max() == 0 for ride in still.values()), "the lift moved a bone"
+older = {key: value for key, value in high.items() if key != "shoulder_rise"}
+assert np.abs(shift(older, spots)).max() == 0, "a profile saved before the shoulder line moved something"
+
 # A profile comes back as it was saved; a kit without one has none.
 folder = tempfile.mkdtemp()
 parle_build.save_profile(broad, os.path.join(folder, "kit.json"))

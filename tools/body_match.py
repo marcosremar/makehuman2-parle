@@ -35,6 +35,8 @@ BLENDER = os.environ.get("BLENDER", "/Applications/Blender-4.5-LTS.app/Contents/
 LIMITS, LIMB_LIMITS, NECK_LIMITS, NECK_FROM_W, TAPER = (0.72, 1.25), (0.85, 1.15), (0.9, 1.15), 0.85, 0.5
 STEP, SOFT = 0.8, 3
 ARM_OUT_LIMIT = 0.03
+# The shoulder line goes up or down by a share of the height, not by a ratio: 2% is 35 mm on a man of 1.75 m, a trapezius, and more is a hump.
+RISE_LIMITS = (-0.01, 0.02)
 # The shoulder rows below this share of armpit to neck are the arm's reach; above it they are the slope, which no ratio here moves.
 SHOULDER_REACH = 0.6
 
@@ -104,6 +106,23 @@ def update(profile, found, frame, reference):
     profile["arm_depth"], profile["arm_thick"] = list(girth), list(girth)
     reach = [(want - have) / 2 for row, have, want in rows(found, reference, "shoulder", "width") if row["k"] <= SHOULDER_REACH]
     profile["arm_out"] = float(np.clip(profile["arm_out"] + STEP * np.mean(reach), -ARM_OUT_LIMIT, ARM_OUT_LIMIT))
+    lift(profile, found, frame, reference)
+
+
+def lift(profile, found, frame, reference):
+    """The shoulder line: each station goes up by the gap between the reference's line and the cast's, read where the cast's rows are."""
+    pairs = rows(found, reference, "line", "rise")
+    if not pairs:
+        return
+    joints, tall, move = frame["joints"], frame["tall"], np.asarray(frame["move"], float)
+    mid = (joints["shoulder"][0] + joints["shoulder_r"][0]) / 2 if "shoulder_r" in joints else 0.0
+    params = np.array([abs(row["x"] * tall + move[0] - mid) for row, _, _ in pairs]) / abs(joints["shoulder"][0] - mid)
+    gaps, order = np.array([want - have for _, have, want in pairs]), np.argsort(params)
+    curve = np.array(profile.get("shoulder_rise") or [0.0] * len(parle_build.RISE_S)) + STEP * np.interp(parle_build.RISE_S, params[order], gaps[order])
+    for _ in range(SOFT):
+        padded = np.concatenate([curve[:1], curve, curve[-1:]])
+        curve = 0.25 * padded[:-2] + 0.5 * curve + 0.25 * padded[2:]
+    profile["shoulder_rise"] = list(np.clip(curve, *RISE_LIMITS))
 
 
 def at_limit(profile):
@@ -116,6 +135,10 @@ def at_limit(profile):
             held[name] = count
     if abs(profile["arm_out"]) >= ARM_OUT_LIMIT - 1e-6:
         held["arm_out"] = 1
+    rise = np.array(profile.get("shoulder_rise") or [0.0])
+    stuck = int(np.sum((rise <= RISE_LIMITS[0] + 1e-6) | (rise >= RISE_LIMITS[1] - 1e-6)))
+    if stuck:
+        held["shoulder_rise"] = stuck
     return held
 
 
