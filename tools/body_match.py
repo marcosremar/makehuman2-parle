@@ -28,9 +28,11 @@ BLENDER = os.environ.get("BLENDER", "/Applications/Blender-4.5-LTS.app/Contents/
 # How far a ratio may go from the kit's own shape, and how much of each gap one round closes. The neck and the top of the chest stay nearer: a
 # reference's neck is read up to the jaw, and a neck 15% thicker is already another person. An arm and a leg come back to their own girth over
 # the last `TAPER` before the wrist and the ankle (stations run 0 to 2): the hand and the foot keep their shape, and a ratio held up to them
-# left a step there. A ratio only scales the kit's own shape, corners and all: a calf a quarter wider turned into a wedge and a forearm into a
+# left a step there. The trunk may go down to 0.72: at 0.85 the muscled man's waist stayed 20 to 40 mm deeper than the reference body from
+# the front to the back, a belly where the reference has a flat abdomen (2026-11-11). A ratio only scales the kit's own shape, corners and
+# all: a calf a quarter wider turned into a wedge and a forearm into a
 # club, so arms and legs stay within 15%. A ratio that follows the reference ring by ring leaves steps, so each round smooths `SOFT` times.
-LIMITS, LIMB_LIMITS, NECK_LIMITS, NECK_FROM_W, TAPER = (0.85, 1.25), (0.85, 1.15), (0.9, 1.15), 0.85, 0.5
+LIMITS, LIMB_LIMITS, NECK_LIMITS, NECK_FROM_W, TAPER = (0.72, 1.25), (0.85, 1.15), (0.9, 1.15), 0.85, 0.5
 STEP, SOFT = 0.8, 3
 ARM_OUT_LIMIT = 0.03
 # The shoulder rows below this share of armpit to neck are the arm's reach; above it they are the slope, which no ratio here moves.

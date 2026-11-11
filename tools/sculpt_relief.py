@@ -8,14 +8,15 @@ import sys
 import numpy as np
 
 sys.path.insert(0, ".")
-from core.body_shape import relief_map  # noqa: E402
+from core.body_shape import torso_chart  # noqa: E402
 
 
 def main():
     source, target = sys.argv[1:3]
-    relief = relief_map(np.load(source)["points"].astype(np.float64))
-    np.savez_compressed(target, relief=relief.astype(np.float32))
-    print("RELEVO", target, relief.shape, round(float(np.abs(relief).max()), 3))
+    sculpture = np.load(source)
+    marks, pits, _, (relief, known) = torso_chart(sculpture["points"].astype(np.float64), sculpture["faces"].astype(np.int64))
+    np.savez_compressed(target, relief=relief.astype(np.float32), known=known.astype(np.float32))
+    print("RELEVO", target, relief.shape, "marks", np.round(marks, 3), "armpit", np.round(pits, 3), "most", round(float(np.abs(relief[known > 0.5]).max()), 3))
 
 
 main()
