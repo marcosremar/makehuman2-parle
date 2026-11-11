@@ -12,6 +12,10 @@ import numpy as np
 CHIN_HALF_M = 0.08
 BELOW_TIP_M = (0.055, 0.14)
 FRONT_OF_NECK_M = 0.02
+# The zone fades over 2 cm instead of stopping at a box wall, and each point's turn is averaged with its neighbours along the mesh edges: a box wall and a
+# per-point weight let a neck crease alternate turned and plain points, and the player showed dark teeth at the corner of the jaw (2026-11-11).
+FADE_M = 0.02
+SMOOTH_ROUNDS = 8
 DOWN_FROM = -0.15
 DOWN_FULL = -0.55
 TURN = 0.85
@@ -35,8 +39,23 @@ def under_chin_share(points, normals):
     """How far each point turns forward: facing down, under the jaw, in front of the neck."""
     tip = nose_tip(points)
     below = tip[2] - points[:, 2]
-    zone = (np.abs(points[:, 0] - tip[0]) < CHIN_HALF_M) & (below > BELOW_TIP_M[0]) & (below < BELOW_TIP_M[1]) & (points[:, 1] < tip[1] + FRONT_OF_NECK_M + 0.09)
-    return smoothstep(DOWN_FROM, DOWN_FULL, normals[:, 2]) * zone
+    side = 1 - smoothstep(CHIN_HALF_M - FADE_M, CHIN_HALF_M + FADE_M / 2, np.abs(points[:, 0] - tip[0]))
+    height = smoothstep(BELOW_TIP_M[0] - FADE_M / 2, BELOW_TIP_M[0] + FADE_M / 2, below) * (1 - smoothstep(BELOW_TIP_M[1] - FADE_M, BELOW_TIP_M[1], below))
+    depth = 1 - smoothstep(tip[1] + FRONT_OF_NECK_M + 0.09 - FADE_M, tip[1] + FRONT_OF_NECK_M + 0.09, points[:, 1])
+    return smoothstep(DOWN_FROM, DOWN_FULL, normals[:, 2]) * side * height * depth
+
+
+def smoothed_share(share, edges, rounds=SMOOTH_ROUNDS):
+    """The turn averaged with the neighbours along `edges` (pairs of point indices), so a crease turns as one piece."""
+    share = np.asarray(share, float).copy()
+    edges = np.asarray(edges, int).reshape(-1, 2)
+    count = np.bincount(edges.ravel(), minlength=len(share)).astype(float)
+    for _ in range(rounds):
+        total = np.zeros_like(share)
+        np.add.at(total, edges[:, 0], share[edges[:, 1]])
+        np.add.at(total, edges[:, 1], share[edges[:, 0]])
+        share = np.where(count > 0, (share + total) / (1 + count), share)
+    return share
 
 
 def softened(points, normals):

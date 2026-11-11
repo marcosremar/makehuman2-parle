@@ -705,7 +705,8 @@ def soften_under_chin(body):
     average = np.zeros_like(points)
     np.add.at(average, point_of, corners)
     average /= np.maximum(np.linalg.norm(average, axis=1, keepdims=True), 1e-9)
-    share = parle_normals.under_chin_share(points, average)[point_of][:, None] * parle_normals.TURN
+    edges = np.array([edge.vertices[:] for edge in mesh.edges])
+    share = parle_normals.smoothed_share(parle_normals.under_chin_share(points, average), edges)[point_of][:, None] * parle_normals.TURN
     turned = corners * (1 - share) + parle_normals.AHEAD[None] * share
     turned /= np.maximum(np.linalg.norm(turned, axis=1, keepdims=True), 1e-9)
     mesh.normals_split_custom_set(turned.tolist())
