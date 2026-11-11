@@ -30,9 +30,18 @@ LIMBUS_SHARE = 0.90
 # BGR, 0-1. Measured on the player's iris for the middle one, then 20% lighter with a darker limbus and a whiter sclera: next to her and Rafa the eye read as dull (owner, 2026-11-08).
 # Honey was then too bright in the game (value 0.82: an orange disc with a dot, an owl's eye at game size, 2026-11-09). The owner chose
 # the darker honey (2026-11-10): same hue at value 0.64, below the 0.68 it had before the 20%, with the same pupil as the brown irises.
+# The two browns read orange in the player (34 of 42 bodies, 2026-11-11): value 0.50 and 0.67 at HSV hue 24 and saturation 0.59,
+# CIELAB L* 40 and 52 with b* above a* (h_ab ~58). Measured brown irises are much darker and redder: in 87 brown irises photographed
+# at high resolution, light / medium / dark brown average L* 26.0 / 20.5 / 15.3, a* 25.5 / 22.7 / 19.3, b* 19.5 / 15.7 / 12.1, so
+# h_ab 32 to 37 and never b* over a* by much (Li, Hu, Yang, Xiao, Yamanari, Higashita & Liu 2026, "Quantitative measurement of iris
+# melanin concentration by polarization-sensitive anterior segment optical coherence tomography", European Journal of Ophthalmology
+# 36(4):872-880, DOI 10.1177/11206721251407025; numbers read in the Research Square preprint rs-5379311, Table 3).
+# castanho takes the light-brown L* 26 and castanho-escuro the medium-brown L* 20.5. Hue h_ab 45 and chroma 18 / 15 (a* = b* = 12.7 and
+# 10.6) sit inside the dark-brown a* (12 to 23) and b* (7.7 to 15) ranges but below each class mean: the full measured chroma is HSV
+# saturation 0.67, more than the orange we are removing. That chroma is a choice by eye, to be judged in the player. Converted to sRGB.
 IRISES = {
-    "castanho-escuro": (0.204, 0.324, 0.504),
-    "castanho": (0.276, 0.432, 0.672),
+    "castanho-escuro": (0.135, 0.169, 0.27),
+    "castanho": (0.168, 0.211, 0.335),
     "mel": (0.307, 0.47, 0.64),
 }
 LIMBUS = np.array((0.09, 0.07, 0.03))

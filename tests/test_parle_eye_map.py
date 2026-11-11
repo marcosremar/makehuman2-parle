@@ -18,6 +18,9 @@ FLOOR = 0.26
 # Mean value (the brightest channel) of the iris between pupil and limbus. Honey at 0.82 read as an orange disc and at 0.72 was still
 # the lightest eye of the cast by far; the owner chose 0.64 (2026-11-10). The lightest iris is now the middle brown, at 0.67.
 VALUE_CEILING = 0.70
+# HSV saturation of the mean colour of a brown iris. At 0.59 both browns read orange in the player (2026-11-11); the new browns are
+# about 0.50 (CIELAB from Li et al. 2026, Eur J Ophthalmol, DOI 10.1177/11206721251407025: see eye_texture.py). Honey is warm by name.
+BROWN_SATURATION_CEILING = 0.55
 
 for name, colour in eye.IRISES.items():
     image = eye.paint(colour).astype(float) / 255
@@ -43,5 +46,9 @@ for name, colour in eye.IRISES.items():
         ring = (distance > share + 0.06) & (distance < eye.LIMBUS_SHARE - 0.06)
         value = image[ring].max(axis=1).mean()
         assert value <= VALUE_CEILING, f"{name} eye {index}: iris value is {value:.2f}, over {VALUE_CEILING}: it reads as a bright disc"
+        if name.startswith("castanho"):
+            mean = image[ring].mean(axis=0)
+            saturation = 1 - mean.min() / mean.max()
+            assert saturation <= BROWN_SATURATION_CEILING, f"{name} eye {index}: saturation {saturation:.2f}, over {BROWN_SATURATION_CEILING}: it reads orange"
 
 print("ok")
