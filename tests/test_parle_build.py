@@ -136,6 +136,20 @@ assert np.allclose(taken[:2], 0.1) and abs(taken[3] - 0.6) < 1e-9 and 0.1 < take
 polish = (Path(__file__).parent.parent / "tools" / "parle_polish.py").read_text()
 assert "arms = over_skin(obj, arms, skin, skin_arms)" in polish and "parle_build.share_over_skin(" in polish, "the build moves cloth by its own share of the arm again"
 
+# The head against the body (2026-11-11). The aim is avatars like Rafa and Sofia, "mais estilo Disney", and the women of the cast had a head
+# a quarter to a third smaller than Sofia's and the game's women, where the men's is the game's. On the kits of women the head, and what
+# hangs on it, grows about its joint; the men's and the body under any head stay.
+assert parle_build.head_ratio("female-slim") == parle_build.head_ratio("female-muscled") == parle_build.HEAD["female"] > 1.1, "the women's head is the kit's again"
+assert parle_build.head_ratio("male-slim") == 1.0 == parle_build.head_ratio("test"), "the men's head, which is the game's, changed size"
+lady, grown = parle_build.identity("female-test"), parle_build.head_ratio("female-test") - 1
+spots = JOINTS["Head"] + np.array([[0.05, -0.08, 0.1], [0.0, -0.06, -0.04], [0.05, -0.08, 0.1], [0.0, 0.0, 0.0]])
+moved = shift(lady, spots, head=np.array([1.0, 1.0, 0.5, 1.0]))
+assert np.allclose(moved[0], grown * np.array([0.05, -0.08, 0.1])) and np.allclose(moved[1], grown * np.array([0.0, -0.06, -0.04])), f"the head does not grow about its joint: {moved[:2]}"
+assert np.allclose(moved[2], moved[0] / 2) and np.abs(moved[3]).max() == 0, "the skin between the head and the neck does not go half way, or the joint moved"
+assert np.abs(shift(lady, cloud)).max() == 0, "the body under the head moved with it"
+polish = (Path(__file__).parent.parent / "tools" / "parle_polish.py").read_text()
+assert "parle_build.head_ratio(profile" in polish and "rig.scale = [rig.scale[0] * stature /" in polish, "the bones of the head do not grow with it, or the body does not keep its stature"
+
 # A profile comes back as it was saved; a kit without one has none.
 folder = tempfile.mkdtemp()
 parle_build.save_profile(broad, os.path.join(folder, "kit.json"))

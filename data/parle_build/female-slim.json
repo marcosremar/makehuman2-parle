@@ -1,7 +1,7 @@
 {
  "kit": "female-slim",
  "reference": "reference-women.json",
- "similarity": 91.22,
+ "similarity": 90.56,
  "crotch": 0.1805,
  "arm_out": 0.0,
  "shoulder_rise": [
@@ -150,16 +150,16 @@
   1.0
  ],
  "parts": {
-  "landmarks": 87.7,
+  "landmarks": 89.4,
   "bideltoid": 99.8,
-  "torso.width": 98.4,
-  "torso.depth": 88.0,
-  "shoulder.width": 81.2,
-  "line.rise": 93.3,
-  "leg.width": 91.6,
-  "leg.depth": 89.6,
-  "arm.depth": 89.7,
-  "arm.thick": 89.8
+  "torso.width": 97.8,
+  "torso.depth": 87.1,
+  "shoulder.width": 82.3,
+  "line.rise": 93.6,
+  "leg.width": 90.9,
+  "leg.depth": 88.4,
+  "arm.depth": 89.4,
+  "arm.thick": 88.0
  },
  "arm_deg": 26.8,
  "before": 82.12,
@@ -172,6 +172,6 @@
   "leg_x": 16,
   "leg_y": 20
  },
- "girdle": 0.9468146372506175,
- "bideltoid": 0.236
+ "girdle": 0.9581534883863384,
+ "bideltoid": 0.2351
 }

@@ -1,7 +1,7 @@
 {
  "kit": "female-normal",
  "reference": "reference-women.json",
- "similarity": 95.92,
+ "similarity": 95.32,
  "crotch": 0.1833,
  "arm_out": 0.0,
  "shoulder_rise": [
@@ -150,16 +150,16 @@
   1.0
  ],
  "parts": {
-  "landmarks": 90.2,
-  "bideltoid": 99.7,
-  "torso.width": 98.0,
-  "torso.depth": 95.5,
-  "shoulder.width": 83.1,
-  "line.rise": 93.5,
-  "leg.width": 98.6,
-  "leg.depth": 97.6,
-  "arm.depth": 93.2,
-  "arm.thick": 95.6
+  "landmarks": 88.3,
+  "bideltoid": 99.8,
+  "torso.width": 97.5,
+  "torso.depth": 95.0,
+  "shoulder.width": 83.8,
+  "line.rise": 93.6,
+  "leg.width": 98.0,
+  "leg.depth": 97.1,
+  "arm.depth": 92.8,
+  "arm.thick": 94.0
  },
  "arm_deg": 25.8,
  "before": 89.45,
@@ -170,6 +170,6 @@
   "arm_thick": 2,
   "leg_y": 7
  },
- "girdle": 0.9057368175301586,
- "bideltoid": 0.2363
+ "girdle": 0.9154516892542445,
+ "bideltoid": 0.2352
 }

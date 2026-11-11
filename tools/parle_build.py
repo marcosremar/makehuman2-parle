@@ -38,6 +38,13 @@ RISE_W, RISE_FRONT, RISE_ARM = (0.78, 0.92), (0.05, 0.012), (1.2, 1.6)
 # fills again. Left to the curve, the women stayed 0.4 to 1% of the stature broader across the shoulders than the reference women,
 # however many rounds the loop ran (2026-11-11). A profile with no ratio (None) has the shoulders of its curve, as before.
 GIRDLE_BELOW = 0.12
+# The head, against the body. The aim of the cast is avatars like Rafa and Sofia, "mais estilo Disney" (owner, 2026-11-11), and theirs
+# have a big head: Sofia is 6.4 heads tall and the women of the game 6.2 to 6.7. The men of the cast have the head of the game's men
+# (Carlos: 6.6 cm between the eyes against 6.5, 10.5 cm from the eyes to the top against 10.7; Rafa 6.6 and 10.7). The women came out
+# 7.6 to 7.7 heads tall, with a head a quarter to a third smaller than Sofia's and the game's women (5.3 cm between the eyes against
+# 7.5 to 7.8) and small next to the man of the cast too. The owner saw it at 12 and at 25% more and took 12: the head, and all that
+# hangs on it, grows by that about its joint, and the body keeps its stature (`parle_polish.natural_build`).
+HEAD = {"female": 1.12}
 # Widths of the blends, as shares of the height or in metres: trunk to legs, left leg to right leg, upper arm to forearm, wrist to hand.
 # The trunk hands over to the legs across 10 cm: with a short band, a pelvis made deeper than the thighs left a ledge at the groin.
 CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
@@ -70,6 +77,11 @@ def save_profile(profile, path):
 def trunk_param(z, joints):
     hip = (joints["LeftUpLeg"][2] + joints["RightUpLeg"][2]) / 2
     return (z - hip) / (joints["Neck"][2] - hip)
+
+
+def head_ratio(kit):
+    """How many times the size of the kit's own the head of a kit is, against its body."""
+    return next((ratio for sex, ratio in HEAD.items() if str(kit).startswith(sex)), 1.0)
 
 
 def share_over_skin(own, skin, away, near, far):
@@ -168,11 +180,15 @@ def build_field(profile, joints, height):
         thick = 1 + (np.interp(t, ARM_T, profile["arm_thick"]) - 1) * fade
         return rides[side + "Arm"] + (1 - fore)[:, None] * ring(points, shoulder, elbow, depth, thick) + fore[:, None] * ring(points, elbow, wrist, depth, thick)
 
+    grow = head_ratio(profile.get("kit", ""))
+
     def field(points, arms, head):
         out = body(points)
         for side in SIDES:
             share = np.asarray(arms[side])[:, None]
             out = (1 - share) * out + share * arm(points, side)
-        return (out + rise(points)) * (1 - np.asarray(head))[:, None]
+        top = np.asarray(head)[:, None]
+        # The head keeps its shape and, on the kits whose head grows, grows about its joint.
+        return (out + rise(points)) * (1 - top) + top * (grow - 1) * (points - joints["Head"])
 
     return field, rides

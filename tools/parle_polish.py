@@ -233,7 +233,8 @@ def over_skin(obj, own, skin, skin_arms):
 def natural_build(meshes, rig, height, kit):
     """The build of the kit's profile (`parle_build`): trunk, arms and legs get the widths found against a reference body. Run last, after the arms.
     The head keeps its shape, the spine stays, and each arm and leg goes as a whole with its bones, so every clip still plays. Cloth goes
-    the way of the skin under it (`over_skin`). No profile, no change."""
+    the way of the skin under it (`over_skin`). On the kits whose head grows against the body (`parle_build.head_ratio`), its bones grow
+    with it and the body comes back to the stature it had. No profile, no change."""
     profile = parle_build.load_profile(kit)
     if profile is None:
         return False
@@ -243,6 +244,7 @@ def natural_build(meshes, rig, height, kit):
     field, rides = parle_build.build_field(profile, joints, height)
     head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
     body = next((obj for obj in meshes if obj.name.split(".")[0] == "Body" and obj.vertex_groups), None)
+    grow, stature = parle_build.head_ratio(profile.get("kit", "")), float(np.ptp(rest_points(body)[:, 2])) if body else 0.0
     skin, skin_arms = KDTree(len(body.data.vertices) if body else 0), {side: arm_share(body, side) for side in parle_build.SIDES} if body else {}
     for index, point in enumerate(rest_points(body) if body else ()):
         skin.insert(point, index)
@@ -263,10 +265,19 @@ def natural_build(meshes, rig, height, kit):
         moves += [(first.parent, "tail", np.array(first.parent.tail) + local)] if name.endswith("Arm") else []
         for bone in [first] + list(first.children_recursive):
             moves += [(bone, end, np.array(getattr(bone, end)) + local) for end in ("head", "tail")]
+    # The bones of the head grow with it, about its joint.
+    crown = rig.data.edit_bones["Head"]
+    base = np.array(crown.head)
+    for bone, ends in [(crown, ("tail",))] + [(child, ("head", "tail")) for child in crown.children_recursive]:
+        moves += [(bone, end, base + grow * (np.array(getattr(bone, end)) - base)) for end in ends]
     # Every end is read before any is written: a bone joined to its parent would otherwise move twice.
     for bone, end, point in moves:
         setattr(bone, end, point)
     bpy.ops.object.mode_set(mode="OBJECT")
+    if grow != 1 and body is not None:
+        # A bigger head on the same body stands taller: the whole comes back to the stature it had, so it is the body that is smaller.
+        rig.scale = [rig.scale[0] * stature / float(np.ptp(rest_points(body)[:, 2]))] * 3
+        bpy.context.view_layer.update()
     return True
 
 
