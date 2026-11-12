@@ -64,6 +64,7 @@
 import numpy as np
 
 import parle_profile
+import parle_symmetry
 
 # Face Mesh points. Left and right are the picture's.
 TOP, CHIN = 10, 152
@@ -125,6 +126,47 @@ AIM = {
 # And from the side, read on the silhouette (`parle_profile`): the upper lip ahead of the lower one.
 AIM = {sex: {**rules, **parle_profile.AIM[sex]} for sex, rules in AIM.items()}
 MOST = 1.6
+# The faces the owner likes. On 2026-11-12 he looked at 52 portraits from the front, the faces of the game and five of the new
+# cast, and said of each whether it is beautiful ("guardar métrica de avatares que eu acho bonito para usar eles como referência"):
+# 15 women and 17 men are. Each measure on those faces, read as the cast's are (three portraits, the middle value): its mean and
+# how far they spread about it (standard deviation, n - 1). The verdicts and every reading are in babylon-cinema,
+# docs/reports/2026-11-11-beleza-rosto/gabarito/. A face is nearer to what he likes the nearer it stands to their middle: a face
+# made of many is found more attractive than nearly all the faces it is made of (Langlois & Roggman 1990, "Attractive faces are
+# only average", Psychological Science 1(2):115-121, DOI 10.1111/j.1467-9280.1990.tb00079.x), and the average of the faces found
+# attractive more than the average of all (Perrett, May & Yoshikawa 1994, "Facial shape and judgements of female attractiveness",
+# Nature 368(6468):239-242, DOI 10.1038/368239a0); an attractive face is not always an average one (DeBruine, Jones, Unger, Little
+# & Feinberg 2007, "Dissociating averageness and attractiveness: attractive faces are not always average", Journal of
+# Experimental Psychology: Human Perception and Performance 33(6):1420-1430, DOI 10.1037/0096-1523.33.6.1420). The three read in
+# their abstracts, the DOIs checked against their records, 2026-11-12. The studies lay the whole shape of each face on the others
+# (Procrustes) and take the distance; here it is taken on the measures of this ruler, which say which feature stands off.
+# What told the faces he faulted from these, in his words and on these measures: a woman's jaw of 0.75 to 0.765 ("queixo fino e
+# rosto largo, parece um triângulo invertido"; theirs 0.798), a man's face of 0.864 to 0.900 wide ("maxilar muito largo"; theirs
+# 0.832, none past 0.860), eyebrows 2.5 to 3.7 deviations low ("sobrancelha feia"). The measures of how alike the two halves are
+# did not: the faces he faulted are no less even (`parle_symmetry`, `parle_mirror`). Each of the faces he likes, measured against
+# the others of its sex, stands 0.6 to 2.4 off (1.0 the middle one); the faces he faulted, 0.75 to 1.7 (1.2). Of the women, 12 of
+# the 15 he likes stand within 1.1 and the three he faulted at 1.4 to 1.7; the men he faulted do not stand further than the others.
+# Fifteen and seventeen faces, most of them drawn on one head: on a measure they all share (the upper lip ahead of the lower one
+# in a woman's profile, 0.108 with a deviation of 0.007) any face built another way stands ten deviations off. So how far a face
+# stands counts each measure for no more than LIKED_MOST deviations, and what is to be looked at is which measures stand off.
+LIKED = {
+    "female": {
+        "eye_shown": (0.0250, 0.0027), "eye_open": (0.0838, 0.0070), "eye_wide": (0.2205, 0.0072), "eyes_apart": (0.4662, 0.0111),
+        "eye_line": (0.3263, 0.0102), "brow_high": (0.1768, 0.0054), "nose_wide": (0.2549, 0.0137), "nose_long": (0.3016, 0.0052),
+        "mouth_wide": (0.3886, 0.0483), "lips_full": (0.3167, 0.0483), "mouth_curve": (0.0275, 0.0416), "chin_long": (0.2040, 0.0130),
+        "jaw_wide": (0.7984, 0.0226), "face_wide": (0.9008, 0.0215), "lip_contrast": (0.1487, 0.1106), "upper_leads": (0.1083, 0.0066),
+        "uneven": (0.0129, 0.0043), "sym_sides": (0.3304, 0.1783), "sym_level": (0.0035, 0.0012), "sym_midline": (0.0073, 0.0041),
+        "sym_size": (0.0586, 0.0277),
+    },
+    "male": {
+        "eye_shown": (0.0158, 0.0013), "eye_open": (0.0588, 0.0038), "eye_wide": (0.2015, 0.0058), "eyes_apart": (0.4421, 0.0137),
+        "eye_line": (0.3109, 0.0118), "brow_high": (0.1605, 0.0105), "nose_wide": (0.2741, 0.0170), "nose_long": (0.2895, 0.0091),
+        "mouth_wide": (0.4344, 0.0317), "lips_full": (0.2390, 0.0371), "mouth_curve": (-0.0123, 0.0309), "chin_long": (0.2551, 0.0174),
+        "jaw_wide": (0.8385, 0.0176), "face_wide": (0.8316, 0.0183), "lip_contrast": (-0.0308, 0.1087), "upper_leads": (0.0652, 0.0305),
+        "uneven": (0.0140, 0.0036), "sym_sides": (0.1394, 0.0499), "sym_level": (0.0034, 0.0009), "sym_midline": (0.0082, 0.0035),
+        "sym_size": (0.0496, 0.0138),
+    },
+}
+LIKED_MOST = 4.0
 NAMES = {
     **parle_profile.NAMES,
     "eye_shown": "olho que aparece (abertura/rosto)", "eye_open": "olho aberto (altura/rosto)", "eyes_apart": "olhos afastados (entre centros/largura)",
@@ -161,6 +203,7 @@ def measures(points):
         "jaw_wide": apart(*JAW) / wide,
         "face_wide": wide / tall,
         "uneven": float(uneven),
+        **parle_symmetry.measures(points),
     }
 
 
@@ -224,6 +267,16 @@ def mark(value, aim, reach, way):
         return 1.0
     edge = aim * MOST if way == "more" and value > aim else aim / MOST if way == "less" and value < aim else aim
     return float(max(0.0, 1 - abs(value - edge) / reach))
+
+
+def likeness(found, sex):
+    """How far a face stands from the faces the owner likes (LIKED): for each measure both have, the difference from their mean
+    in their deviations, and over all of them the root of the mean square, each counted for no more than LIKED_MOST. None when
+    no measure is shared."""
+    far = {name: (found[name] - mean) / spread for name, (mean, spread) in LIKED[sex].items() if isinstance(found.get(name), float)}
+    if not far:
+        return None, far
+    return float(np.sqrt(np.mean(np.square(np.clip(list(far.values()), -LIKED_MOST, LIKED_MOST))))), far
 
 
 def score(found, sex):

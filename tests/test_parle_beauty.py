@@ -10,6 +10,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
 import parle_beauty  # noqa: E402
+import parle_symmetry  # noqa: E402
 
 
 def face(eye_open=10.0, eyes_apart=92.0, chin=36.0, nose=44.0, brow=36.0, lean=0.0, corners=0.0):
@@ -96,6 +97,20 @@ his = {name: rule[0] for name, rule in parle_beauty.AIM["male"].items()}
 assert parle_beauty.score(his, "male")[0] == 10 and parle_beauty.score(dict(his, lip_contrast=0.142), "male")[0] < 10, "a man's lips as dark against the skin as a woman's score as his own"
 assert parle_beauty.score(dict(aim, eye_shown=None), "female")[0] == 10, "a measure that was not taken counts against the face"
 assert set(parle_beauty.AIM["male"]) == set(parle_beauty.AIM["female"]) == set(parle_beauty.NAMES), "a measure has no aim for one sex, or no name"
+
+# How far a face stands from the faces the owner likes: nothing at their middle, one deviation with every measure one deviation off,
+# and a measure they all share counts for no more than LIKED_MOST however far a face is on it.
+for sex in ("female", "male"):
+    middle = {name: mean for name, (mean, _) in parle_beauty.LIKED[sex].items()}
+    assert parle_beauty.likeness(middle, sex)[0] == 0, "the middle of the faces the owner likes stands off them"
+    off = {name: mean + spread for name, (mean, spread) in parle_beauty.LIKED[sex].items()}
+    assert abs(parle_beauty.likeness(off, sex)[0] - 1) < 1e-9, "a face one deviation off on every measure does not stand one deviation off"
+    mean, spread = parle_beauty.LIKED[sex]["upper_leads"]
+    far, by = parle_beauty.likeness(dict(middle, upper_leads=mean - 10 * spread, lip_contrast=None), sex)
+    assert "lip_contrast" not in by and abs(far - parle_beauty.LIKED_MOST / np.sqrt(len(by))) < 1e-9 and abs(by["upper_leads"] + 10) < 1e-9, f"one measure ten deviations off: {far}, {by['upper_leads']}"
+    assert set(parle_beauty.LIKED[sex]) >= set(parle_beauty.AIM[sex]), "a measure that is marked is not among the ones read on the faces the owner likes"
+assert parle_beauty.likeness({}, "female") == (None, {}), "a face with no measure stands somewhere"
+assert set(parle_symmetry.NAMES) <= set(parle_beauty.measures(face())), "the measures of how alike the two halves are do not come with the rest"
 
 try:
     import cv2
