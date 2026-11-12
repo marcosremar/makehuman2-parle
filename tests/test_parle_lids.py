@@ -74,7 +74,12 @@ assert 40 < rim.sum() < 80 and not rim[SOCKET].any(), f"the rim of the test has 
 assert np.isinf(way[SOCKET]).all() and (way[rim] == 0).all(), "the socket has a way to the rim, or the rim is not at none from itself"
 upper, middle_of_lid = ~SOCKET & ~rim & (DZ > 0), np.abs(DX) < 0.0015
 
-moved, furthest = parle_polish.lids_with_a_fold(body, [(BALL, RADIUS)], fold=0.002)
+# First what each place asks, with no evening out between neighbours, for a lid 2.6 mm off the ball and a fold of 2 mm over
+# reaches of 2 and 3.6 mm.
+EVEN_ROUNDS, FOLD_REACH = parle_polish.LID_EVEN_ROUNDS, parle_polish.LID_FOLD_REACH_M
+parle_polish.LID_EVEN_ROUNDS, parle_polish.LID_FOLD_REACH_M = 0, (0.002, 0.0036)
+LIP = 0.0026
+moved, furthest = parle_polish.lids_with_a_fold(body, [(BALL, RADIUS)], lip=LIP, fold=0.002)
 now = parle_polish.read(keys[0])
 step = off_ball(now) - off_ball(POINTS)
 assert moved > 60 and 0.001 < furthest < 0.0021, f"the fold moved {moved} points, the furthest {furthest * 1000:.2f} mm"
@@ -86,7 +91,7 @@ for name, still in (("the rim", rim), ("the socket", SOCKET), ("the lower lid", 
 lip = upper & middle_of_lid & (way > parle_polish.LID_LIP_AT_M) & (way < parle_polish.LID_PLATE_M)
 assert lip.sum() >= 3, f"the test has {lip.sum()} points where the lid stands"
 stands = off_ball(now)[lip]
-assert (stands > parle_polish.LID_LIP_M * parle_polish.LID_PLATE_SHARE - 1e-4).all() and (stands < parle_polish.LID_LIP_M + 1e-4).all() and (step[lip] > 0.0005).any(), f"the lid stands {stands * 1000} mm off the ball"
+assert (stands > LIP * parle_polish.LID_PLATE_SHARE - 1e-4).all() and (stands < LIP + 1e-4).all() and (step[lip] > 0.0005).any(), f"the lid stands {stands * 1000} mm off the ball"
 # ... and the skin above it goes in, most where the fold is, by what was asked there.
 fold = upper & middle_of_lid & (np.abs(way - parle_polish.LID_FOLD_AT_M) < 0.0012)
 assert fold.sum() >= 3 and 0.0016 < -step[fold].min() < 0.002 + 1e-6, f"the fold goes in {-1000 * step[fold].min():.2f} mm over the middle of the eye"
@@ -104,14 +109,33 @@ assert above.sum() >= 5 and np.allclose(shut_now[above] - shut_before[above], no
 assert np.allclose(parle_polish.read(keys["faceEyeSpacing"]) - now, apart_before - POINTS, atol=1e-7), "another shape lost its move"
 assert np.allclose(parle_polish.read(body.data.vertices), now, atol=1e-7), "the mesh and its rest shape differ"
 
-# With the whole fold the skin goes in no nearer the ball than the lids lie on it.
+# With a deep fold the skin goes in no nearer the ball than the lids lie on it.
 bpy.data.objects.remove(body)
 whole = face_with_lids()
-parle_polish.lids_with_a_fold(whole, [(BALL, RADIUS)])
+parle_polish.lids_with_a_fold(whole, [(BALL, RADIUS)], fold=0.006)
 least = np.minimum(off_ball(POINTS), parle_polish.LID_OFF_BALL_M)
 deep = off_ball(parle_polish.read(whole.data.shape_keys.key_blocks[0]))
 assert (deep >= least - 1e-7).all() and (deep[upper] < off_ball(POINTS)[upper] - 0.002).any(), f"the fold took skin {1000 * (least - deep).max():.2f} mm nearer the ball than it may, or made no fold"
 bpy.data.objects.remove(whole)
+
+# Evened out between the points that are tied (the fold read off the few points of a kit one by one came out "crumpled, kinked",
+# the judge by sight, round 17): the step from one point of the lid to the next is smaller, the fold is still there, and the rim,
+# the corners and the lower lid still stay.
+ties = np.array([edge for edge in edges if upper[edge[0]] and upper[edge[1]]])
+steps = {}
+for rounds in (0, 2):
+    parle_polish.LID_EVEN_ROUNDS = rounds
+    made = face_with_lids()
+    parle_polish.lids_with_a_fold(made, [(BALL, RADIUS)])
+    after = parle_polish.read(made.data.shape_keys.key_blocks[0])
+    steps[rounds] = off_ball(after) - off_ball(POINTS)
+    for name, still in (("the rim", rim), ("the lower lid", DZ <= 0), ("the corners", np.abs(DX) >= HALF_WIDE)):
+        assert np.allclose(after[still], POINTS[still], atol=1e-7), f"with {rounds} rounds of evening out, {name} moved"
+    bpy.data.objects.remove(made)
+kink = {rounds: np.abs(step[ties[:, 0]] - step[ties[:, 1]]).max() for rounds, step in steps.items()}
+assert kink[2] < 0.9 * kink[0], f"from one point of the lid to the next the step differs by {kink[0] * 1000:.2f} mm as asked and {kink[2] * 1000:.2f} mm evened out"
+assert steps[2].min() < -0.001 and steps[2].min() > steps[0].min(), f"evened out, the fold goes in {-steps[2].min() * 1000:.2f} mm ({-steps[0].min() * 1000:.2f} mm as asked)"
+parle_polish.LID_EVEN_ROUNDS, parle_polish.LID_FOLD_REACH_M = EVEN_ROUNDS, FOLD_REACH
 
 # A face with no opening over the ball is left as it is.
 closed = face_with_lids(np.array([skin_point(dx, 0.02 + abs(dz)) for dz in STEPS for dx in STEPS]))

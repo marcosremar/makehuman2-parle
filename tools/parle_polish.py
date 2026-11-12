@@ -156,16 +156,22 @@ LID_RIM_FRONT = 0.68
 # globe), was tried at 4.2, 3.4, 3 and 2.6 mm and left: the skin of a kit has one row of points for the rim and the lip, a few
 # to an eye and no two kits alike, and what does not show behind the rim came out in torn flaps or left the edge in teeth, on
 # three of the five faces looked at (2026-11-12). It asks for a lid drawn with rows of its own.
-LID_LIP_M = 0.0026
+# The fold was first 3.5 mm deep over reaches of 2 and 3.6 mm, under a lid 2.6 mm off the ball, each point taking what its own
+# place asked: "a crumpled, kinked wrinkle under a pale puffy band, and it ages her", and on Dona Marta "with the heavier lids she
+# looks exhausted" (the judge by sight, round 17). The skin has few points there. Shallower and wider, and then each point of the
+# lid takes, this many times over, half of the mean of what the points it is tied to take (the rim, the corners and the skin past
+# the lid counting as none): wider alone, with no such evening out, left a dark notch over the inner half of the eye.
+LID_LIP_M = 0.0022
 LID_LIP_AT_M = 0.0016
 LID_PLATE_M = 0.0034
 LID_PLATE_SHARE = 0.85
-LID_FOLD_M = 0.0035
+LID_FOLD_M = 0.0025
 LID_FOLD_AT_M = 0.0052
-LID_FOLD_REACH_M = (0.002, 0.0036)
+LID_FOLD_REACH_M = (0.003, 0.005)
 LID_CORNER = {"outer": 0.4, "inner": 0.25}
 LID_SHORT = 0.6
 LID_WAY_MOST_M = 0.012
+LID_EVEN_ROUNDS = 2
 # The shapes that shut the lids: a point one of them moves this far or more is where the kit shuts it, whatever moved the rest
 # shape (`lids_with_a_fold` here, `parle_face.blink_still_closes` for the traits of the look).
 BLINKS = ("eyeBlinkLeft", "eyeBlinkRight")
@@ -923,8 +929,9 @@ def lid_ways(world, normals, group, edges, centre, radius):
 def lids_with_a_fold(body, balls, lip=LID_LIP_M, fold=LID_FOLD_M):
     """The upper lids get a fold above them and stand a little further off the globe below it, `balls` being the middle and the
     radius of each globe (`eye_balls`): how many points of skin moved, and how far the one that moved most. The rim of the
-    opening stays. Each point moves along the line from the middle of its ball. Every shape key takes the move but the ones that
-    shut the lids (BLINKS), where a point they move keeps the place the kit shuts it at: the lids still meet."""
+    opening stays. Each point moves along the line from the middle of its ball, by what its place asks evened out with what the
+    points it is tied to are asked (LID_EVEN_ROUNDS). Every shape key takes the move but the ones that shut the lids (BLINKS),
+    where a point they move keeps the place the kit shuts it at: the lids still meet."""
     blocks = body.data.shape_keys.key_blocks if body.data.shape_keys else None
     rest = read(blocks[0]) if blocks else read(body.data.vertices)
     world = to_world(body, rest)
@@ -956,7 +963,17 @@ def lids_with_a_fold(body, balls, lip=LID_LIP_M, fold=LID_FOLD_M):
         past = (reach - LID_FOLD_AT_M) / np.where(reach < LID_FOLD_AT_M, LID_FOLD_REACH_M[0], LID_FOLD_REACH_M[1])
         pull = np.where(lid & (np.abs(past) < 1), 0.5 + 0.5 * np.cos(np.pi * np.clip(past, -1, 1)), 0.0) * fold * middle
         target = np.maximum(target - pull, np.minimum(far, radius + LID_OFF_BALL_M))
-        move += away / far[:, None] * (target - far)[:, None]
+        step = target - far
+        evened = lid & (middle > 0)
+        places = int(group.max()) + 1
+        tied = np.r_[edges, edges[:, ::-1]]
+        tied = tied[evened[tied[:, 0]]]
+        for _ in range(LID_EVEN_ROUNDS):
+            by_place = np.zeros(places)
+            by_place[group] = step
+            around = np.bincount(tied[:, 0], weights=by_place[group[tied[:, 1]]], minlength=len(step)) / np.maximum(np.bincount(tied[:, 0], minlength=len(step)), 1)
+            step = np.where(evened, (step + around) / 2, step)
+        move += away / far[:, None] * step[:, None]
     went = np.linalg.norm(move, axis=1)
     if not (went > 1e-7).any():
         return 0, 0.0
