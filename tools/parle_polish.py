@@ -199,6 +199,19 @@ BLINK_SHUT_WHOLE = 0.6
 BLINK_SHUT_ROUNDS = 4
 BLINK_SHUT_PAST = 1.5
 BLINK_SHUT_MOST_M = 0.004
+# How round the opening of an eye may be, seen from the front: its height over its width. Of the five of the cast the owner looked
+# at on 2026-11-12 he approved the apartment's neighbour and found the pet shop's attendant "olho esbugalhado e é feia"; two rounds
+# before, the eyes of that one and of the pharmacy's attendant were "gigante" and "estranhos". With the same look given to all four
+# women, the openings measured (`globe_shown`) 35.6 by 17.6 mm on the pet shop's attendant (0.49), 0.48 to 0.49 on the pharmacy's
+# and 0.47 to 0.48 on the florist, against 32.0 by 13.2 to 13.6 mm (0.41 to 0.425) on the neighbour he approved and 25.6 by 10.4 mm
+# (0.41) on the café's owner, a man he approved too. The landmarks of a face mesh do not see it (they read every stylised eye as the
+# same almond, 0.38 to 0.40 on all four women). An opening rounder than the approved ones takes the share of its own blink that
+# brings it there (0.13 of it on the pet shop's attendant), at most EYE_TALL_BLINK_MOST of the blink: past that it is a sleepy eye.
+# Tried on her at 0.40 as well (0.21 of the blink): calmer still, and heavy-lidded from three quarters.
+EYE_TALL_MOST = 0.43
+EYE_TALL_STEP_M = 0.0004
+EYE_TALL_ROUNDS = 5
+EYE_TALL_BLINK_MOST = 0.35
 FAIR_SOFT_FROM = 0.15
 # The lips are the points their own traits move by this share or more. They take part with a small weight: point against point
 # their sculpted form came out rough, a row of ridges along the upper lip (2026-11-12, in clay), and a small weight takes out what
@@ -1063,6 +1076,94 @@ def blinks_shut(meshes):
     return found
 
 
+def globe_shown(points, faces, globe, centre, radius, step=EYE_TALL_STEP_M):
+    """What shows of a globe from the front between the lids of that skin: how wide and how tall, in metres. `points` are the
+    skin's, in the world; the face looks at -y."""
+    skin = BVHTree.FromPolygons([tuple(point) for point in points], faces)
+    back = Vector((0, 1, 0))
+    across = np.arange(-radius, radius, step)
+    tall = np.zeros(len(across))
+    for column, aside in enumerate(across):
+        for above in across:
+            if aside * aside + above * above >= radius * radius:
+                continue
+            start = Vector((centre[0] + aside, centre[1] - radius - 0.05, centre[2] + above))
+            on_globe = globe.ray_cast(start, back, 0.2)[3]
+            if on_globe is None:
+                continue
+            on_skin = skin.ray_cast(start, back, 0.2)[3]
+            if on_skin is None or on_skin > on_globe + 1e-5:
+                tall[column] += step
+    return float((tall > 0).sum() * step), float(tall.max())
+
+
+def eyes_no_rounder(meshes, most=EYE_TALL_MOST):
+    """The opening of an eye is no taller than `most` of its width. Where one is, the rest shape of both eyes takes the share of
+    their blinks that brings it there: the upper lid comes down on the globe the way it shuts, and the blink still ends where it
+    ended. For each blink (BLINKS): how wide the opening, how tall it was and how tall it is, in metres, and the share of the blink
+    taken. The same share for the two eyes; every other shape keeps its move. The face looks at -y."""
+    body = next((obj for obj in meshes if obj.name == "Body"), None)
+    eye = next((obj for obj in meshes if "low-poly" in obj.name), None)
+    blocks = body.data.shape_keys.key_blocks if body is not None and body.data.shape_keys else None
+    if eye is None or not blocks or not len(body.data.polygons) or not len(eye.data.polygons):
+        return {}
+    faces = [tuple(polygon.vertices) for polygon in body.data.polygons]
+    globe = BVHTree.FromPolygons([tuple(point) for point in rest_points(eye)], [tuple(polygon.vertices) for polygon in eye.data.polygons])
+    balls = eye_balls(eye)
+    rest = read(blocks[0])
+    moves = {}
+    for name in BLINKS:
+        if name not in blocks:
+            continue
+        move = read(blocks[name]) - rest
+        way = np.linalg.norm(move, axis=1)
+        if way.max() < BLINK_SHUT_LEAST_M:
+            continue
+        centre, radius = min(balls, key=lambda ball: float(np.linalg.norm(to_world(body, rest)[way > way.max() / 2].mean(axis=0) - ball[0])))
+        moves[name] = (move, np.asarray(centre, float), radius)
+    if not moves:
+        return {}
+    whole = sum(move for move, _, _ in moves.values())
+
+    def lowered(share):
+        """The rest shape with that share of the blinks, in the world. A lid goes straight from open to shut, across the chord of
+        its globe: where that share of the way leaves it in the ball, it comes out onto it as a shut lid does (`blinks_shut`)."""
+        points = to_world(body, rest + share * whole)
+        for move, centre, radius in moves.values() if share else ():
+            away = points - centre
+            far = np.maximum(np.linalg.norm(away, axis=1), 1e-12)
+            lift = (np.linalg.norm(move, axis=1) > 1e-7) & (far > radius - LID_UNDER_BALL_M) & (far < radius + LID_OFF_BALL_M) & (-away[:, 1] / far > LID_RIM_FRONT)
+            points[lift] = centre + away[lift] / far[lift, None] * (radius + LID_OFF_BALL_M)
+        return points
+
+    def shown(share):
+        points = lowered(share)
+        return {name: globe_shown(points, faces, globe, centre, radius) for name, (_, centre, radius) in moves.items()}
+
+    def too_round(opening):
+        return any(tall > most * wide for wide, tall in opening.values() if wide > 0)
+
+    before = shown(0.0)
+    share, after = 0.0, before
+    if too_round(before):
+        low, share = 0.0, EYE_TALL_BLINK_MOST
+        for _ in range(EYE_TALL_ROUNDS):
+            middle = (low + share) / 2
+            if too_round(shown(middle)):
+                low = middle
+            else:
+                share = middle
+        after = shown(share)
+        step = to_local(body, lowered(share)) - rest
+        for block in blocks:
+            # A blink keeps where it ends: it takes only what the other eye's lid does.
+            mine = np.linalg.norm(moves[block.name][0], axis=1) > 1e-7 if block.name in moves else np.zeros(len(rest), bool)
+            block.data.foreach_set("co", (read(block) + np.where(mine[:, None], 0.0, step)).ravel())
+        body.data.vertices.foreach_set("co", (read(body.data.vertices) + step).ravel())
+        body.data.update()
+    return {name: (before[name][0], before[name][1], after[name][1], share) for name in moves}
+
+
 def fair_face(body, rig, rounds=FAIR_ROUNDS, balls=()):
     """The skin of the face evened out, in the rest shape and so in every shape key: how many points moved, and how far the one that
     moved most went.
@@ -1291,6 +1392,8 @@ def natural_body(meshes, rig, height, sex, kit):
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
     for name, (was, left) in blinks_shut(meshes).items():
         print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
+    for name, (wide, was, tall, share) in eyes_no_rounder(meshes).items():
+        print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
     if sex == "female" and body is not None and globe is not None:
         import parle_lip_cut  # here and not above: it reads this module
 
