@@ -14,6 +14,8 @@ import sys
 import cv2
 import numpy as np
 
+from parle_lips import LIP_PATCH_EDGE_PX, LIP_PATCH_PX
+
 AROUND_PX = 10
 FADE_PX = 8
 FLAT = np.array((255, 128, 128), np.float32)  # BGR of a normal pointing straight out
@@ -29,7 +31,11 @@ def flattened(relief, lips):
 def main():
     relief_path, lips_path = sys.argv[1:3]
     lips = cv2.imread(lips_path, cv2.IMREAD_GRAYSCALE).astype(np.float32) / 255
-    cv2.imwrite(relief_path, flattened(cv2.imread(relief_path), lips))
+    relief = flattened(cv2.imread(relief_path), lips)
+    # The patch the lips of a woman are mapped to (`parle_lip_cut`) is flat too: whatever relief stood there would be drawn on her lips.
+    left, top, wide, tall = LIP_PATCH_PX
+    relief[top - LIP_PATCH_EDGE_PX:top + tall + LIP_PATCH_EDGE_PX, left - LIP_PATCH_EDGE_PX:left + wide + LIP_PATCH_EDGE_PX] = FLAT
+    cv2.imwrite(relief_path, relief)
     print("RELEVO BOCA", relief_path.split("/")[-1])
 
 

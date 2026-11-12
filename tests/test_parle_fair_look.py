@@ -14,13 +14,17 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 women, men = parle_face.FAIR_LOOK["female"], parle_face.FAIR_LOOK["male"]
 # The directions the literature gives for a woman's face (Cunningham 1986): smaller nose, smaller jaw, shorter chin, bigger eyes
 # further apart. Its higher eyebrows are not kept: on the cast they read as a startled arch, and Sofia's sit close over the eye (below).
-assert all(women[name] < 0 for name in ("faceNoseWidth", "faceJaw", "faceChin")), f"nose, jaw or chin go the wrong way: {women}"
+assert women["faceNoseWidth"] < 0, f"the nose goes the wrong way: {women}"
+# The owner's eye, 2026-11-12: a thin chin under a wide face is "um triângulo invertido", ugly. The jaw stays near the kit's and
+# the chin is not shortened: the women he approves have a jaw 0.798 of the face wide, the ones he faults for the triangle 0.75 to 0.765.
+assert -0.3 <= women["faceJaw"] <= 0 and women["faceChin"] >= 0, f"the jaw and the chin of the women go to the inverted triangle: {women}"
 assert women["faceEyeSpacing"] > 0 and "faceEyeSize" not in women, f"the eyes go the wrong way, or grow by a trait the globe does not have: {women}"
 # How far: at first "a bias, not another face", no trait past 0.4. On 2026-11-12 the measure gave the women 9.0 to 9.3 and a judge
-# by sight 3.5 in 10, the owner agreeing: "a tired, realistic adult" with a square lower face. The jaw now narrows as far as the kit
-# takes it without folding once the skin is evened out, and nothing else goes past half of a trait.
+# by sight 3.5 in 10, the owner agreeing: "a tired, realistic adult" with a square lower face, and the jaw was narrowed as far as
+# the kit takes it (-0.7). The same day the owner marked the faces he finds beautiful, and that jaw was the inverted triangle he
+# faults (above): it went back, and nothing goes past half of a trait.
 traits = {name: value for name, value in women.items() if name.startswith("face")}
-assert -0.8 <= traits["faceJaw"] < -0.4 and all(abs(value) <= 0.5 for name, value in traits.items() if name != "faceJaw"), f"how far the traits of the women go: {traits}"
+assert all(abs(value) <= 0.5 for value in traits.values()), f"how far the traits of the women go: {traits}"
 assert not any(name.startswith("face") for name in men), f"the men's faces, which score next to Rafa's, are bent too: {men}"
 # The eyebrows keep the height and the slope they had: let down they pressed on the lid, and with the inner end let down too they
 # climbed to a far peak, a scowl (the judge by sight, 2026-11-12). What changes is their shape (`BROW_ARCH`, below). And the nose is

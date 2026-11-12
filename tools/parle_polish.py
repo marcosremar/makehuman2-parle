@@ -1254,7 +1254,9 @@ def natural_body(meshes, rig, height, sex, kit):
     (`level_hems`). Then the face: the lids lie over the eye globes (`lids_over_globes`), its skin is evened out (`fair_face`), the
     upper lids get their fold (`lids_with_a_fold`, after the evening out, which would take it away), the inside of the mouth
     stays behind the skin (`lining_behind_skin`), the eyebrows lie on it (`brows_on_skin`), the eye globes stay behind the skin
-    where the lids do not show them (`globes_behind_skin`), and a lid that shuts shuts on its globe (`blinks_shut`)."""
+    where the lids do not show them (`globes_behind_skin`), and a lid that shuts shuts on its globe (`blinks_shut`). Last, on a
+    woman of the cast, the border of the lips becomes an edge of the mesh (`parle_lip_cut`): it adds points, so nothing that
+    reads the points by their number runs after it."""
     natural_arms(meshes, rig, height, sex)
     built = natural_build(meshes, rig, height, kit)
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
@@ -1289,6 +1291,11 @@ def natural_body(meshes, rig, height, sex, kit):
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
     for name, (was, left) in blinks_shut(meshes).items():
         print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
+    if sex == "female" and body is not None and globe is not None:
+        import parle_lip_cut  # here and not above: it reads this module
+
+        lips, added = parle_lip_cut.lips_with_an_edge(body)
+        print("LÁBIO com a borda na malha:", lips, "faces no retalho do mapa,", added, "pontos novos")
     return built
 
 

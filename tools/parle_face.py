@@ -102,9 +102,18 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 #     alone at 0.4 the nostrils turned up to the front).
 # Tried in previews on the finished body before going in; judged again by sight after each round (3.5, then 4.5 in 10). To be
 # judged in the player.
+# The jaw, the chin and the length of the nose of the women went back most of the way on 2026-11-12, by the owner's own eye. He
+# marked, face by face, which of the game's faces and of the cast he finds beautiful (15 women, 17 men) and which ugly, and of
+# the ugly women said "queixo fino e rosto largo, parece um triângulo invertido". Measured with the ruler (`parle_beauty`), the
+# women he approves have a jaw 0.798 of the face wide (sd 0.022) and a chin 0.204 of its height (sd 0.013); the three he faulted
+# for the triangle have jaws of 0.751 to 0.765, and with a jaw of -0.7 and a chin of -0.35 here the pharmacy's attendant and the
+# florist stood at 0.763 and 0.764, with chins of 0.169 and 0.180. He approved neither; the one woman of the cast he did approve
+# stood at 0.801. With the jaw at -0.1, the chin at 0.25 and the nose length at -0.2 the two stand at 0.786 and 0.779, chins
+# 0.195 and 0.203, nose 0.30 against 0.302 (read off the shapes of the finished bodies). The judge by sight had asked for a face
+# less square; on the shape of the face the owner's eye decides.
 FAIR_LOOK = {
-    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.5, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.7, "faceCheek": 0.4,
-               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": -0.35, "faceEyeOpen": 0.0, "eyeWideLeft": 0.5, "eyeWideRight": 0.5, "faceEyeTilt": 0.3,
+    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.2, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.1, "faceCheek": 0.4,
+               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": 0.25, "faceEyeOpen": 0.0, "eyeWideLeft": 0.5, "eyeWideRight": 0.5, "faceEyeTilt": 0.3,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
     "male": {"mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
 }
