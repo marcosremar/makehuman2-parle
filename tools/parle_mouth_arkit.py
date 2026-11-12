@@ -31,6 +31,11 @@ SHAPES = (
     "mouthPucker", "mouthFunnel", "mouthPressLeft", "mouthPressRight", "mouthRollLower", "mouthRollUpper",
     "mouthStretchLeft", "mouthStretchRight",
 )
+# Seen in the Unity player at full weight (2026-11-12, docs/reports/2026-11-12-boca-formas-arkit/ in babylon-cinema): the pack's pucker
+# folds the cupid's bow of the cast's lip into a V and parts its centre in a white slit, the funnel opens only a hole at the centre,
+# and the upper roll folds a moustache into a dark blob. At 0.6, 0.6 and 0.5 of the pack they read clean on Carlos, Helena and
+# Seu Manoel, so the shape at weight 1.0 is that share of the pack.
+SHARE = {"mouthPucker": 0.6, "mouthFunnel": 0.6, "mouthRollUpper": 0.5}
 BODY_POINTS = 13380
 SMOOTH_ROUNDS = (1600, 800, 400, 200, 100, 50, 25, 12, 6, 3, 2, 1)
 # The walk has landed when 90% of the body head is this close to a base point (metres): 3.3 to 5.6 mm on the 42 of the cast (2026-11-12;
@@ -192,7 +197,7 @@ def arkit_moves(rest, body_jaw, body_edges, body_smile_left=None, pack=PACK, bas
         checks["mouthSmileLeft"] = same_side(body_smile_left, on_body(dense(Path(pack) / "mouthSmileLeft.target"), ids, scale))
     if min(checks.values()) < MIN_CHECK:
         raise ValueError(f"the pack shapes do not match the body's own: {checks}")
-    moves = {name: clean(on_body(dense(Path(pack) / f"{name}.target"), ids, scale), rest, body_edges) for name in SHAPES}
+    moves = {name: SHARE.get(name, 1.0) * clean(on_body(dense(Path(pack) / f"{name}.target"), ids, scale), rest, body_edges) for name in SHAPES}
     return moves, checks
 
 
