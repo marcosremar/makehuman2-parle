@@ -20,9 +20,10 @@
     those: a real face is some 0.8 to 1 mm from its mirror image, and a face made of one half and its mirror is found less
     attractive than the face it came from (`parle_symmetry`).
 
-    On the 52 faces the owner judged (2026-11-12) the mean distance is 0.02 to 0.03 mm and the worst point 0.1 to 1.9 mm: built by
-    mirroring, all of them, the ones he faults no less than the ones he likes. The measure is a watch on a body that comes out
-    crooked from a step that should not have told left from right, not a mark of beauty.
+    On the 52 faces the owner judged (2026-11-12) it reads 0.002 to 0.17 mm (0.07 the middle one), with the worst point of a face
+    up to 2.8 mm off: built by mirroring, all of them, the ones he faults no less than the ones he likes. The measure is a watch
+    on a body that comes out crooked from a step that should not have told left from right, not a mark of beauty. It found one:
+    on three of five people of the new cast one upper lid stands 2.2 to 2.8 mm from the other's mirror image.
 
     The face of a body is mirrored across the plane down its middle, the mirror image is laid back on the face (turned and moved as
     a whole until it fits best, so a head that is a little turned or off the middle does not read as uneven), and what is measured

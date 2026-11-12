@@ -43,8 +43,8 @@
     10.1037/0735-7036.108.3.233), whose method is only in the paper itself.
 
     What the faces of the game said (2026-11-12): on the 32 the owner finds beautiful and the 12 he faults, none of these measures
-    tells one from the other (the faulted ones are, if anything, a little more even). All of them are faces built by mirroring, 0.02
-    to 0.03 mm from their own mirror image on the mesh (`parle_mirror`), where a real face stands 0.8 to 1 mm; what these measures
+    tells one from the other (the faulted ones are, if anything, a little more even). All of them are faces built by mirroring,
+    0.002 to 0.17 mm from their own mirror image on the mesh (`parle_mirror`), where a real face stands 0.8 to 1 mm; what these measures
     read on a portrait is mostly how much the points of the Face Mesh tremble from one portrait to the next. They are kept as a
     watch on a body that comes out crooked, not as a mark of beauty.
 
