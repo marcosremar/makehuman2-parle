@@ -21,6 +21,8 @@ from mathutils.kdtree import KDTree
 
 sys.path.insert(0, str(Path(__file__).parent))
 import parle_mouth  # noqa: E402
+import parle_mouth_arkit  # noqa: E402
+import parle_mouth_close  # noqa: E402
 import parle_polish  # noqa: E402
 import parle_normals  # noqa: E402
 import parle_teeth  # noqa: E402
@@ -997,6 +999,12 @@ def clean_face(body, added, job, env):
     speaking = list(dict.fromkeys([body, *(obj for obj in added if obj.type == "MESH" and obj.data.shape_keys)]))
     calm_speech(speaking, SPEECH_OPEN[sex])
     mixed_speech(speaking, SPEECH_MIX)
+    # After the jaw is calmed: `mouthClose` is the final `jawOpen` backwards. Read before `calm_speech`, it took back the whole kit's
+    # jaw while the body kept 0.6 to 0.9 of it, and pushed the lower lip 17 to 26 mm past the rest (2026-11-12). The lips close over
+    # the open jaw in /p b m/, not the jaw (2026-11-11, thread of tooth in /m/).
+    parle_mouth_close.add_mouth_close(body)
+    # Pucker, funnel, press, roll and stretch for speech from video (babylon-cinema #3029), CC0 faceunits01 walked onto the skin (2026-11-12).
+    parle_mouth_arkit.add_arkit_mouth(body)
 
 
 def soften_under_chin(body):
