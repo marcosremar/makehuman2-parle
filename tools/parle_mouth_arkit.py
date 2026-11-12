@@ -33,10 +33,10 @@ SHAPES = (
 )
 BODY_POINTS = 13380
 SMOOTH_ROUNDS = (1600, 800, 400, 200, 100, 50, 25, 12, 6, 3, 2, 1)
-# The walk has landed when 90% of the body head is this close to a base point (metres): 3.7 to 4.0 mm on the cast (2026-11-12;
+# The walk has landed when 90% of the body head is this close to a base point (metres): 3.3 to 5.6 mm on the 42 of the cast (2026-11-12;
 # the base is coarser than the shaped head round the ears and the scalp). Whether it landed on the right points is `MIN_CHECK`.
-MAX_MISS_M = 0.006
-# The cast's own jawOpen and left smile against the same pack shapes walked onto it: 0.82 to 0.92 when the walk is right.
+MAX_MISS_M = 0.007
+# The cast's own jawOpen and left smile against the same pack shapes walked onto it: 0.91 to 0.93 and 0.77 to 0.83 on the 42 of the cast.
 MIN_CHECK = 0.6
 # The head is the top share of the height; the walk and the moves stay in it.
 HEAD_SHARE = 0.16
