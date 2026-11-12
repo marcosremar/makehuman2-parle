@@ -26,6 +26,11 @@ LIP_CUT_NEAR_M = 0.03
 LIP_CUT_ON_M = 0.00002
 LIP_CUT_HALVINGS = 14
 LIP_CUT_END = 0.02
+# Two points of the cut no further apart than this are one point. At a corner of the mouth the border of the upper lip and the
+# border of the lower one meet, and an edge of each can cross there: three pairs on the pharmacy's attendant (2026-11-12). Left
+# apart they make slivers of faces, and each of the two has the moves of its own lip: the game reads two points in the same place
+# as copies of one along a seam of the map (babylon-cinema `test/npcs/cast-mouth-arkit.spec.ts`).
+LIP_CUT_SAME_M = 0.00005
 
 
 def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
@@ -61,6 +66,8 @@ def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
             near, far = np.where(same, half, near), np.where(same, far, half)
         shares = np.clip((near + far) / 2, LIP_CUT_END, 1 - LIP_CUT_END)
         made = [bmesh.utils.edge_split(edge, edge.verts[0], float(share))[1] for edge, share in zip(crossed, shares)]
+        bmesh.ops.remove_doubles(bm, verts=made, dist=LIP_CUT_SAME_M)
+        made = [vert for vert in made if vert.is_valid]
         bmesh.ops.connect_verts(bm, verts=made)
         bmesh.ops.triangulate(bm, faces=[face for face in bm.faces if len(face.verts) > 4])
     bm.verts.index_update()

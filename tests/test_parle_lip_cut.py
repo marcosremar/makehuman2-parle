@@ -60,6 +60,11 @@ line = parle_lips.mouth_line({"tri": triangles}, now)
 inside = parle_lips.lip_place(line, now)[0]
 # The points the cut made are on the border of the lips: by halving, not on a straight line between the ends of the edge.
 assert np.abs(inside[count:]).max() < 0.0001, f"a point of the cut stands {1000 * np.abs(inside[count:]).max():.3f} mm from the border"
+# No two points of the cut in the same place: at a corner of the mouth an edge of each lip can cross the border there, and two
+# points a few hundredths of a millimetre apart, each with the moves of its own lip, make a sliver of a face.
+made = now[count:]
+apart = np.linalg.norm(made[:, None, :] - made[None, :, :], axis=2) + np.eye(len(made))
+assert apart.min() > parle_lip_cut.LIP_CUT_SAME_M, f"two points of the cut stand {apart.min() * 1e6:.1f} thousandths of a millimetre apart"
 # Which faces are lip: the ones whose places are on the patch. They are inside the border, the rest outside, with no face astride.
 left, top, wide, tall = parle_lips.LIP_PATCH_PX
 on_patch = lambda place: left / parle_lips.SIZE <= place[0] <= (left + wide) / parle_lips.SIZE and 1 - (top + tall) / parle_lips.SIZE <= place[1] <= 1 - top / parle_lips.SIZE
