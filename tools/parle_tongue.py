@@ -8,7 +8,10 @@
 """
 import numpy as np
 
-TIP_SHARE = 0.85
+# The tip goes with the lower teeth almost whole. At 0.85, once the cast's mouth opened as the leads' do (6cfa08a, a smaller jaw),
+# the tip dropped 7.6 to 7.7 mm at full `jawOpen` on eight of the men, under the 8 mm babylon-cinema asks
+# (`test/npcs/cast-tongue-follows-jaw.spec.ts`, 2026-11-12).
+TIP_SHARE = 0.95
 ROOT_SHARE = 0.25
 LOWER_TEETH = 0.5
 MIN_CARRY_M = 1e-4
