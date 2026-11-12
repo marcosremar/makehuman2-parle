@@ -133,6 +133,66 @@ LID_ROUND_FRONT = (0.731, 0.799)
 # back with no strip of lid asked for between it and the middle of the eye.
 EYE_SIDE_FRONT = 0.766
 EYE_SIDE_REACH_M = 0.004
+# The upper lid has a fold above it (`lids_with_a_fold`). Cut through the middle of an eye (2026-11-12), the upper lid of Rafa
+# ends in a lip 5.5 mm in front of the globe and the skin above it goes in again, 2.4 mm behind the lip 4.5 mm up; Sofia's lip
+# stands 5.4 to 6.5 mm off, the skin 4.3 mm behind it 7.6 mm up. Lúcia's lip stood 2 to 3 mm off the globe and the skin went from
+# it to the brow in one flat wall, the brow 1.5 mm in front of the lip: "lidless symmetric cut-outs with thin sharp rims" (the
+# judge by sight, round 16).
+# The rim of the opening is the skin that shows next to skin that does not: skin in the shadow of the ball, seen from the front,
+# that turns its outer side to the ball (less than LID_FACING away from its middle) or stands deeper inside it than
+# LID_UNDER_BALL_M. The skin of the temple that stands inside the rounded ball is shallower and turns away from it: it is not the
+# socket. Rim counts no further off the ball than the reach, no further round the ball from the front than the cosine (47
+# degrees), and within so many radii of the middle of the ball, where the skin is looked at.
+LID_NEAR_BALLS = 1.7
+LID_RIM_REACH_M = 0.004
+LID_RIM_FRONT = 0.68
+# The rim stays where the kit has it. In the middle of the upper lid, the skin as far from the rim as the first distance stands
+# at least LID_LIP_M off the ball (nearer the rim, by less: nothing at the rim itself); the lid keeps the share of that height as
+# far as the second; and the fold is deepest at the third, the skin going in by LID_FOLD_M there and by less either side, over
+# the two reaches (towards the lip, and towards the brow). Towards the corners of the opening, over these shares of its width
+# from each (the outer one is the one further from the middle of the face), the height and the fold go down to nothing and the
+# distances to this share of themselves: the fold runs into the corners. Skin further from the rim than the last is not looked at.
+# The rim raised into a lip with a wall behind it, as the lids of Rafa and of Sofia are made (the edge of the lid runs into the
+# globe), was tried at 4.2, 3.4, 3 and 2.6 mm and left: the skin of a kit has one row of points for the rim and the lip, a few
+# to an eye and no two kits alike, and what does not show behind the rim came out in torn flaps or left the edge in teeth, on
+# three of the five faces looked at (2026-11-12). It asks for a lid drawn with rows of its own.
+LID_LIP_M = 0.0026
+LID_LIP_AT_M = 0.0016
+LID_PLATE_M = 0.0034
+LID_PLATE_SHARE = 0.85
+LID_FOLD_M = 0.0035
+LID_FOLD_AT_M = 0.0052
+LID_FOLD_REACH_M = (0.002, 0.0036)
+LID_CORNER = {"outer": 0.4, "inner": 0.25}
+LID_SHORT = 0.6
+LID_WAY_MOST_M = 0.012
+# The shapes that shut the lids: a point one of them moves this far or more is where the kit shuts it, whatever moved the rest
+# shape (`lids_with_a_fold` here, `parle_face.blink_still_closes` for the traits of the look).
+BLINKS = ("eyeBlinkLeft", "eyeBlinkRight")
+BLINK_WHOLE_M = 0.001
+# With a lid shut nothing of the globe shows (`blinks_shut`). The blink of a kit stops the upper lid a millimetre above the lower
+# one: on the head of the kit the lashes cover the slit, and the cast has none (owner: "sem cílios"), so every blink showed a dark
+# slit with a thread of white in it. Measured by rays from the front with the lid shut (2026-11-12), the globe showed in a strip
+# 17 to 22 mm wide and 1 to 2.4 mm tall, on the head of the kit and on the finished body alike; only Dona Marta's lids, less open
+# than the kit's at rest, already met.
+# A blink that moves no point as far as the first of these is not looked at. Shut, the skin of the upper lid that stands in the
+# ball by no more than LID_UNDER_BALL_M comes out to LID_OFF_BALL_M off it (deeper is the inside of the lid). Then the face is
+# looked at from the front in a grid of this step, as far from the middle of the ball as these shares of its radius across and
+# up: in each column where the globe shows before any skin, the upper lid comes down by the height that shows (the tallest within
+# the reach either side) and this much over, a point by the share of the way it travels in the blink (whole from this share of
+# the longest way), over these rounds. Never by more, in all, than this many times what its column asked at first, nor than the
+# most, times that share: a column where coming down does not hide the globe is not chased (on a sheet of skin that shut across
+# the whole ball, the side of it went 4 mm down and into the ball after a slit that was past its edge).
+BLINK_SHUT_LEAST_M = 0.002
+BLINK_SHUT_STEP_M = 0.0004
+BLINK_SHUT_ACROSS = 0.8
+BLINK_SHUT_UP = 0.6
+BLINK_SHUT_REACH_M = 0.0015
+BLINK_SHUT_OVER_M = 0.0004
+BLINK_SHUT_WHOLE = 0.6
+BLINK_SHUT_ROUNDS = 4
+BLINK_SHUT_PAST = 1.5
+BLINK_SHUT_MOST_M = 0.004
 FAIR_SOFT_FROM = 0.15
 # The lips are the points their own traits move by this share or more. They take part with a small weight: point against point
 # their sculpted form came out rough, a row of ridges along the upper lip (2026-11-12, in clay), and a small weight takes out what
@@ -819,6 +879,173 @@ def lids_over_globes(body, balls):
     return int((went > 1e-7).sum()), float(went.max())
 
 
+def lid_ways(world, normals, group, edges, centre, radius):
+    """Round one ball: how far each point of skin that shows is from the rim of the opening of the lids (np.inf where it does not
+    show, or is further than LID_WAY_MOST_M), and which points are that rim. `group` numbers the places: points at the same place
+    are one. The way is the straight one to the line of the rim, drawn from one point of it to the next: the skin of a kit has
+    few points there, the rim of Lúcia's upper lid ran 12 mm from one to the next over the middle of the eye, and counted along
+    the edges the lip that stands 1 mm from that line was 5.5 mm from the rim."""
+    away = world - centre
+    far = np.maximum(np.linalg.norm(away, axis=1), 1e-12)
+    near = far < radius * LID_NEAR_BALLS
+    aside = away[:, 0] ** 2 + away[:, 2] ** 2
+    shadowed = near & (aside < radius * radius) & (away[:, 1] > -np.sqrt(np.maximum(radius * radius - aside, 0.0)))
+    places = int(group.max()) + 1
+    facing = np.bincount(group, weights=(normals * away).sum(axis=1) / far, minlength=places) / np.maximum(np.bincount(group, minlength=places), 1)
+    hidden = np.zeros(places, bool)
+    hidden[group[shadowed]] = True
+    deep = np.zeros(places, bool)
+    deep[group[far < radius - LID_UNDER_BALL_M]] = True
+    hidden &= (facing < LID_FACING) | deep
+    ends = edges[near[edges[:, 0]] & near[edges[:, 1]]]
+    ends = np.r_[ends, ends[:, ::-1]]
+    first, second = group[ends[:, 0]], group[ends[:, 1]]
+    spot = np.zeros((places, 3))
+    spot[group] = world
+    off = np.maximum(np.linalg.norm(spot - centre, axis=1), 1e-12)
+    rim = np.zeros(places, bool)
+    rim[first[~hidden[first] & hidden[second]]] = True
+    rim &= (off < radius + LID_RIM_REACH_M) & (-(spot - centre)[:, 1] / off > LID_RIM_FRONT)
+    line = rim[first] & rim[second]
+    way = np.full(len(world), np.inf)
+    if not line.any():
+        return way, rim[group]
+    start, along = spot[first[line]], spot[second[line]] - spot[first[line]]
+    long = np.maximum((along * along).sum(axis=1), 1e-18)
+    for index in np.flatnonzero(near & ~hidden[group]):
+        share = np.clip(((world[index] - start) * along).sum(axis=1) / long, 0.0, 1.0)
+        way[index] = np.sqrt((((start + along * share[:, None]) - world[index]) ** 2).sum(axis=1).min())
+    way[way > LID_WAY_MOST_M] = np.inf
+    way[rim[group]] = 0.0
+    return way, rim[group]
+
+
+def lids_with_a_fold(body, balls, lip=LID_LIP_M, fold=LID_FOLD_M):
+    """The upper lids get a fold above them and stand a little further off the globe below it, `balls` being the middle and the
+    radius of each globe (`eye_balls`): how many points of skin moved, and how far the one that moved most. The rim of the
+    opening stays. Each point moves along the line from the middle of its ball. Every shape key takes the move but the ones that
+    shut the lids (BLINKS), where a point they move keeps the place the kit shuts it at: the lids still meet."""
+    blocks = body.data.shape_keys.key_blocks if body.data.shape_keys else None
+    rest = read(blocks[0]) if blocks else read(body.data.vertices)
+    world = to_world(body, rest)
+    turn = np.array(body.matrix_world)[:3, :3]
+    normals = np.array([vertex.normal[:] for vertex in body.data.vertices]) @ turn.T
+    normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    _, group = np.unique(np.round(world / FAIR_SAME_M).astype(np.int64), axis=0, return_inverse=True)
+    group = group.ravel()
+    edges = np.zeros(len(body.data.edges) * 2, dtype=np.int64)
+    body.data.edges.foreach_get("vertices", edges)
+    edges = edges.reshape(-1, 2)
+    move = np.zeros_like(world)
+    for centre, radius in balls:
+        centre = np.asarray(centre, float)
+        way, rim = lid_ways(world, normals, group, edges, centre, radius)
+        if rim.sum() < 8:
+            continue
+        away = world - centre
+        far = np.maximum(np.linalg.norm(away, axis=1), 1e-12)
+        across = world[rim, 0]
+        low, high = float(across.min()), float(across.max())
+        along = np.clip((world[:, 0] - low) / max(high - low, 1e-9), 0.0, 1.0)
+        outer = along if centre[0] < 0 else 1 - along
+        middle = smooth(np.minimum(outer / LID_CORNER["outer"], (1 - outer) / LID_CORNER["inner"]))
+        lid = np.isfinite(way) & ~rim & (world[:, 2] > np.interp(world[:, 0], [low, high], [world[rim][across.argmin(), 2], world[rim][across.argmax(), 2]]))
+        reach = way / (LID_SHORT + (1 - LID_SHORT) * middle)
+        tall = np.interp(reach, [0, LID_LIP_AT_M, LID_PLATE_M, LID_FOLD_AT_M], [0, lip, lip * LID_PLATE_SHARE, 0])
+        target = np.where(lid, np.maximum(far, radius + tall * middle), far)
+        past = (reach - LID_FOLD_AT_M) / np.where(reach < LID_FOLD_AT_M, LID_FOLD_REACH_M[0], LID_FOLD_REACH_M[1])
+        pull = np.where(lid & (np.abs(past) < 1), 0.5 + 0.5 * np.cos(np.pi * np.clip(past, -1, 1)), 0.0) * fold * middle
+        target = np.maximum(target - pull, np.minimum(far, radius + LID_OFF_BALL_M))
+        move += away / far[:, None] * (target - far)[:, None]
+    went = np.linalg.norm(move, axis=1)
+    if not (went > 1e-7).any():
+        return 0, 0.0
+    local = move @ np.linalg.inv(turn).T
+    for block in blocks or ():
+        points = read(block)
+        kept = 1 - smooth(np.linalg.norm(points - rest, axis=1) / BLINK_WHOLE_M)[:, None] if block.name in BLINKS else 1.0
+        block.data.foreach_set("co", (points + local * kept).ravel())
+    body.data.vertices.foreach_set("co", (read(body.data.vertices) + local).ravel())
+    body.data.update()
+    return int((went > 1e-7).sum()), float(went.max())
+
+
+def blinks_shut(meshes):
+    """With each lid shut (BLINKS) the upper lid lies on the globe and comes down until nothing of the globe shows from the
+    front: for each blink, how tall the slit was and how tall what is left of it, in metres. Only the shape that shuts the lid
+    changes: the rest shape, the lower lid and every other shape stay. The face looks at -y."""
+    body = next((obj for obj in meshes if obj.name == "Body"), None)
+    eye = next((obj for obj in meshes if "low-poly" in obj.name), None)
+    blocks = body.data.shape_keys.key_blocks if body is not None and body.data.shape_keys else None
+    if eye is None or not blocks or not len(body.data.polygons) or not len(eye.data.polygons):
+        return {}
+    faces = [tuple(polygon.vertices) for polygon in body.data.polygons]
+    globe = BVHTree.FromPolygons([tuple(point) for point in rest_points(eye)], [tuple(polygon.vertices) for polygon in eye.data.polygons])
+    balls = eye_balls(eye)
+    rest = to_world(body, read(blocks[0]))
+    back = Vector((0, 1, 0))
+    found = {}
+    for name in BLINKS:
+        if name not in blocks:
+            continue
+        shut = to_world(body, read(blocks[name]))
+        way = np.linalg.norm(shut - rest, axis=1)
+        if way.max() < BLINK_SHUT_LEAST_M:
+            continue
+        centre, radius = min(balls, key=lambda ball: float(np.linalg.norm(rest[way > way.max() / 2].mean(axis=0) - ball[0])))
+        centre = np.asarray(centre, float)
+        share = np.clip(way / (way.max() * BLINK_SHUT_WHOLE), 0.0, 1.0) * ((shut - rest)[:, 2] < 0)
+
+        def on_the_ball(points):
+            """The skin of the shut lid out of the ball, where it stands in it by no more than the inside of a lid does."""
+            away = points - centre
+            far = np.maximum(np.linalg.norm(away, axis=1), 1e-12)
+            lift = (share > 0) & (far > radius - LID_UNDER_BALL_M) & (far < radius + LID_OFF_BALL_M) & (-away[:, 1] / far > LID_RIM_FRONT)
+            points[lift] = centre + away[lift] / far[lift, None] * (radius + LID_OFF_BALL_M)
+            return int(lift.sum())
+
+        lifted = on_the_ball(shut)
+        across = np.arange(-BLINK_SHUT_ACROSS * radius, BLINK_SHUT_ACROSS * radius, BLINK_SHUT_STEP_M)
+        up = np.arange(-BLINK_SHUT_UP * radius, BLINK_SHUT_UP * radius, BLINK_SHUT_STEP_M)
+        wide = int(round(BLINK_SHUT_REACH_M / BLINK_SHUT_STEP_M))
+        gone = np.zeros(len(shut))
+        first = last = 0.0
+        for turn in range(BLINK_SHUT_ROUNDS + 1):
+            skin = BVHTree.FromPolygons([tuple(point) for point in shut], faces)
+            tall = np.zeros(len(across))
+            for column, aside in enumerate(across):
+                for above in up:
+                    if aside * aside + above * above >= radius * radius:
+                        continue
+                    start = Vector((centre[0] + aside, centre[1] - radius - 0.05, centre[2] + above))
+                    on_globe = globe.ray_cast(start, back, 0.2)[3]
+                    if on_globe is None:
+                        continue
+                    on_skin = skin.ray_cast(start, back, 0.2)[3]
+                    if on_skin is None or on_skin > on_globe + 1e-5:
+                        tall[column] += BLINK_SHUT_STEP_M
+            last = float(tall.max())
+            first = last if turn == 0 else first
+            if last == 0 or turn == BLINK_SHUT_ROUNDS:
+                break
+            asked = np.array([tall[max(0, column - wide):column + wide + 1].max() for column in range(len(tall))])
+            asked = np.where(asked > 0, asked + BLINK_SHUT_OVER_M, 0.0)
+            drop = np.interp(shut[:, 0] - centre[0], across, asked, left=0.0, right=0.0) * share
+            if turn == 0:
+                most = np.minimum(drop * BLINK_SHUT_PAST, BLINK_SHUT_MOST_M * share)
+            drop = np.clip(np.minimum(drop, most - gone), 0.0, None)
+            if not (drop > 1e-7).any():
+                break
+            shut[:, 2] -= drop
+            gone += drop
+            on_the_ball(shut)
+        if lifted or gone.any():
+            blocks[name].data.foreach_set("co", to_local(body, shut).ravel())
+        found[name] = (first, last)
+    body.data.update()
+    return found
+
+
 def fair_face(body, rig, rounds=FAIR_ROUNDS, balls=()):
     """The skin of the face evened out, in the rest shape and so in every shape key: how many points moved, and how far the one that
     moved most went.
@@ -1007,9 +1234,10 @@ def natural_body(meshes, rig, height, sex, kit):
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
     the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body. And under a top the bust of a
     woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves. The legs of the bottoms end on a level line
-    (`level_hems`). Then the face: the lids lie over the eye globes (`lids_over_globes`), its skin is evened out (`fair_face`), the inside of the mouth stays behind it
-    (`lining_behind_skin`), the eyebrows lie on it (`brows_on_skin`), and the eye globes stay behind the skin where the lids do not
-    show them (`globes_behind_skin`)."""
+    (`level_hems`). Then the face: the lids lie over the eye globes (`lids_over_globes`), its skin is evened out (`fair_face`), the
+    upper lids get their fold (`lids_with_a_fold`, after the evening out, which would take it away), the inside of the mouth
+    stays behind the skin (`lining_behind_skin`), the eyebrows lie on it (`brows_on_skin`), the eye globes stay behind the skin
+    where the lids do not show them (`globes_behind_skin`), and a lid that shuts shuts on its globe (`blinks_shut`)."""
     natural_arms(meshes, rig, height, sex)
     built = natural_build(meshes, rig, height, kit)
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
@@ -1030,6 +1258,9 @@ def natural_body(meshes, rig, height, sex, kit):
     faired, far = fair_face(body, rig, balls=balls) if body is not None else (0, 0.0)
     if faired:
         print("ROSTO alisado:", faired, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
+    folded, far = lids_with_a_fold(body, balls) if balls else (0, 0.0)
+    if folded:
+        print("PÁLPEBRA de cima com dobra:", folded, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
     lined = lining_behind_skin(meshes)
     if lined:
         print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")
@@ -1039,6 +1270,8 @@ def natural_body(meshes, rig, height, sex, kit):
     tucked = globes_behind_skin(meshes)
     if tucked:
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
+    for name, (was, left) in blinks_shut(meshes).items():
+        print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
     return built
 
 

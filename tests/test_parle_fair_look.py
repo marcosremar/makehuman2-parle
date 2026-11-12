@@ -40,7 +40,16 @@ assert women["faceNoseWidth"] >= -0.4 and "noseShape-reto-estreito" not in women
 # Lower (-0.22), the judge by sight read "a small, flat, sleepy almond that the iris fills lid to lid" (2026-11-12, round 14): the
 # upper lid lay across the top of the pupil. Further, white shows over the iris, a stare. The men's stay with the calm look.
 assert parle_face.CALM_LOOK["faceEyeOpen"] < -0.3 and -0.05 <= women["faceEyeOpen"] <= 0.1, f"the women's lids: {women['faceEyeOpen']}"
-assert 0.5 <= women["eyeWideLeft"] == women["eyeWideRight"] <= 1.5 and not any(name.startswith("eye") for name in men), f"the upper lids: {women}, {men}"
+assert 0.3 <= women["eyeWideLeft"] == women["eyeWideRight"] <= 0.7 and not any(name.startswith("eye") for name in men), f"the upper lids: {women}, {men}"
+# The owner found the eyes of two of the five "gigante" and "estranhos" (2026-11-12): the two whose own traits, read off the game's
+# face, made their eyes bigger and more open than the kit's, on top of what the look gives every woman. A woman's own trait that
+# grows or opens her eyes is taken back by the look; one that makes them smaller stays hers, and the men's are left alone.
+big = parle_face.fair_look("female", {"faceEyeSize": 0.196, "faceEyeOpen": 0.142, "faceJaw": 0.3})
+assert abs(big["faceEyeSize"] + 0.196) < 1e-9 and abs(big["faceEyeOpen"] - (women["faceEyeOpen"] - 0.142)) < 1e-9 and big["faceJaw"] == women["faceJaw"], f"the look of a woman with big eyes of her own: {big}"
+small = parle_face.fair_look("female", {"faceEyeSize": -0.05, "faceEyeOpen": -0.07})
+assert small == women and parle_face.fair_look("female", {}) == women, f"the look of a woman with small eyes of her own: {small}"
+assert parle_face.fair_look("male", {"faceEyeSize": 0.2, "faceEyeOpen": 0.2}) == men, "the men's look takes their own eyes back too"
+assert parle_face.own_traits({}) == {} and parle_face.own_traits({"new": "/no/such/head.glb"}) == {}, "a job with no traits beside its head"
 
 # The eyebrows keep more of the kit's thickness on the women: at three quarters they read as a pencil line on a smooth face (2026-11-12).
 assert parle_face.BROW_THIN["male"] < parle_face.BROW_THIN["female"] <= 1, f"how thick the eyebrows are left: {parle_face.BROW_THIN}"

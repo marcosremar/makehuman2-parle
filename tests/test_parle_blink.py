@@ -56,4 +56,31 @@ assert np.allclose(parle_face.key_points(keys[0]), rest + lids, atol=1e-7) and n
 # A look that leaves the lids alone leaves the blinks alone.
 kept = {name: parle_face.key_points(keys[name]).copy() for name in parle_face.BLINKS}
 assert parle_face.blink_still_closes(keys, {"faceJaw": -0.7}) == 0 and all(np.allclose(parle_face.key_points(keys[name]), kept[name]) for name in kept), "a look without lid traits changed the blink"
+
+# A person's own traits are in the rest shape before the look: the game's repository moves them into every shape key. Lúcia's
+# own lids were 0.12 of the trait more open than the kit's; the look that takes that back (2026-11-12) left her rest shape as the
+# kit's, and her blink, given back the look alone, stopped as far short of closing as her own trait had opened the lids.
+bpy.data.objects.remove(body)
+mesh = bpy.data.meshes.new("Body")
+mesh.from_pydata([tuple(point) for point in POINTS], [], [])
+person = bpy.data.objects.new("Body", mesh)
+bpy.context.scene.collection.objects.link(person)
+person.shape_key_add(name="Basis")
+for name, moves in MOVES.items():
+    key = person.shape_key_add(name=name)
+    for index, move in moves.items():
+        key.data[index].co = [key.data[index].co[axis] + move[axis] for axis in range(3)]
+keys = mesh.shape_keys.key_blocks
+kit_shut, kit_rest = parle_face.key_points(keys["eyeBlinkLeft"]).copy(), parle_face.key_points(keys[0]).copy()
+own, look = {"faceEyeOpen": 0.3, "faceJaw": 0.2}, {"faceEyeOpen": -0.3, "eyeWideLeft": 0.5, "eyeWideRight": 0.5}
+opening = parle_face.key_points(keys["faceEyeOpen"]) - kit_rest
+wide = sum((parle_face.key_points(keys[name]) - kit_rest) * value for name, value in look.items() if name.startswith("eyeWide"))
+parle_face.move_rest(person, opening * own["faceEyeOpen"])
+parle_face.move_rest(person, opening * look["faceEyeOpen"] + wide)
+moved = parle_face.lid_traits_moved(look, own)
+assert abs(moved["faceEyeOpen"]) < 1e-9 and moved["eyeWideLeft"] == 0.5 and "faceJaw" not in moved, f"what is in the rest shape of the lids: {moved}"
+alone = parle_face.key_points(keys["eyeBlinkLeft"]) - (opening * look["faceEyeOpen"] + wide)
+assert alone[UPPER_LEFT][2] - kit_shut[UPPER_LEFT][2] > 0.0005, "the test does not start from a blink the look alone leaves short"
+parle_face.blink_still_closes(keys, moved)
+assert np.allclose(parle_face.key_points(keys["eyeBlinkLeft"])[UPPER_LEFT], kit_shut[UPPER_LEFT], atol=1e-7), f"with a trait of her own taken back, the lid shuts {1000 * (parle_face.key_points(keys['eyeBlinkLeft'])[UPPER_LEFT][2] - kit_shut[UPPER_LEFT][2]):+.2f} mm from where the kit shuts it"
 print("ok")

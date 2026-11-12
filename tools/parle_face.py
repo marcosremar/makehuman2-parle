@@ -7,6 +7,7 @@
 
       blender -b -P tools/parle_face.py -- <kit-body.glb> <out.json>   # writes the eye points the lids show
 """
+import json
 import os
 import sys
 from pathlib import Path
@@ -87,7 +88,9 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 #     smaller and lower on the ball (`eye_texture`). Tried on the finished body: with twice the lift, or with the opening trait
 #     further, white showed over the iris, a stare. The blink still closes (`blink_still_closes`). Round and open, the eye was
 #     still "a symmetric lemon-shaped hole" to the judge (round 15): its outer corner goes up a little (faceEyeTilt 0.3; at 0.6 the
-#     eye slants);
+#     eye slants). And to the owner, who is the one who decides, the eyes of two of the five were then "gigante" and "estranhos"
+#     (2026-11-12, rounds 15 and 16, the pharmacy's and the pet shop's attendants): the lift of the upper lid comes down to half
+#     (0.5), and a woman's own traits no longer open or grow her eyes past the kit's (`EYES_OWN`, `fair_look`);
 #   - eyebrows in a high arch, far from the eye: half the arch (`BROW_ARCH`), level over the eye as Sofia's, shorter and a little
 #     thinner than the kit's, and lifted clear of the lid (`BROW_LIFT_M`). Their slope stays the calm look's: with the inner end let
 #     down (`faceBrowAngle` 0.1 to 0.35, `browInnerUp` 0.2) they climbed to a far peak, a scowl, and thicker than the kit's they
@@ -101,10 +104,17 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 # judged in the player.
 FAIR_LOOK = {
     "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.5, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.7, "faceCheek": 0.4,
-               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": -0.35, "faceEyeOpen": 0.0, "eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceEyeTilt": 0.3,
+               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": -0.35, "faceEyeOpen": 0.0, "eyeWideLeft": 0.5, "eyeWideRight": 0.5, "faceEyeTilt": 0.3,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
     "male": {"mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
 }
+# The traits of a person's own that make her eyes bigger or more open than the kit's (`<head>.glb.face.json`, read off the game's
+# face of that person by the game's repository and already in the rest shape when the look is given). The game's faces have eyes
+# drawn large inside a black line; taken as they came, on top of what the look gives every woman (a globe 1.3 times its size, the
+# lids opened), they gave two of the five women 0.17 and 0.20 of the trait of size and 0.12 and 0.14 of the trait of opening where
+# the other two had next to none, and those were the two the owner found "com olho gigante" (2026-11-12). What a woman's own trait
+# gives past none is taken back; a trait that makes her eyes smaller or less open stays hers.
+EYES_OWN = ("faceEyeSize", "faceEyeOpen")
 # How thick an eyebrow is left, of the kit's own, about its middle line. At three quarters the women's read as a line drawn in
 # pencil once the skin of the face was smooth, next to Sofia's and Rafa's, which are thick; at 0.9 still "thin hard marker strokes"
 # to the judge by sight, past the kit's own (1.2) a frown, and at the kit's own, set low, "the darkest, hardest shape on the face"
@@ -130,8 +140,8 @@ BROW_LIFT_M = {"female": 0.003, "male": 0.003}
 # The traits of the look that open or close the lids at rest, and the shapes that shut them: a point a blink moves this far or
 # more gives back the whole of what those traits moved it (`blink_still_closes`).
 LID_TRAITS = ("faceEyeOpen", "eyeWideLeft", "eyeWideRight")
-BLINKS = ("eyeBlinkLeft", "eyeBlinkRight")
-BLINK_WHOLE_M = 0.001
+BLINKS = parle_polish.BLINKS
+BLINK_WHOLE_M = parle_polish.BLINK_WHOLE_M
 # With the jaw a quarter closed, the upper teeth sat wholly behind the upper lip: speaking, the mouth showed the lower teeth and the
 # tongue under a bare lip, and read as a snarl (owner, 2026-11-08). Measured on the pharmacy's attendant at the player's widest "a"
 # (`viseme_aa` 0.55): incisor tip 1 mm above the lip's edge. Teeth go 3.5 mm down and the tongue 3 mm more, behind the lower teeth.
@@ -300,6 +310,24 @@ def trim_forehead_hair(obj, body, mine, band_z=None):
     mesh.free()
     obj.data.update()
     print("TESTA", len(out), "pontos de cabelo")
+
+
+def own_traits(job):
+    """The traits of the person of a job, as the game's repository wrote them beside the head: none when it wrote none."""
+    file = Path(f"{job.get('new', '')}.face.json")
+    return json.loads(file.read_text()) if job.get("new") and file.exists() else {}
+
+
+def fair_look(sex, own):
+    """The look of that sex for a person with those traits of her own: FAIR_LOOK, and for a woman what her own traits give her
+    eyes past the kit's taken back (EYES_OWN)."""
+    look = dict(FAIR_LOOK[sex])
+    if sex == "female":
+        for name in EYES_OWN:
+            past = max(0.0, float(own.get(name, 0.0)))
+            if past:
+                look[name] = look.get(name, CALM_LOOK.get(name, 0.0)) - past
+    return look
 
 
 def tuck_eyes(body, added):
@@ -652,10 +680,19 @@ def mixed_speech(meshes, mix):
         obj.data.update()
 
 
+def lid_traits_moved(look, own):
+    """How much of each trait of the lids is in the rest shape on top of the kit's: what the look gives, and what the person's own
+    traits gave before it (the game's repository moves them into every shape key, the blink too). Lúcia's own lids are 0.12 of the
+    trait more open than the kit's: with the look alone given back her blink stopped that much short of closing, a dark slit
+    with a thread of white in it under each shut lid (2026-11-12, seen with the eyes shut)."""
+    return {name: float(look.get(name, 0.0)) + float(own.get(name, 0.0)) for name in LID_TRAITS}
+
+
 def blink_still_closes(keys, look):
-    """The look moved to the rest shape goes into every shape key, the blink too: with the lids opened at rest the blink stopped
+    """What is moved to the rest shape goes into every shape key, the blink too: with the lids opened at rest the blink stopped
     short of closing by as much, a slit of eye left showing. Where a blink moves a point, that point's blink gives back what the
-    traits of the lids (LID_TRAITS) moved it: the lids close where the kit closes them. How many points it took."""
+    traits of the lids (LID_TRAITS) moved it, `look` saying how much of each (`lid_traits_moved`): the lids close where the kit
+    closes them. How many points it took."""
     rest = key_points(keys[0])
     lids = sum(((key_points(keys[name]) - rest) * look[name] for name in LID_TRAITS if name in keys and look.get(name)), np.zeros_like(rest))
     taken = 0
@@ -684,7 +721,7 @@ def calm_speech(meshes, shares):
         obj.data.update()
 
 
-def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0, brow_lift=0.0, upper_lip=0.0):
+def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0, brow_lift=0.0, upper_lip=0.0, own=None):
     look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {}), **({"faceCupidBow": bow} if bow else {}), **({"faceVChin": longer} if longer else {}), **(fair or {})}
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
@@ -715,7 +752,7 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
         if move.any():
             move_rest(obj, move)
         if obj.name == "Body":
-            blink_still_closes(keys, look)
+            blink_still_closes(keys, lid_traits_moved(look, own or {}))
 
 
 def tongue_follows_jaw(meshes):
@@ -912,7 +949,8 @@ def clean_face(body, added, job, env):
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
     for obj in [item for item in added if item.type == "MESH" and "low-poly" in item.name]:
         parle_polish.round_globes(obj)
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], FAIR_LOOK[sex], BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex])
+    own = own_traits(job)
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], fair_look(sex, own), BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex], own)
     soften_pout(body, POUT_FORWARD[sex])
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
