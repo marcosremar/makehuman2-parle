@@ -21,9 +21,11 @@
     attractive than the face it came from (`parle_symmetry`).
 
     On the 52 faces the owner judged (2026-11-12) it reads 0.002 to 0.17 mm (0.07 the middle one), with the worst point of a face
-    up to 2.8 mm off: built by mirroring, all of them, the ones he faults no less than the ones he likes. The measure is a watch
-    on a body that comes out crooked from a step that should not have told left from right, not a mark of beauty. It found one:
-    on three of five people of the new cast one upper lid stands 2.2 to 2.8 mm from the other's mirror image.
+    0.35 mm off (the middle one; 2.7 the most): built by mirroring, all of them, the ones he faults no less than the ones he
+    likes. The measure is a watch on a body that comes out crooked from a step that should not have told left from right, not a
+    mark of beauty. It found one. On the 42 of the new cast it reads 0.04 to 0.25 mm, and on ten of the seventeen women the worst
+    point is on an eye, 2 to 4.5 mm off: the fold of one upper lid comes out crumpled and the other's smooth (seen close, in
+    clay; the judge by sight had named "a lump over one lid" since round 14). No man of the cast reads more than 1.8 mm.
 
     The face of a body is mirrored across the plane down its middle, the mirror image is laid back on the face (turned and moved as
     a whole until it fits best, so a head that is a little turned or off the middle does not read as uneven), and what is measured
@@ -31,7 +33,9 @@
     drawn face: from one portrait to the next they move by more than the two halves of these faces differ (`parle_symmetry`).
 
     The face is the skin of the head from the chin up, no further back than FACE_DEEP of the width of the head behind the tip of the
-    nose: the ears, the neck and the back of the head are not face, and the hair is another mesh.
+    nose, and only what shows from the front: the ears, the neck and the back of the head are not face, the hair is another mesh,
+    and the lining of the mouth, the inside of the sockets and the scalp under a cap are skin nobody sees. Measured with them, the
+    worst point of a face of the cast was as often as not on one of those (4.9 mm at the edge of the scalp, 4.8 mm inside a mouth).
 """
 import json
 import sys
@@ -46,6 +50,10 @@ from mathutils.bvhtree import BVHTree
 HEAD_SHARE = 0.16
 CHIN_DEEP = 0.15
 FACE_DEEP = 0.4
+# A point shows from the front when, looking at it from far in front of the face, nothing of the skin stands more than this before it.
+SHOWS_M = 0.0003
+# And the top of the face, the brow up, is left out by this share of its height: under hair or a cap the scalp is shaped by them.
+TOP_OFF = 0.12
 # The mirror image is laid back on the face this many times (each time every point goes to the skin nearest to it and the whole is
 # turned and moved to fit); it has settled when it moves less than the second, in metres.
 FIT_ROUNDS = 12
@@ -80,6 +88,15 @@ def fitted(moving, target):
     return (moving - centre) @ turn.T + aim
 
 
+def shown(points, skin):
+    """Which of those points of the skin show from the front: a ray from far in front of each, straight back, meets the skin at it."""
+    seen = np.zeros(len(points), bool)
+    for index, point in enumerate(points):
+        hit = skin.ray_cast(Vector((point[0], point[1] - 1.0, point[2])), Vector((0.0, 1.0, 0.0)), 2.0)[0]
+        seen[index] = hit is not None and hit.y >= point[1] - SHOWS_M
+    return seen
+
+
 def mirror_distance(obj):
     """How far the mirror image of the face of that skin stands from the face, in metres: for each point of the image once it is
     laid back on the face, its distance to the skin. Returns the distances, the height of each point as a share of the face (0 at
@@ -88,7 +105,8 @@ def mirror_distance(obj):
     face, _ = face_of(points)
     obj.data.calc_loop_triangles()
     skin = BVHTree.FromPolygons([tuple(point) for point in points], [tuple(triangle.vertices) for triangle in obj.data.loop_triangles])
-    own = points[face]
+    whole = points[face]
+    own = whole[shown(whole, skin) & (whole[:, 2] <= whole[:, 2].max() - TOP_OFF * (whole[:, 2].max() - whole[:, 2].min()))]
     image = own * np.array([-1.0, 1.0, 1.0]) + np.array([2 * own[:, 0].mean(), 0.0, 0.0])
     near = image
     for _ in range(FIT_ROUNDS):
