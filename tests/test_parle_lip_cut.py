@@ -16,38 +16,59 @@ import parle_lip_cut  # noqa: E402
 import parle_lips  # noqa: E402
 import parle_polish  # noqa: E402
 
-bpy.ops.wm.read_factory_settings(use_empty=True)
 # A face that looks at -y: a sheet with 4 mm between its points, the tip of a nose 32 mm above the mouth, and the mouth a slit
 # 40 mm wide where the lower lip has a row of points of its own.
 STEP = 0.004
 XS = np.round(np.arange(-0.04, 0.0401, STEP), 6)
 LOW_ZS, UP_ZS = np.round(np.arange(-0.04, 0.0001, STEP), 6), np.round(np.arange(0.0, 0.0601, STEP), 6)
 SLIT_HALF = 0.02
-points, number = [], {}
-for sheet, zs in (("low", LOW_ZS), ("up", UP_ZS)):
-    for z in zs:
-        for x in XS:
-            shared = z == 0 and abs(x) > SLIT_HALF + 1e-9
-            if sheet == "up" and shared:
-                number[(sheet, x, z)] = number[("low", x, z)]
-                continue
-            number[(sheet, x, z)] = len(points)
-            points.append((x, -0.02 if (x == 0 and abs(z - 0.032) < 1e-9) else 0.0, z))
-faces = [(number[(sheet, XS[i], zs[j])], number[(sheet, XS[i + 1], zs[j])], number[(sheet, XS[i + 1], zs[j + 1])], number[(sheet, XS[i], zs[j + 1])])
-         for sheet, zs in (("low", LOW_ZS), ("up", UP_ZS)) for j in range(len(zs) - 1) for i in range(len(XS) - 1)]
-mesh = bpy.data.meshes.new("Body")
-mesh.from_pydata(points, [], faces)
-body = bpy.data.objects.new("Body", mesh)
-bpy.context.scene.collection.objects.link(body)
-uv = mesh.uv_layers.new(name="UVMap")
-for loop in mesh.loops:
-    x, _, z = points[loop.vertex_index]
-    uv.data[loop.index].uv = (0.3 + (x + 0.04) / 0.08 * 0.6, 0.2 + (z + 0.04) / 0.1 * 0.6)
-body.shape_key_add(name="Basis")
-jaw = body.shape_key_add(name="jawOpen")
-before = np.array(points)
-for index in np.flatnonzero((before[:, 2] < 0) | (np.arange(len(points)) < len(LOW_ZS) * len(XS))):
-    jaw.data[index].co.z -= 0.003
+ALL_ZS = np.round(np.arange(-0.04, 0.0601, STEP), 6)
+
+
+def face(behind=None):
+    """The sheet of the face as a body with a jaw. `behind`, (how far behind it in metres, whether it looks backwards): another
+    sheet as wide and as tall behind the first, the lining of a mouth; its points come after the face's."""
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    points, number = [], {}
+    for sheet, zs in (("low", LOW_ZS), ("up", UP_ZS)):
+        for z in zs:
+            for x in XS:
+                shared = z == 0 and abs(x) > SLIT_HALF + 1e-9
+                if sheet == "up" and shared:
+                    number[(sheet, x, z)] = number[("low", x, z)]
+                    continue
+                number[(sheet, x, z)] = len(points)
+                points.append((x, -0.02 if (x == 0 and abs(z - 0.032) < 1e-9) else 0.0, z))
+    faces = [(number[(sheet, XS[i], zs[j])], number[(sheet, XS[i + 1], zs[j])], number[(sheet, XS[i + 1], zs[j + 1])], number[(sheet, XS[i], zs[j + 1])])
+             for sheet, zs in (("low", LOW_ZS), ("up", UP_ZS)) for j in range(len(zs) - 1) for i in range(len(XS) - 1)]
+    own = len(faces)
+    if behind is not None:
+        deep, backwards = behind
+        first = len(points)
+        points += [(x, deep, z) for z in ALL_ZS for x in XS]
+        at = lambda i, j: first + j * len(XS) + i
+        for j in range(len(ALL_ZS) - 1):
+            for i in range(len(XS) - 1):
+                corners = (at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1))
+                faces.append(corners[::-1] if backwards else corners)
+    mesh = bpy.data.meshes.new("Body")
+    mesh.from_pydata(points, [], faces)
+    body = bpy.data.objects.new("Body", mesh)
+    bpy.context.scene.collection.objects.link(body)
+    uv = mesh.uv_layers.new(name="UVMap")
+    for polygon in mesh.polygons:
+        for index in polygon.loop_indices:
+            x, _, z = points[mesh.loops[index].vertex_index]
+            uv.data[index].uv = (0.3 + (x + 0.04) / 0.08 * 0.6, 0.2 + (z + 0.04) / 0.1 * 0.6) if polygon.index < own else (0.95, 0.5)
+    body.shape_key_add(name="Basis")
+    jaw = body.shape_key_add(name="jawOpen")
+    before = np.array(points)
+    for index in np.flatnonzero((before[:, 2] < 0) | (np.arange(len(points)) < len(LOW_ZS) * len(XS))):
+        jaw.data[index].co.z -= 0.003
+    return body, mesh, points, before, own
+
+
+body, mesh, points, before, own = face()
 count = len(points)
 
 lips, added = parle_lip_cut.lips_with_an_edge(body, low=parle_lips.LIP_LOW_M)
@@ -88,4 +109,17 @@ lower = now[count:, 2] < -1e-4
 upper = (now[count:, 2] > 1e-4) & (np.abs(now[count:, 0]) < SLIT_HALF)
 assert lower.sum() > 5 and upper.sum() > 5, f"the test has {lower.sum()} points of the cut on the lower lip and {upper.sum()} on the upper"
 assert np.allclose(moved[count:][lower, 2], -0.003, atol=1e-6) and np.allclose(moved[count:][upper], 0, atol=1e-6), "the points of the cut did not go with the open jaw"
+
+# The lining of the mouth is not lip. Seen from the front it stands inside the border of the lips, behind them: a sheet that looks
+# backwards 3 mm behind the face, or one that looks forwards 20 mm behind it, is left as it is. No edge of it is cut and no face of
+# it goes to the patch, and the face in front is cut as it was.
+cut_faces = len(mesh.polygons)
+for behind, what in (((0.003, True), "a lining that looks backwards, close behind the lips"), ((0.02, False), "a sheet far behind the lips")):
+    lined, lined_mesh, lined_points, _, lined_own = face(behind)
+    lined_lips, lined_added = parle_lip_cut.lips_with_an_edge(lined, low=parle_lips.LIP_LOW_M)
+    assert (lined_lips, lined_added) == (lips, added), f"with {what} the cut found {lined_lips} faces of lip and added {lined_added} points; without it {lips} and {added}"
+    uv = lined_mesh.uv_layers.active
+    behind_faces = [polygon for polygon in lined_mesh.polygons if all(index >= count and index < len(lined_points) for index in polygon.vertices)]
+    assert len(behind_faces) == len(lined_mesh.polygons) - cut_faces == (len(XS) - 1) * (len(ALL_ZS) - 1), f"{what}: its faces were cut or joined to the face ({len(behind_faces)} whole)"
+    assert all(tuple(round(value, 6) for value in uv.data[index].uv) == (0.95, 0.5) for polygon in behind_faces for index in polygon.loop_indices), f"{what} was given the place of the lips on the map"
 print("ok")

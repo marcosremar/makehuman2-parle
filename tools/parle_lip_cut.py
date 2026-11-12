@@ -31,12 +31,21 @@ LIP_CUT_END = 0.02
 # apart they make slivers of faces, and each of the two has the moves of its own lip: the game reads two points in the same place
 # as copies of one along a seam of the map (babylon-cinema `test/npcs/cast-mouth-arkit.spec.ts`).
 LIP_CUT_SAME_M = 0.00005
+# The skin goes on behind the lips as the lining of the mouth, and seen from the front the lining stands inside the border of the
+# lips too. A face is lining, not lip, when it looks backwards by more than the first of these (the share of its normal that points
+# into the head) or stands further behind the line where the lips meet than the second, in metres: it keeps its place on the map,
+# where the inside of the mouth is painted dark, and its edges are not cut. The first cut took them all: on the pharmacy's
+# attendant 254 of the 750 faces on the patch looked backwards, up to 25 mm behind the lips, and the inside of her mouth read 70 of
+# lightness where the game's published body has 24 (babylon-cinema `test/npcs/cast-mouth-dark.spec.ts`, "boca por dentro escura",
+# 2026-11-12).
+LIP_CUT_BACK = 0.2
+LIP_CUT_DEEP_M = 0.004
 
 
 def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
     """Cuts the skin along the border of the lips and maps the faces of the lips to their patch: how many faces are lip, and how
     many points the cut added. Shape keys, bone weights and the rest of the map go with the faces; the points of the kit keep
-    their numbers."""
+    their numbers. The lining of the mouth behind the lips is left as it is (LIP_CUT_BACK). The face looks at -y."""
     mesh = body.data
     blocks = mesh.shape_keys.key_blocks if mesh.shape_keys else None
     world = to_world(body, read(blocks[0]) if blocks else read(mesh.vertices))
@@ -48,12 +57,22 @@ def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
     bm = bmesh.new()
     bm.from_mesh(mesh)
     bm.verts.ensure_lookup_table()
+    bm.normal_update()
+    turn, place_of = body.matrix_world.to_3x3(), body.matrix_world
+
+    def outward(face):
+        """Whether a face is skin of the outside of the lips: not looking backwards, and no deeper than the lips' meeting line there."""
+        middle = place_of @ face.calc_center_median()
+        meet = float(np.interp(middle.x, line["centres"], line["medians"][:, 1]))
+        return (turn @ face.normal).y <= LIP_CUT_BACK and middle.y - meet <= LIP_CUT_DEEP_M
+
     crossed = []
     for edge in bm.edges:
         first, second = (inside[vert.index] for vert in edge.verts)
         if min(first, second) < -LIP_CUT_NEAR_M or abs(first) <= LIP_CUT_ON_M or abs(second) <= LIP_CUT_ON_M or (first > 0) == (second > 0):
             continue
-        crossed.append(edge)
+        if any(outward(face) for face in edge.link_faces):
+            crossed.append(edge)
     count = len(bm.verts)
     if crossed:
         start = world[[edge.verts[0].index for edge in crossed]]
@@ -72,6 +91,7 @@ def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
         bmesh.ops.triangulate(bm, faces=[face for face in bm.faces if len(face.verts) > 4])
     bm.verts.index_update()
     bm.verts.ensure_lookup_table()
+    bm.normal_update()
     inside, across, up = parle_lips.lip_place(line, to_world(body, np.array([vert.co[:] for vert in bm.verts])), low)
     # The points the cut made are the border, whatever their place reads back as.
     inside[count:] = 0.0
@@ -79,7 +99,7 @@ def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
     layer = bm.loops.layers.uv.active
     lips = 0
     for face in bm.faces:
-        if layer is None or any(inside[vert.index] < -LIP_CUT_ON_M for vert in face.verts) or not any(inside[vert.index] > LIP_CUT_ON_M for vert in face.verts):
+        if layer is None or not outward(face) or any(inside[vert.index] < -LIP_CUT_ON_M for vert in face.verts) or not any(inside[vert.index] > LIP_CUT_ON_M for vert in face.verts):
             continue
         for loop in face.loops:
             loop[layer].uv = Vector(place[loop.vert.index])
