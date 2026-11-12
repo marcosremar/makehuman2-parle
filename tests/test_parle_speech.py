@@ -92,11 +92,32 @@ for obj, own in ((face, OWN), (teeth, jaw_only)):
         want = sum((np.array(own[part]) * share for part, share in mix[name].items() if part in own), np.zeros(3)) if name in mix else np.array(move)
         assert np.allclose(parle_face.key_points(keys[name])[0], want, atol=1e-7), f"{name} of {obj.name} is {parle_face.key_points(keys[name])[0]}, not {want}"
 # What the mix says: the "o" takes more of the pucker than of its own opening, the "u" and the "ch" more pucker than they had, the
-# "u" closing the jaw so the lips meet, and the "a" lifts the corners of the mouth, the same on both sides, and far from a smile.
+# "u" closing the jaw so the lips meet, the "ch" smaller than it was (the whole of it with the pucker was "an oversized ring, a
+# gasp" to the judge by sight), and the "a" keeps the whole of itself with some pucker and no smile (lifted corners read as "a
+# grimace"). The open jaw is not made again: it is how the lower lip is told from the upper one.
 assert mix["viseme_O"]["viseme_U"] > 2 * mix["viseme_O"]["viseme_O"] > 0.5, f"the \"o\": {mix['viseme_O']}"
-assert 1 < mix["viseme_U"]["viseme_U"] <= 1.3 and mix["viseme_U"]["jawOpen"] < 0 and mix["viseme_CH"]["viseme_CH"] == 1 and mix["viseme_CH"]["viseme_U"] >= 0.5, f"the pucker: {mix['viseme_U']}, {mix['viseme_CH']}"
-assert mix["viseme_aa"]["viseme_aa"] == 1 and 0 < mix["viseme_aa"]["mouthSmileLeft"] == mix["viseme_aa"]["mouthSmileRight"] <= 0.5, f"the \"a\": {mix['viseme_aa']}"
+assert 1 < mix["viseme_U"]["viseme_U"] <= 1.3 and mix["viseme_U"]["jawOpen"] < 0 and 0.5 <= mix["viseme_CH"]["viseme_CH"] < 1 and mix["viseme_CH"]["viseme_U"] >= 0.5, f"the pucker: {mix['viseme_U']}, {mix['viseme_CH']}"
+assert mix["viseme_aa"]["viseme_aa"] == 1 and 0 < mix["viseme_aa"]["viseme_U"] <= 0.5 and not any(name.startswith("mouthSmile") for name in mix["viseme_aa"]), f"the \"a\": {mix['viseme_aa']}"
+assert "jawOpen" not in mix, "the open jaw is made again from other shapes"
 # At the player's peak of an "o" (0.51 of the shape, the jaw added by the player), the mouth is narrower than it is tall is not
 # asked here: only that the pucker in it is past half of the kit's whole "u", where it was a third.
 assert 0.51 * mix["viseme_O"]["viseme_U"] > 0.5, "the pucker in the player's \"o\""
+
+# The upper lip of the women takes the kit's own lip volume, the lower lip none of it (2026-11-12): next to Sofia's it was "thin and
+# flat". One point on each lip; the jaw carries the lower one.
+bpy.ops.wm.read_factory_settings(use_empty=True)
+mesh = bpy.data.meshes.new("Body")
+mesh.from_pydata([(0, 0, 0.004), (0, 0, -0.004), (0.05, 0, 0.05)], [], [])
+lipped = bpy.data.objects.new("Body", mesh)
+bpy.context.scene.collection.objects.link(lipped)
+lipped.shape_key_add(name="Basis")
+for key_name, own in (("faceLipVolume", {0: (0, -0.002, 0), 1: (0, -0.003, 0)}), ("jawOpen", {1: (0, 0, -0.03)})):
+    key = lipped.shape_key_add(name=key_name)
+    for index, move in own.items():
+        key.data[index].co = [a + b for a, b in zip(key.data[index].co, move)]
+keys = mesh.shape_keys.key_blocks
+grown = parle_face.upper_lip_volume(keys, parle_face.key_points(keys[0]), parle_face.UPPER_LIP_VOLUME["female"])
+assert np.allclose(grown[0], np.array((0, -0.002, 0)) * parle_face.UPPER_LIP_VOLUME["female"], atol=1e-9), f"the upper lip grew {grown[0]}"
+assert np.allclose(grown[1:], 0, atol=1e-9), f"the lower lip or the skin away from the lips grew: {grown[1:]}"
+assert 1 <= parle_face.UPPER_LIP_VOLUME["female"] <= 2.5 and parle_face.UPPER_LIP_VOLUME["male"] == 0, f"how much the upper lip takes: {parle_face.UPPER_LIP_VOLUME}"
 print("ok")

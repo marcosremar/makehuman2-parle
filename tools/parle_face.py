@@ -85,7 +85,9 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 #     hers. So the lids open as the kit has them (0.0) and the upper one is lifted by the kit's own wide-eyed shape (1.0, a third
 #     of the expression it is cut from), which raises its arch and leaves the lower lid where it is; the iris is drawn a little
 #     smaller and lower on the ball (`eye_texture`). Tried on the finished body: with twice the lift, or with the opening trait
-#     further, white showed over the iris, a stare. The blink still closes (`blink_still_closes`);
+#     further, white showed over the iris, a stare. The blink still closes (`blink_still_closes`). Round and open, the eye was
+#     still "a symmetric lemon-shaped hole" to the judge (round 15): its outer corner goes up a little (faceEyeTilt 0.3; at 0.6 the
+#     eye slants);
 #   - eyebrows in a high arch, far from the eye: half the arch (`BROW_ARCH`), level over the eye as Sofia's, shorter and a little
 #     thinner than the kit's, and lifted clear of the lid (`BROW_LIFT_M`). Their slope stays the calm look's: with the inner end let
 #     down (`faceBrowAngle` 0.1 to 0.35, `browInnerUp` 0.2) they climbed to a far peak, a scowl, and thicker than the kit's they
@@ -99,7 +101,7 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 # judged in the player.
 FAIR_LOOK = {
     "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.5, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.7, "faceCheek": 0.4,
-               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": -0.35, "faceEyeOpen": 0.0, "eyeWideLeft": 1.0, "eyeWideRight": 1.0,
+               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": -0.35, "faceEyeOpen": 0.0, "eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceEyeTilt": 0.3,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
     "male": {"mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
 }
@@ -137,6 +139,16 @@ BLINK_WHOLE_M = 0.001
 # big). The kit's own `faceLipVolume`, on the lip that follows the jaw and fading 4 mm around it: -1 on women, -0.5 on men; -2 creased.
 # Next to four reference heads (owner, 2026-11-09) thinning was the wrong way: their lips are two full forms and hers a thin band. The shape comes from `full_lips`.
 LIP_THIN = {"female": 0.0, "male": -0.5}
+# The upper lip of the women, the lip the jaw does not carry: the kit's own `faceLipVolume` on it. Next to Sofia's, whose upper lip
+# is a form of its own with an edge, theirs was "thin and flat under a smear of colour that overshoots the form" to the judge by
+# sight (2026-11-12, rounds 13 to 15, the first fault of the face at rest in the last), and seen from the side the lower lip stood
+# 2% of the face ahead of it where Sofia's upper lip leads (`parle_profile`). Tried on the finished body: at 1 it hardly shows, at 3
+# the lip is a muzzle. The colour of the lip stays as it was (`parle_lips`): cut to where the trait stops moving the skin, 5.5 mm,
+# it left a thread of colour over a bare swelling, since the colour is measured from the slit of the mesh, which lies some 3 mm
+# inside the line where the lips are seen to meet. A point is of the lower lip when the open jaw carries it this share of how far
+# it carries the lip it carries most.
+UPPER_LIP_VOLUME = {"female": 2.0, "male": 0.0}
+UPPER_LIP_JAW_SHARE = 0.3
 # The lower lip read as two, a crumpled ridge over the hollow under it: three lips with the upper one (owner, 2026-11-09, pharmacy). Thinner
 # only creased it and filling the hollow made a band of its own. The outer skin of its lower half and of the hollow relaxes into one form.
 UNDER_LIP_ROUNDS = {"female": 0, "male": 0}
@@ -173,8 +185,10 @@ CORNER_LIP_CLEAR_M = 0.0015
 CORNER_LIP_FREE_M = (0.004, 0.01)
 CORNER_RELAX_ROUNDS = 12
 # 0.8 drew a heavy "M" whose middle hung over the lower lip, and at 0.5 the line where the lips meet still dipped in a V (the judge
-# by sight, 2026-11-12): a shallow bow.
-LIPS_CUPID = {"female": 0.25, "male": 0.0}
+# by sight, 2026-11-12): a shallow bow. And at 0.25, with the upper lip given volume (`UPPER_LIP_VOLUME`), what it left was the
+# groove over the lip standing between two ridges, "a lumpy philtrum" (the same judge, round 15), and no bow that could be read:
+# none of it. The bow of the lip is in its colour (`parle_lips`).
+LIPS_CUPID = {"female": 0.0, "male": 0.0}
 # In the wide-open vowels the lining of the mouth came out through the cheek in two cuts (owner, 2026-11-09).
 MOUTH_LINING_REACH_M = 0.08
 GUM_TOOTH_MOST_POINTS = 60
@@ -222,16 +236,20 @@ SPEECH_OPEN = {
 #   - "o": the pucker of the "u" with under a third of its own opening, and some of the jaw given back (the player adds the jaw
 #     itself): a small round mouth, hardly open;
 #   - "u": a little more of itself with the jaw closing, so the lips meet in a pucker;
-#   - "ch": itself with two thirds of the pucker of the "u";
-#   - "a": itself with the corners of the mouth a little up, as Sofia's, which sets it apart from the open jaw.
+#   - "ch": two thirds of itself with most of the pucker of the "u" and a little of the jaw given back: a small pout;
+#   - "a": itself with some of the pucker of the "u", which draws the corners in: an oval, where it was a letterbox.
 # A first try went further (the "o" with 1.18 of the "u" and half of itself, the "u" at 1.3, the "ch" with the whole "u", the "a"
 # with 0.45 of the smile): looked at on the whole face, the "o" and the "ch" were a tall oval with both rows of teeth and the chin
-# creased under it, the lower lip of the "u" hung like a tongue, and the "a" was a grin.
+# creased under it, the lower lip of the "u" hung like a tongue, and the "a" was a grin. In round 15 the "o" and the "u" "finally
+# read as rounded" to the judge by sight; the "ch", then the whole of itself with two thirds of the "u", was "an oversized ring, a
+# gasp", and the "a" with the corners of the mouth lifted (0.22 of the smile) "a grimace": the two as they are above.
+# The open jaw itself is left alone: with the pucker in it, the lips of both jaws would move with it, and the jaw is how the lower
+# lip is told from the upper one (`parle_polish.fair_face`).
 SPEECH_MIX = {
     "viseme_O": {"viseme_O": 0.29, "viseme_U": 1.0, "jawOpen": -0.29},
     "viseme_U": {"viseme_U": 1.11, "jawOpen": -0.23},
-    "viseme_CH": {"viseme_CH": 1.0, "viseme_U": 0.67},
-    "viseme_aa": {"viseme_aa": 1.0, "mouthSmileLeft": 0.22, "mouthSmileRight": 0.22},
+    "viseme_CH": {"viseme_CH": 0.67, "viseme_U": 0.82, "jawOpen": -0.18},
+    "viseme_aa": {"viseme_aa": 1.0, "viseme_U": 0.4},
 }
 # Seen as the player frames her (front, eye level), the women's mouth still read as a pout: it was short and the lips round. The
 # kit's own faceMouthWidth +0.8 lengthens it; thinning the lips further opened a gap between them (owner, 2026-11-08, pharmacy).
@@ -349,6 +367,17 @@ def brow_line_move(points, thin, outer=1.0, long=1.0, arch=1.0, lift=0.0):
         move[side, 2] = level + (line - level) * arch + (points[side, 2] - line) * thin * (1 - (1 - outer) * along) - points[side, 2] + lift
         move[side, 0] = np.sign(points[side, 0] - middle) * (away - away.min()) * (long - 1)
     return move
+
+
+def upper_lip_volume(keys, rest, amount):
+    """The move of the kit's lip volume, that many times over, on the lip the jaw does not carry."""
+    if "faceLipVolume" not in keys or "jawOpen" not in keys:
+        return np.zeros_like(rest)
+    volume = key_points(keys["faceLipVolume"]) - rest
+    lips = np.linalg.norm(volume, axis=1) > 1e-6
+    carried = np.linalg.norm(key_points(keys["jawOpen"]) - rest, axis=1)
+    lower = parle_polish.smooth(carried / max(carried[lips].max() if lips.any() else 0.0, 1e-9) / UPPER_LIP_JAW_SHARE)
+    return volume * amount * (1 - lower)[:, None]
 
 
 def lip_thinning(keys, rest, amount):
@@ -655,7 +684,7 @@ def calm_speech(meshes, shares):
         obj.data.update()
 
 
-def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0, brow_lift=0.0):
+def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0, brow_lift=0.0, upper_lip=0.0):
     look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {}), **({"faceCupidBow": bow} if bow else {}), **({"faceVChin": longer} if longer else {}), **(fair or {})}
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
@@ -665,6 +694,8 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
         move = sum(((key_points(keys[name]) - rest) * value for name, value in look.items() if name in keys), np.zeros_like(rest))
         if obj.name == "Body" and lip_thin:
             move = move + lip_thinning(keys, rest, lip_thin)
+        if obj.name == "Body" and upper_lip:
+            move = move + upper_lip_volume(keys, rest, upper_lip)
         if obj.name == "Body" and chin:
             move = move + chin_back(rest, carried_lip(keys, rest), chin)
         if obj.name == "Body" and lips:
@@ -881,7 +912,7 @@ def clean_face(body, added, job, env):
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
     for obj in [item for item in added if item.type == "MESH" and "low-poly" in item.name]:
         parle_polish.round_globes(obj)
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], FAIR_LOOK[sex], BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex])
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], FAIR_LOOK[sex], BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex])
     soften_pout(body, POUT_FORWARD[sex])
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
