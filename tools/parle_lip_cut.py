@@ -33,13 +33,17 @@ LIP_CUT_END = 0.02
 LIP_CUT_SAME_M = 0.00005
 # The skin goes on behind the lips as the lining of the mouth, and seen from the front the lining stands inside the border of the
 # lips too. A face is lining, not lip, when it looks backwards by more than the first of these (the share of its normal that points
-# into the head) or stands further behind the line where the lips meet than the second, in metres: it keeps its place on the map,
-# where the inside of the mouth is painted dark, and its edges are not cut. The first cut took them all: on the pharmacy's
-# attendant 254 of the 750 faces on the patch looked backwards, up to 25 mm behind the lips, and the inside of her mouth read 70 of
-# lightness where the game's published body has 24 (babylon-cinema `test/npcs/cast-mouth-dark.spec.ts`, "boca por dentro escura",
-# 2026-11-12).
+# into the head) or stands further behind the front of the lips than the second, in metres: it keeps its place on the map, where
+# the inside of the mouth is painted dark, and its edges are not cut. The front of the lips is read across the mouth, in strips as
+# wide as the third: the point of the lips nearest the front in each. Not the line where the lips meet: on a body of the cast the
+# open edge of the skin "between the lips" is the far end of the lining, some 25 mm inside. The first cut took every face: on the
+# pharmacy's attendant 254 of the 750 faces on the patch looked backwards, up to 25 mm behind the lips, and the inside of her mouth
+# read 70 of lightness where the game's published body has 24 (babylon-cinema `test/npcs/cast-mouth-dark.spec.ts`, "boca por
+# dentro escura", 2026-11-12). With the faces that look backwards left out, the roof, the floor and the sides of the lining were
+# still on the patch, up to 30 mm in.
 LIP_CUT_BACK = 0.2
-LIP_CUT_DEEP_M = 0.004
+LIP_CUT_DEEP_M = 0.006
+LIP_CUT_STRIP_M = 0.003
 
 
 def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
@@ -59,12 +63,16 @@ def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
     bm.verts.ensure_lookup_table()
     bm.normal_update()
     turn, place_of = body.matrix_world.to_3x3(), body.matrix_world
+    lip = world[inside > 0]
+    strips = np.arange(lip[:, 0].min(), lip[:, 0].max() + LIP_CUT_STRIP_M, LIP_CUT_STRIP_M) if len(lip) else np.zeros(0)
+    filled = [start for start in strips if ((lip[:, 0] >= start) & (lip[:, 0] < start + LIP_CUT_STRIP_M)).any()]
+    fronts = [lip[(lip[:, 0] >= start) & (lip[:, 0] < start + LIP_CUT_STRIP_M), 1].min() for start in filled]
 
     def outward(face):
-        """Whether a face is skin of the outside of the lips: not looking backwards, and no deeper than the lips' meeting line there."""
+        """Whether a face is skin of the outside of the lips: not looking backwards, and no deeper than the front of the lips there."""
         middle = place_of @ face.calc_center_median()
-        meet = float(np.interp(middle.x, line["centres"], line["medians"][:, 1]))
-        return (turn @ face.normal).y <= LIP_CUT_BACK and middle.y - meet <= LIP_CUT_DEEP_M
+        front = float(np.interp(middle.x, np.array(filled) + LIP_CUT_STRIP_M / 2, fronts)) if filled else middle.y
+        return (turn @ face.normal).y <= LIP_CUT_BACK and middle.y - front <= LIP_CUT_DEEP_M
 
     crossed = []
     for edge in bm.edges:
