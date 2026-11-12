@@ -16,6 +16,7 @@ from mathutils.kdtree import KDTree
 
 import parle_build
 import parle_bust
+import parle_nose
 import parle_rig
 
 CLOTHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local/mhd/data/clothes/hm08")
@@ -1275,6 +1276,7 @@ def natural_body(meshes, rig, height, sex, kit):
     faired, far = fair_face(body, rig, balls=balls) if body is not None else (0, 0.0)
     if faired:
         print("ROSTO alisado:", faired, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
+    print("NARINAS fechadas e rasas (pontos da pele, o que mais andou em metros):", parle_nose.shallow_nostrils(body) if body is not None else (0, 0.0))
     folded, far = lids_with_a_fold(body, balls) if balls else (0, 0.0)
     if folded:
         print("PÁLPEBRA de cima com dobra:", folded, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
