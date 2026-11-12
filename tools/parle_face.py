@@ -7,7 +7,6 @@
 
       blender -b -P tools/parle_face.py -- <kit-body.glb> <out.json>   # writes the eye points the lids show
 """
-import json
 import os
 import sys
 from pathlib import Path
@@ -78,7 +77,15 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 #   - small startled eyes with no upper lid: the lid comes down to the top of the iris, -0.22 where the calm look has -0.45 (at
 #     -0.25 with the iris of a real eye the whole iris showed, a stare; at -0.4 and at -0.3 the opening was a flat slit), and the iris itself is
 #     drawn bigger (`eye_texture.IRIS_RADIUS`). Not the kit's faceEyeSize: the globe has no such shape, so the lids opened round a
-#     globe that stayed, and it was dented where they met it. Nor a bigger eye still (`parle_polish.EYE_SCALE_BY_SEX`);
+#     globe that stayed, and it was dented where they met it. Nor a bigger eye still (`parle_polish.EYE_SCALE_BY_SEX`).
+#     Five rounds on, at -0.22 the eye was "a small, flat, sleepy almond that the iris fills lid to lid, two dark beads" (round 14):
+#     measured on the body, the upper lid stood 5 to 8 degrees above the middle of the pupil on the ball of the eye and the lower one
+#     21 to 27 below, so the lid lay across the top of the pupil. Against the width of the face the opening was as wide as Sofia's
+#     and less tall (0.236 by 0.087, hers 0.214 by 0.092, the same woman's in the game 0.229 by 0.097), the iris a tenth bigger than
+#     hers. So the lids open as the kit has them (0.0) and the upper one is lifted by the kit's own wide-eyed shape (1.0, a third
+#     of the expression it is cut from), which raises its arch and leaves the lower lid where it is; the iris is drawn a little
+#     smaller and lower on the ball (`eye_texture`). Tried on the finished body: with twice the lift, or with the opening trait
+#     further, white showed over the iris, a stare. The blink still closes (`blink_still_closes`);
 #   - eyebrows in a high arch, far from the eye: half the arch (`BROW_ARCH`), level over the eye as Sofia's, shorter and a little
 #     thinner than the kit's, and lifted clear of the lid (`BROW_LIFT_M`). Their slope stays the calm look's: with the inner end let
 #     down (`faceBrowAngle` 0.1 to 0.35, `browInnerUp` 0.2) they climbed to a far peak, a scowl, and thicker than the kit's they
@@ -92,7 +99,7 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 # judged in the player.
 FAIR_LOOK = {
     "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.5, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.7, "faceCheek": 0.4,
-               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": -0.35, "faceEyeOpen": -0.22,
+               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": -0.35, "faceEyeOpen": 0.0, "eyeWideLeft": 1.0, "eyeWideRight": 1.0,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
     "male": {"mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
 }
@@ -108,11 +115,21 @@ BROW_OUTER = {"female": 0.75, "male": 1.0}
 BROW_LONG = {"female": 0.85, "male": 1.0}
 # And how much of its arch: its middle line comes this much of the way from the straight line between its two ends. The kit's
 # climbs to a peak well above the lid; Sofia's runs nearly level over the eye.
-BROW_ARCH = {"female": 0.5, "male": 1.0}
+# The men's kept the whole arch until 2026-11-12: a peak two thirds of the way out with both ends low, "thick, angry brows" over
+# "a scowl" to the judge by sight (Carlos, rounds 13 and 14, the lowest face of the five), where Rafa's and the same man's in the
+# game run in one low sweep over the eye. Theirs keep more of it than the women's: a man's brow sits lower and is thicker.
+BROW_ARCH = {"female": 0.5, "male": 0.6}
 # With half the arch the whole eyebrow sat where its two ends were, 8 mm over the middle of the eye, and pressed on the lid ("the
 # darkest, hardest shape on the face", the judge by sight, 2026-11-12): it goes up by this much. The kit's faceBrowHeight is not the
 # way: its whole reach on the eyebrow is 3 mm.
-BROW_LIFT_M = {"female": 0.003, "male": 0.0}
+# The men's too, once their arch came down (`BROW_ARCH`): flattened where it was, it lay on the eye, a slab, and its height over
+# the eye read 12% of the face where Rafa's reads 15 (`parle_beauty.brow_high`, 2026-11-12).
+BROW_LIFT_M = {"female": 0.003, "male": 0.003}
+# The traits of the look that open or close the lids at rest, and the shapes that shut them: a point a blink moves this far or
+# more gives back the whole of what those traits moved it (`blink_still_closes`).
+LID_TRAITS = ("faceEyeOpen", "eyeWideLeft", "eyeWideRight")
+BLINKS = ("eyeBlinkLeft", "eyeBlinkRight")
+BLINK_WHOLE_M = 0.001
 # With the jaw a quarter closed, the upper teeth sat wholly behind the upper lip: speaking, the mouth showed the lower teeth and the
 # tongue under a bare lip, and read as a snarl (owner, 2026-11-08). Measured on the pharmacy's attendant at the player's widest "a"
 # (`viseme_aa` 0.55): incisor tip 1 mm above the lip's edge. Teeth go 3.5 mm down and the tongue 3 mm more, behind the lower teeth.
@@ -183,12 +200,38 @@ POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
 # The point that moves most goes 41 mm in her viseme_aa and 45 in her jawOpen, against 17 and 22 on Rafa and 7 and 26 on Sofia; a
 # man of the cast 31 and 35 (2026-11-12, measured on the bodies). Open that far the mouth is a dark hole with the lower teeth in a
 # row of blocks, where theirs shows a row of upper teeth (owner, 2026-11-12: the face is to be looked at in every movement of the
-# mouth, and was "ainda bem feio"). At 15 mm, Rafa's peak, the judge by sight found the scream gone and every open shape the same
-# flat slit: the "a" and the "o" open again a little, to about 19 mm on her and 16 on him. A choice by measure against the two leads
-# and by sight, with no study behind it: to be judged in the player.
+# mouth, and was "ainda bem feio"). The same peak lands at about 12 mm on her and 11 on him, between Sofia's and Rafa's. A choice
+# by measure against the two leads and by sight, with no study behind it: to be judged in the player.
+# These are the shares the body has had in fact since the first night, not the ones written then. The body was handed to
+# `calm_speech` twice in the same list and took each share twice over, the teeth and the tongue once: written as 0.65 of the jaw
+# and 0.6 of the "a" (0.55 and 0.45 before), the body opened 0.42 and 0.36 of them (0.30 and 0.20 before, a peak of 7 mm, which is
+# what the judge by sight called "the same flat slit") while the lower teeth dropped as written, further than the lip that covers
+# them. Found on 2026-11-12 by measuring the shapes of a built body against what they should have been. The body keeps what was
+# judged; the teeth and the tongue now go with it, and no mesh is taken twice (`calm_speech`, `mixed_speech`).
 SPEECH_OPEN = {
-    "female": {"jawOpen": 0.65, "viseme_aa": 0.6, "viseme_E": 0.6, "viseme_O": 0.9, "viseme_I": 0.8},
-    "male": {"jawOpen": 0.7, "viseme_aa": 0.65, "viseme_E": 0.7, "viseme_I": 0.9},
+    "female": {"jawOpen": 0.42, "viseme_aa": 0.36, "viseme_E": 0.36, "viseme_O": 0.81, "viseme_I": 0.64},
+    "male": {"jawOpen": 0.49, "viseme_aa": 0.42, "viseme_E": 0.49, "viseme_I": 0.81},
+}
+# The rounded shapes of speech. With the weights the player gives them (`LipSync.cs`: about half of each shape), the kit's "o" was
+# "a wide letterbox gape where Sofia makes a small round pucker", its "ch" "the same slack half-open slit as RR, E and TH, where
+# Sofia pushes the lips forward", and "a" and the open jaw could not be told apart (the judge by sight, 2026-11-12, round 14;
+# speaking had stood at 3.5 in 10 for three rounds). The kit cuts them from the same few moves: its "o" is 0.6 of the open mouth
+# with 0.6 of the pursed one, its "u" 0.9 of the pursed one, its "ch" the lips forward with a little of the open mouth. Each is
+# made again from the shapes the body has, after `calm_speech`: what it takes of itself and of the others. Chosen by sight on the
+# finished body next to Sofia's at the player's weights (2026-11-12), with no study behind them, to be judged in the player:
+#   - "o": the pucker of the "u" with under a third of its own opening, and some of the jaw given back (the player adds the jaw
+#     itself): a small round mouth, hardly open;
+#   - "u": a little more of itself with the jaw closing, so the lips meet in a pucker;
+#   - "ch": itself with two thirds of the pucker of the "u";
+#   - "a": itself with the corners of the mouth a little up, as Sofia's, which sets it apart from the open jaw.
+# A first try went further (the "o" with 1.18 of the "u" and half of itself, the "u" at 1.3, the "ch" with the whole "u", the "a"
+# with 0.45 of the smile): looked at on the whole face, the "o" and the "ch" were a tall oval with both rows of teeth and the chin
+# creased under it, the lower lip of the "u" hung like a tongue, and the "a" was a grin.
+SPEECH_MIX = {
+    "viseme_O": {"viseme_O": 0.29, "viseme_U": 1.0, "jawOpen": -0.29},
+    "viseme_U": {"viseme_U": 1.11, "jawOpen": -0.23},
+    "viseme_CH": {"viseme_CH": 1.0, "viseme_U": 0.67},
+    "viseme_aa": {"viseme_aa": 1.0, "mouthSmileLeft": 0.22, "mouthSmileRight": 0.22},
 }
 # Seen as the player frames her (front, eye level), the women's mouth still read as a pout: it was short and the lips round. The
 # kit's own faceMouthWidth +0.8 lengthens it; thinning the lips further opened a gap between them (owner, 2026-11-08, pharmacy).
@@ -241,12 +284,16 @@ def trim_forehead_hair(obj, body, mine, band_z=None):
     print("TESTA", len(out), "pontos de cabelo")
 
 
-def tuck_eyes(body, added, opening):
+def tuck_eyes(body, added):
     """O globo anda inteiro com o rosto e a pele anda ponto a ponto: onde o rosto do jogo é mais estreito, o branco furava a pálpebra em duas marcas.
-    The kit's list of the points seen through the lids is read on the kit's own face: on another, a point of it may stand under a
-    lid, so it counts as seen only if no skin lies over the globe between it and the middle of the eye (`parle_polish.under_the_lid`).
+    A point of the globe with no skin in front of it and skin lying over the globe somewhere between it and the middle of the eye
+    (`parle_polish.under_the_lid`) has come out through a lid: it goes back behind the skin behind it. A point with nothing over the
+    globe between it and the middle of the eye is part of what the lids open on, and stays.
+    Until 2026-11-12 what counted as seen was a list read on the kit's own face, and any point off it that
+    stood clear of the skin went back: with the women's lids opened past the kit's (`FAIR_LOOK`), points of the globe that the kit
+    hides stood in the opening and were pushed into the socket, bites out of the iris along the upper lid; with the lids below the
+    kit's it had already left a jag at the outer corner (the judge by sight, round 14). The face itself says what shows.
     What moves the face after this (the eyes growing, the build of the head) is seen to at the end, by `parle_polish.globes_behind_skin`."""
-    shown = set(json.loads(Path(opening).read_text()))
     skin = skin_tree(body)
     front, back = Vector((0, -1, 0)), Vector((0, 1, 0))
     tucked = 0
@@ -257,8 +304,7 @@ def tuck_eyes(body, added, opening):
         for vertex in eye.data.vertices:
             at = eye.matrix_world @ vertex.co
             centre = min(centres, key=lambda spot: (spot - at).length)
-            seen = vertex.index in shown and not parle_polish.under_the_lid(skin, at, centre, radius, front)
-            if seen or skin.ray_cast(at + front * 1e-4, front, 0.05)[0] is not None:
+            if skin.ray_cast(at + front * 1e-4, front, 0.05)[0] is not None or not parle_polish.under_the_lid(skin, at, centre, radius, front):
                 continue
             hit = skin.ray_cast(at, back, EYE_TUCK_REACH_M)[0]
             if hit is None:
@@ -561,10 +607,44 @@ def soften_pout(body, forward):
     body.data.update()
 
 
+def mixed_speech(meshes, mix):
+    """Each of those shapes made again from the shapes each mesh has: the shares of the move of each, from the rest shape, read
+    before any of them is written. A share of a shape a mesh does not have counts for nothing there (the teeth have no smile).
+    A mesh that comes twice in the list is taken once."""
+    for obj in dict.fromkeys(meshes):
+        keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
+        if not keys:
+            continue
+        rest = key_points(keys[0])
+        moves = {name: key_points(keys[name]) - rest for name in {part for parts in mix.values() for part in parts} if name in keys}
+        for name, parts in mix.items():
+            if name in keys:
+                keys[name].data.foreach_set("co", (rest + sum((moves[part] * share for part, share in parts.items() if part in moves), np.zeros_like(rest))).ravel())
+        obj.data.update()
+
+
+def blink_still_closes(keys, look):
+    """The look moved to the rest shape goes into every shape key, the blink too: with the lids opened at rest the blink stopped
+    short of closing by as much, a slit of eye left showing. Where a blink moves a point, that point's blink gives back what the
+    traits of the lids (LID_TRAITS) moved it: the lids close where the kit closes them. How many points it took."""
+    rest = key_points(keys[0])
+    lids = sum(((key_points(keys[name]) - rest) * look[name] for name in LID_TRAITS if name in keys and look.get(name)), np.zeros_like(rest))
+    taken = 0
+    for name in BLINKS:
+        if name not in keys or not lids.any():
+            continue
+        shut = key_points(keys[name])
+        share = parle_polish.smooth(np.linalg.norm(shut - rest, axis=1) / BLINK_WHOLE_M)
+        keys[name].data.foreach_set("co", (shut - lids * share[:, None]).ravel())
+        taken += int((share > 0).sum())
+    return taken
+
+
 def calm_speech(meshes, shares):
     """Each of those shapes keeps that share of its move from the rest shape, on the body, the teeth and the tongue alike: the jaw
-    carries all three, and a shape cut on one alone would part them."""
-    for obj in meshes:
+    carries all three, and a shape cut on one alone would part them. A mesh that comes twice in the list is taken once: the body
+    did, and its mouth opened by the share of the share while the teeth opened by the share (2026-11-12)."""
+    for obj in dict.fromkeys(meshes):
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
         if not keys:
             continue
@@ -603,6 +683,8 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
             move[:, 2] -= TEETH_DOWN_M if "teeth" in obj.name else TONGUE_DOWN_M
         if move.any():
             move_rest(obj, move)
+        if obj.name == "Body":
+            blink_still_closes(keys, look)
 
 
 def tongue_follows_jaw(meshes):
@@ -797,15 +879,15 @@ def clean_face(body, added, job, env):
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
+    for obj in [item for item in added if item.type == "MESH" and "low-poly" in item.name]:
+        parle_polish.round_globes(obj)
     calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], FAIR_LOOK[sex], BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex])
     soften_pout(body, POUT_FORWARD[sex])
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
     for obj in [item for item in added if item.type == "MESH" and "teeth" in item.name]:
         trim_gums(obj)
-    opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
-    if os.path.exists(opening):
-        tuck_eyes(body, added, opening)
+    tuck_eyes(body, added)
     if env.get("CAST_TEETH"):
         teeth_map = bpy.data.images.load(parle_mouth.clean_teeth(env["CAST_TEETH"]))
         teeth_map.pack()
@@ -834,7 +916,9 @@ def clean_face(body, added, job, env):
                 for polygon in obj.data.polygons:
                     polygon.use_smooth = True
     # Last: the steps above tell the lips, the lining and the gums apart by how far the open jaw carries them.
-    calm_speech([body, *(obj for obj in added if obj.type == "MESH" and obj.data.shape_keys)], SPEECH_OPEN[sex])
+    speaking = list(dict.fromkeys([body, *(obj for obj in added if obj.type == "MESH" and obj.data.shape_keys)]))
+    calm_speech(speaking, SPEECH_OPEN[sex])
+    mixed_speech(speaking, SPEECH_MIX)
 
 
 def soften_under_chin(body):
@@ -853,21 +937,3 @@ def soften_under_chin(body):
     mesh.normals_split_custom_set(turned.tolist())
     mesh.update()
     print("QUEIXO normais", int((share > 0.01).sum()))
-
-
-def write_eye_opening(kit, out):
-    """Which eye points the kit shows through the lids: any other one must not come out in front of the skin."""
-    bpy.ops.wm.read_factory_settings(use_empty=True)
-    bpy.ops.import_scene.gltf(filepath=kit)
-    meshes = [obj for obj in bpy.data.objects if obj.type == "MESH"]
-    body = next(obj for obj in meshes if obj.name == "Body")
-    eye = next(obj for obj in meshes if "low-poly" in obj.name)
-    skin = skin_tree(body)
-    front = Vector((0, -1, 0))
-    shown = [vertex.index for vertex in eye.data.vertices if skin.ray_cast(eye.matrix_world @ vertex.co + front * 1e-4, front, 0.05)[0] is None]
-    Path(out).write_text(json.dumps(shown))
-    print("ABERTURA", len(shown), "de", len(eye.data.vertices))
-
-
-if __name__ == "__main__":
-    write_eye_opening(*sys.argv[sys.argv.index("--") + 1:][:2])

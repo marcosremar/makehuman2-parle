@@ -21,9 +21,14 @@ SIZE = 512
 CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # The stock radius is 0.115, the iris of a real eye on its globe. A judge by sight read the cast's eyes as small next to Sofia's
 # and asked for the iris bigger with the opening (2026-11-12, `parle_face.FAIR_LOOK`): on a drawn face the iris fills more of the eye.
-IRIS_RADIUS = 0.13
+# At 0.13 it filled the opening from lid to lid, with slivers of white: "two dark beads" (the same judge, five rounds on). Against
+# the width of the face it measured 0.109, Sofia's 0.097 and the same woman's in the game 0.101: a little smaller.
+IRIS_RADIUS = 0.125
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
-GAZE_DOWN = 0.2
+# Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
+# it: at 0.2 the upper lid still lay across the top of the pupil. With the lids as they are now (`parle_face.FAIR_LOOK`), at 0.3
+# the upper lid covers the top of the iris and the lower one touches its foot; at 0.45 white showed over the iris, a look cast down.
+GAZE_DOWN = 0.3
 # Pupil as a share of the iris radius. Light-adapted pupils under interior light are about 0.25 to 0.33 of the iris (10 to 100 cd/m2,
 # Watson & Yellott 2012, "A unified formula for light-adapted pupil size", Journal of Vision 12(10):12, DOI 10.1167/12.10.12). 0.36 sits
 # just above that range and is chosen by eye in the player's bust shots (2026-11-09): 0.48 read as a dilated eye, 0.42 still did on a dark iris.

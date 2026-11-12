@@ -7,6 +7,7 @@
 import glob
 import os
 
+import bmesh
 import bpy
 import numpy as np
 from mathutils import Vector
@@ -70,6 +71,15 @@ EYE_BEHIND_REACH_M = 0.02
 # many of the places looked at on the way to the middle of the eye: a strip of lid, not one stray place (Carlos had one, Dona Marta
 # three or four). No corner goes back more than the most in all, over these rounds.
 EYE_FACE_STEPS = 8
+# A face smaller than the kit's is looked at in fewer steps, one for each of these along its longest side: the places stay as far
+# apart on the rounded globe (`round_globes`), whose faces are a sixteenth of the kit's, as on the kit's own.
+EYE_FACE_SPACING_M = 0.0016
+# The globe of the kit is a ball of eight sides: between two of its points a face stands up to 1.4 mm inside the ball, the rim of
+# a lid floats over it, and where a point under the lid goes back behind the skin (`globes_behind_skin`) the whole face slopes back
+# with it, a centimetre wide: "ragged lid edges, a torn line under the lower lid, a jag at the outer corner" (the judge by sight,
+# 2026-11-12, round 14). Each face becomes four this many times, its new points out on the ball: 32 sides, the same face 0.1 mm
+# inside. 96 points become 1410 and 172 faces 2752, on a body of some 12 500 points.
+EYE_ROUND_LEVELS = 2
 EYE_THROUGH_M = 0.002
 EYE_SKIN_FACING = 0.3
 EYE_WAY_CUT = 2
@@ -81,9 +91,48 @@ EYE_WAY_SHARES = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)
 # The skin of the face evened out (`fair_face`). The traits of the kit and the shapes of speech whose reach is the soft of the face
 # (the cheeks, the jaw, the chin, round the mouth and beside the nose), and those whose reach keeps its points: the lids and the
 # nose, each with the share of its widest move from which a point is held whole.
+# The skin round the eyes is of the zone too, by the trait that sets the eyes apart, which carries the whole of it: left out, it
+# kept the bag and the furrow under each eye and a fold running out from the outer corner, and with the rest of the face smooth
+# they were what aged it most ("bags and a tear-trough crease under the eyes", the judge by sight, 2026-11-12, round 14; on Dona
+# Marta "tired and fifty"). The lids themselves stay: what blinks, and what the trait that opens the eye moves by half its widest.
 FAIR_SOFT = ("faceCheek", "faceCheekVolume", "faceJaw", "faceJawSoft", "faceChin", "faceVChin", "faceMouthWidth", "cheekSquintLeft", "cheekSquintRight",
-             "mouthSmileLeft", "mouthSmileRight", "mouthFrownLeft", "mouthFrownRight", "faceLipVolume", "faceNoseWidth", "viseme_PP", "viseme_U", "viseme_O")
-FAIR_KEPT = {"eyeBlinkLeft": 0.3, "eyeBlinkRight": 0.3, "faceNoseTip": 0.2, "faceNoseWidth": 0.7}
+             "mouthSmileLeft", "mouthSmileRight", "mouthFrownLeft", "mouthFrownRight", "faceLipVolume", "faceNoseWidth", "viseme_PP", "viseme_U", "viseme_O",
+             "faceEyeSpacing")
+FAIR_KEPT = {"eyeBlinkLeft": 0.3, "eyeBlinkRight": 0.3, "faceEyeOpen": 0.5}
+# The nose kept every point until 2026-11-12, with the skin round it evened out: the rims of the nostrils and the wings stood as
+# they came, pinched and uneven from one point to the next, and a small fold ran from each wing where held points met free ones ("a
+# torn, lopsided M at the base of the nose", the judge by sight, rounds 13 and 14). Like the lips, the nose now takes part with a
+# small weight, which takes out what goes from one point to the next and leaves its form: the points its own traits move by these
+# shares or more of their widest move.
+FAIR_NOSE_BY = {"faceNoseTip": 0.2, "faceNoseWidth": 0.7}
+FAIR_NOSE = 0.3
+# The skin of the lids lies on the eye globes, and evened out with nothing in its way it sank into them: at the outer corner of
+# each eye the white of the globe came out through the skin (2026-11-12, the first body with the skin round the eyes in the zone).
+# A point of skin that starts outside the ball of a globe, or no more than the first of these inside it, never ends nearer the
+# middle of that ball than it started, or than the second of these off the ball when it started further; what starts deeper inside
+# is the socket behind the globe, which no one sees, and stays. Skin further from the ball than the third is not looked at.
+FAIR_ON_BALL_M = 0.002
+FAIR_OFF_BALL_M = 0.001
+FAIR_NEAR_BALL_M = 0.02
+# The lids lie over the eye globes (`lids_over_globes`). The kit fits its lids to a globe of eight sides, whose faces stand up to
+# 1.4 mm inside the ball; on the rounded globe (`round_globes`) the ball came out through the skin beyond the outer corner of each
+# eye, the white showing in a ragged flag with the skin 0.2 to 1.4 mm behind it (2026-11-12, measured on the body). Skin that
+# turns its outer side away from the middle of a ball by the cosine below, and is no further inside the ball than the first of
+# these, goes out to the second of these off the ball. Deeper inside is the socket. All of the way out as far round the ball from
+# the front as the outer corner of the opening (37 degrees, the second of the two last cosines), less from there, and not at all
+# past 43 degrees (the first): on the body measured, all the skin inside the ball was on the side of the temple, 30 to 60 degrees
+# round, most of it past the corner and up to 2 mm deep, and laid over the ball there (as far as 70 degrees, then 60) it stood
+# beside each eye in a mound with the outline of the ball, seen from the side (2026-11-12). Past the corner the globe goes back
+# instead (`globes_behind_skin`, EYE_SIDE_FRONT).
+LID_UNDER_BALL_M = 0.003
+LID_OFF_BALL_M = 0.0004
+LID_FACING = 0.3
+LID_ROUND_FRONT = (0.731, 0.799)
+# A place of the globe further round its ball from the front than this cosine (40 degrees) is past the outer corner of the
+# opening: nothing of the globe is meant to show there, so one that shows with skin no further behind it than the reach below goes
+# back with no strip of lid asked for between it and the middle of the eye.
+EYE_SIDE_FRONT = 0.766
+EYE_SIDE_REACH_M = 0.004
 FAIR_SOFT_FROM = 0.15
 # The lips are the points their own traits move by this share or more. They take part with a small weight: point against point
 # their sculpted form came out rough, a row of ridges along the upper lip (2026-11-12, in clay), and a small weight takes out what
@@ -268,6 +317,59 @@ def under_the_lid(skin, at, centre, radius, front):
     return False
 
 
+def face_steps(corners):
+    """In how many steps along each side a face of the globe is looked at: one for each EYE_FACE_SPACING_M of its longest side."""
+    longest = max(float(np.linalg.norm(corners[first] - corners[second])) for first, second in ((0, 1), (1, 2), (2, 0)))
+    return int(min(EYE_FACE_STEPS, max(1, np.ceil(longest / EYE_FACE_SPACING_M))))
+
+
+def round_globes(eye, levels=EYE_ROUND_LEVELS):
+    """Each face of the eye globes becomes four, `levels` times over, and each new point goes out to the ball of the two points it
+    was born between: as far from the middle of its eye as they are, the mean of the two. Shape keys, UVs and bone weights go with
+    the faces; a new point takes in every key the step it takes at rest. The points of the kit keep their numbers, and what comes
+    back is, for each new point in the order of its number, the two it was born between."""
+    mesh = eye.data
+    parents = []
+    for _ in range(levels):
+        bm = bmesh.new()
+        bm.from_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        shapes = [bm.verts.layers.shape[name] for name in bm.verts.layers.shape.keys()]
+        points = np.array([vertex.co[:] for vertex in bm.verts])
+        side = to_world(eye, points)[:, 0]
+        centres = []
+        for half in (side < side.mean(), side >= side.mean()):
+            # The ball through the points of one eye, by least squares: |p|^2 = 2 p.c + (r^2 - |c|^2).
+            centres.append(np.linalg.lstsq(np.c_[2 * points[half], np.ones(int(half.sum()))], (points[half] ** 2).sum(axis=1), rcond=None)[0][:3])
+        ends = [(edge.verts[0].index, edge.verts[1].index) for edge in bm.edges]
+        born = KDTree(len(ends))
+        for number, (first, second) in enumerate(ends):
+            born.insert((points[first] + points[second]) / 2, number)
+        born.balance()
+        count = len(bm.verts)
+        bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=1, use_grid_fill=True)
+        bmesh.ops.triangulate(bm, faces=[face for face in bm.faces if len(face.verts) > 3])
+        bm.verts.index_update()
+        bm.verts.ensure_lookup_table()
+        for vertex in bm.verts[count:]:
+            first, second = ends[born.find(vertex.co)[1]]
+            at = np.array(vertex.co[:])
+            centre = min(centres, key=lambda middle: float(np.linalg.norm(at - middle)))
+            away = at - centre
+            far = (np.linalg.norm(points[first] - centre) + np.linalg.norm(points[second] - centre)) / 2
+            step = Vector(away / max(np.linalg.norm(away), 1e-12) * far - away)
+            vertex.co += step
+            for layer in shapes:
+                vertex[layer] = vertex[layer] + step
+            parents.append((first, second))
+        bm.to_mesh(mesh)
+        bm.free()
+    for polygon in mesh.polygons:
+        polygon.use_smooth = True
+    mesh.update()
+    return parents
+
+
 def globes_behind_skin(meshes):
     """What of the eye globes is not seen through the lids goes a millimetre behind the skin, and how many points went. The last touch
     on the eyes: the head of a kit grows by its bones and its skin point by point, and under each of Dona Marta's eyes the globe came
@@ -275,7 +377,8 @@ def globes_behind_skin(meshes):
     point of it: the globe has few faces, and the middle of one stood in front of the skin where the skin dips, its corners all behind.
     So the faces are looked at too, in the places of `EYE_FACE_STEPS`. A place of the globe is coming through when, seen from the
     front, it shows, the skin is close behind it, and skin shows somewhere between it and the middle of the eye: it is not part of
-    what the lids open on. The corners of its face that are not seen go back until it is behind. The face looks at -y."""
+    what the lids open on. On the side of the ball (EYE_SIDE_FRONT) the first two are enough. The corners of its face that are not
+    seen go back until it is behind. The face looks at -y."""
     body = next((obj for obj in meshes if obj.name == "Body"), None)
     eye = next((obj for obj in meshes if "low-poly" in obj.name), None)
     if body is None or eye is None or not len(body.data.polygons):
@@ -285,7 +388,7 @@ def globes_behind_skin(meshes):
     centres = [Vector(centre) for centre in eye_centres(eye)]
     faces = [tuple(polygon.vertices) for polygon in eye.data.polygons]
     triangles = [(face[0], face[index], face[index + 1]) for face in faces for index in range(1, len(face) - 1)]
-    steps = [(a / EYE_FACE_STEPS, b / EYE_FACE_STEPS) for a in range(EYE_FACE_STEPS + 1) for b in range(EYE_FACE_STEPS + 1 - a)]
+    grids = {count: [(a / count, b / count) for a in range(count + 1) for b in range(count + 1 - a)] for count in range(1, EYE_FACE_STEPS + 1)}
     gone = np.zeros(len(eye.data.vertices))
     for _ in range(EYE_BEHIND_ROUNDS):
         globe = rest_points(eye)
@@ -307,6 +410,8 @@ def globes_behind_skin(meshes):
             if hit is None or normal.dot(front) < EYE_SKIN_FACING:
                 return None
             centre = min(centres, key=lambda middle: (middle - at).length)
+            if far <= EYE_SIDE_REACH_M and (at - centre).normalized().dot(front) < EYE_SIDE_FRONT:
+                return far
             cut = sum(skin_first(at.x + (centre.x - at.x) * share, at.z + (centre.z - at.z) * share, centre.y) for share in EYE_WAY_SHARES)
             return far if cut >= EYE_WAY_CUT else None
 
@@ -322,7 +427,7 @@ def globes_behind_skin(meshes):
             hidden = [index for index in corners if not seen[index]]
             if not hidden:
                 continue
-            for first, second in steps:
+            for first, second in grids[face_steps(globe[list(corners)])]:
                 shares = np.array((1 - first - second, first, second))
                 carried = sum(share for share, index in zip(shares, corners) if not seen[index])
                 if carried < 0.2:
@@ -664,7 +769,57 @@ def round_bust(meshes, rig):
     return [(1 - parle_bust.CUP) * tall for _, _, tall in cups]
 
 
-def fair_face(body, rig, rounds=FAIR_ROUNDS):
+def eye_balls(eye):
+    """The ball of each eye globe, middle and radius, by least squares through its points: |p|^2 = 2 p.c + (r^2 - |c|^2). Twice,
+    the second time without the points that stand off the first ball (the ones tucked behind the skin)."""
+    points = rest_points(eye)
+    balls = []
+    for half in (points[:, 0] < points[:, 0].mean(), points[:, 0] >= points[:, 0].mean()):
+        mine = points[half]
+        for _ in range(2):
+            found = np.linalg.lstsq(np.c_[2 * mine, np.ones(len(mine))], (mine ** 2).sum(axis=1), rcond=None)[0]
+            centre, radius = found[:3], float(np.sqrt(found[3] + found[:3] @ found[:3]))
+            near = np.abs(np.linalg.norm(mine - centre, axis=1) - radius) < 0.0005
+            if near.sum() < 8:
+                break
+            mine = mine[near]
+        balls.append((centre, radius))
+    return balls
+
+
+def lids_over_globes(body, balls):
+    """The skin of the lids out of the eye globes, `balls` being the middle and the radius of each (`eye_balls`): how many points
+    went, and how far the one that went furthest. Every shape key takes the move. Points at the same place are one point."""
+    blocks = body.data.shape_keys.key_blocks if body.data.shape_keys else None
+    rest = read(blocks[0]) if blocks else read(body.data.vertices)
+    world = to_world(body, rest)
+    turn = np.array(body.matrix_world)[:3, :3]
+    normals = np.array([vertex.normal[:] for vertex in body.data.vertices]) @ turn.T
+    normals /= np.maximum(np.linalg.norm(normals, axis=1, keepdims=True), 1e-12)
+    _, group = np.unique(np.round(world / FAIR_SAME_M).astype(np.int64), axis=0, return_inverse=True)
+    group = group.ravel()
+    move = np.zeros_like(world)
+    for centre, radius in balls:
+        away = world - np.asarray(centre, float)
+        far = np.maximum(np.linalg.norm(away, axis=1), 1e-12)
+        out = away / far[:, None]
+        share = smooth((-out[:, 1] - LID_ROUND_FRONT[0]) / (LID_ROUND_FRONT[1] - LID_ROUND_FRONT[0]))
+        lift = (far > radius - LID_UNDER_BALL_M) & (far < radius + LID_OFF_BALL_M) & ((normals * out).sum(axis=1) > LID_FACING) & (share > 0)
+        lift = np.bincount(group, weights=lift.astype(float), minlength=group.max() + 1)[group] > 0
+        lift &= (far > radius - LID_UNDER_BALL_M) & (far < radius + LID_OFF_BALL_M) & (share > 0)
+        move[lift] = out[lift] * ((radius + LID_OFF_BALL_M - far[lift]) * share[lift])[:, None]
+    went = np.linalg.norm(move, axis=1)
+    if not (went > 1e-7).any():
+        return 0, 0.0
+    local = move @ np.linalg.inv(turn).T
+    for block in blocks or ():
+        block.data.foreach_set("co", (read(block) + local).ravel())
+    body.data.vertices.foreach_set("co", (read(body.data.vertices) + local).ravel())
+    body.data.update()
+    return int((went > 1e-7).sum()), float(went.max())
+
+
+def fair_face(body, rig, rounds=FAIR_ROUNDS, balls=()):
     """The skin of the face evened out, in the rest shape and so in every shape key: how many points moved, and how far the one that
     moved most went.
 
@@ -674,9 +829,9 @@ def fair_face(body, rig, rounds=FAIR_ROUNDS):
     the chin, a hollow under the cheekbone. Some come with the base and some from the traits of the kit laid one over another, each
     with a fall-off of its own. The ruler of `parle_beauty` sees none of them: it reads points, not the surface.
 
-    The zone is where the soft traits of the face act (FAIR_SOFT), on the skin of the head; the lids and the nose keep their points
-    (FAIR_KEPT), the lips move a little and not where they meet (FAIR_LIPS), and what is inside the head stays. Points at the same
-    place are one point."""
+    The zone is where the soft traits of the face act (FAIR_SOFT), on the skin of the head; the lids keep their points (FAIR_KEPT),
+    the nose and the lips move a little (FAIR_NOSE, FAIR_LIPS), the lips not where they meet, and what is inside the head stays.
+    Points at the same place are one point. `balls` are the eye globes, middle and radius (`eye_balls`): the skin stays off them."""
     blocks = body.data.shape_keys.key_blocks if body.data.shape_keys else None
     if blocks is None or not any(name in blocks for name in FAIR_SOFT):
         return 0, 0.0
@@ -686,7 +841,8 @@ def fair_face(body, rig, rounds=FAIR_ROUNDS):
     soft = np.max([share(name) for name in FAIR_SOFT if name in blocks], axis=0)
     kept = np.max([share(name) / least for name, least in FAIR_KEPT.items() if name in blocks] or [np.zeros(len(rest))], axis=0)
     head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
-    weight = smooth(soft / FAIR_SOFT_FROM) * (1 - np.clip(kept, 0, 1)) * (group_share(body, head) >= FAIR_HEAD_FROM)
+    nose = np.clip(np.max([share(name) / least for name, least in FAIR_NOSE_BY.items() if name in blocks] or [np.zeros(len(rest))], axis=0), 0, 1)
+    weight = (smooth(soft / FAIR_SOFT_FROM) * (1 - nose) + FAIR_NOSE * nose) * (1 - np.clip(kept, 0, 1)) * (group_share(body, head) >= FAIR_HEAD_FROM)
     lips = np.max([share(name) for name in FAIR_LIPS if name in blocks] or [np.zeros(len(rest))], axis=0) >= FAIR_LIP_FROM
     weight[lips] = np.minimum(weight[lips], FAIR_LIP)
     if "jawOpen" in blocks and lips.any():
@@ -717,6 +873,11 @@ def fair_face(body, rig, rounds=FAIR_ROUNDS):
     mean = lambda values: np.bincount(group, weights=values, minlength=len(place)) / count
     points = np.stack([mean(world[:, axis]) for axis in range(3)], axis=1)
     held = np.bincount(group, weights=(weight <= 0).astype(float), minlength=len(place)) > 0
+    floors = []
+    for centre, radius in balls:
+        far = np.linalg.norm(points - centre, axis=1)
+        held |= far < radius - FAIR_ON_BALL_M
+        floors.append((np.asarray(centre, float), np.where(far < radius + FAIR_NEAR_BALL_M, np.minimum(far, radius + FAIR_OFF_BALL_M), 0.0)))
     free = np.where(held, 0.0, mean(weight))
     edges = np.unique(np.sort(group[np.array([tuple(edge.vertices) for edge in body.data.edges], int).reshape(-1, 2)], axis=1), axis=0)
     edges = edges[(edges[:, 0] != edges[:, 1]) & ((free[edges[:, 0]] > 0) | (free[edges[:, 1]] > 0))]
@@ -737,6 +898,11 @@ def fair_face(body, rig, rounds=FAIR_ROUNDS):
     for _ in range(rounds):
         for step in (FAIR_STEP, FAIR_BACK):
             points = points + step * free[:, None] * (middle(points) - points)
+        for centre, least in floors:
+            away = points - centre
+            far = np.maximum(np.linalg.norm(away, axis=1), 1e-9)
+            low = (far < least) & (free > 0)
+            points[low] = centre + away[low] * (least[low] / far[low])[:, None]
     matrix = np.array(body.matrix_world.inverted())[:3, :3]
     move = ((points - start) @ matrix.T)[group]
     for block in blocks:
@@ -841,7 +1007,7 @@ def natural_body(meshes, rig, height, sex, kit):
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
     the top goes back outside the bottom (`top_over_bottom`): that moves cloth alone, never the body. And under a top the bust of a
     woman is a bra's (`round_bust`): with no top on, as in the loop, nothing moves. The legs of the bottoms end on a level line
-    (`level_hems`). Then the face: its skin is evened out (`fair_face`), the inside of the mouth stays behind it
+    (`level_hems`). Then the face: the lids lie over the eye globes (`lids_over_globes`), its skin is evened out (`fair_face`), the inside of the mouth stays behind it
     (`lining_behind_skin`), the eyebrows lie on it (`brows_on_skin`), and the eye globes stay behind the skin where the lids do not
     show them (`globes_behind_skin`)."""
     natural_arms(meshes, rig, height, sex)
@@ -856,7 +1022,12 @@ def natural_body(meshes, rig, height, sex, kit):
     if hems:
         print("BARRA nivelada em", hems, "aberturas de perna")
     body = next((obj for obj in meshes if obj.name == "Body"), None)
-    faired, far = fair_face(body, rig) if body is not None else (0, 0.0)
+    globe = next((obj for obj in meshes if "low-poly" in obj.name), None)
+    balls = eye_balls(globe) if globe is not None and body is not None else ()
+    laid, far = lids_over_globes(body, balls) if balls else (0, 0.0)
+    if laid:
+        print("PÁLPEBRA sobre o globo:", laid, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
+    faired, far = fair_face(body, rig, balls=balls) if body is not None else (0, 0.0)
     if faired:
         print("ROSTO alisado:", faired, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
     lined = lining_behind_skin(meshes)

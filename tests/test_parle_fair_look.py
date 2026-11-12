@@ -36,9 +36,11 @@ assert women["mouthSmileLeft"] <= 0.06 < men["mouthSmileLeft"], f"the women's mo
 # The nose is narrowed little: with the kit's narrow straight nose on top of -0.7 the cheek drew in beside the wing and the lining of
 # the mouth showed through it, a flake on each cheek (2026-11-12).
 assert women["faceNoseWidth"] >= -0.4 and "noseShape-reto-estreito" not in women, f"the women's nose is narrowed as it was when the lining came through: {women}"
-# The lids: more open than the calm look leaves them, and still down to the top of the iris, which is drawn bigger. At -0.25 with
-# the iris of a real eye the whole iris showed and the judge by sight read a stare; at -0.4 and -0.3 a flat slit.
-assert parle_face.CALM_LOOK["faceEyeOpen"] < women["faceEyeOpen"] <= -0.2, f"the women's lids: {women['faceEyeOpen']}"
+# The lids: as open as the kit has them, where the calm look lowers them, and the upper one lifted by the kit's own wide-eyed shape.
+# Lower (-0.22), the judge by sight read "a small, flat, sleepy almond that the iris fills lid to lid" (2026-11-12, round 14): the
+# upper lid lay across the top of the pupil. Further, white shows over the iris, a stare. The men's stay with the calm look.
+assert parle_face.CALM_LOOK["faceEyeOpen"] < -0.3 and -0.05 <= women["faceEyeOpen"] <= 0.1, f"the women's lids: {women['faceEyeOpen']}"
+assert 0.5 <= women["eyeWideLeft"] == women["eyeWideRight"] <= 1.5 and not any(name.startswith("eye") for name in men), f"the upper lids: {women}, {men}"
 
 # The eyebrows keep more of the kit's thickness on the women: at three quarters they read as a pencil line on a smooth face (2026-11-12).
 assert parle_face.BROW_THIN["male"] < parle_face.BROW_THIN["female"] <= 1, f"how thick the eyebrows are left: {parle_face.BROW_THIN}"
@@ -63,11 +65,11 @@ lower = arched + parle_face.brow_line_move(arched, 1.0, 1.0, 1.0, 0.5)
 peak = lambda brows: float(brows[np.abs(brows[:, 0]) == 0.03, 2].mean())
 ends = np.abs(arched[:, 0]) != 0.03
 assert abs(peak(lower) - 0.002) < 2e-4 and np.allclose(lower[np.isin(np.abs(arched[:, 0]), (0.01, 0.05))], arched[np.isin(np.abs(arched[:, 0]), (0.01, 0.05))], atol=2e-4), f"half the arch of an eyebrow is {peak(lower) * 1000:.2f} mm high, not 2"
-assert np.allclose(lower[0::2, 2] - lower[1::2, 2], arched[0::2, 2] - arched[1::2, 2], atol=1e-9) and parle_face.BROW_ARCH["female"] < parle_face.BROW_ARCH["male"] == 1, "a flatter eyebrow changes its thickness, or the men's is flattened"
+assert np.allclose(lower[0::2, 2] - lower[1::2, 2], arched[0::2, 2] - arched[1::2, 2], atol=1e-9) and parle_face.BROW_ARCH["female"] < parle_face.BROW_ARCH["male"] < 0.8, "a flatter eyebrow changes its thickness, or the men's keeps the peak that read as a scowl"
 # Flattened, it sat at the height of its ends and pressed on the lid: the women's goes up whole, a few millimetres.
 lifted = brow + parle_face.brow_line_move(brow, 1.0, 1.0, 1.0, 1.0, 0.003)
 assert np.allclose(lifted[:, 2] - brow[:, 2], 0.003, atol=1e-9) and np.allclose(lifted[:, :2], brow[:, :2], atol=1e-9), "a lifted eyebrow does not go up whole"
-assert 0.002 <= parle_face.BROW_LIFT_M["female"] <= 0.005 and parle_face.BROW_LIFT_M["male"] == 0, f"how far the eyebrows are lifted: {parle_face.BROW_LIFT_M}"
+assert all(0.002 <= parle_face.BROW_LIFT_M[sex] <= 0.005 for sex in ("female", "male")), f"how far the eyebrows are lifted: {parle_face.BROW_LIFT_M}"
 
 # The jaw rests closed just as far as the lips need to meet. A quarter of `jawOpen` carried the lower lip 7 mm up over the upper one and
 # 5 mm out in front of it, a mouth with one lip (2026-11-11, `parle_profile`); with none the lips stand apart and the teeth show (2026-11-07).
