@@ -167,6 +167,60 @@ LIKED = {
     },
 }
 LIKED_MOST = 4.0
+# The pretty faces: the standard the cast is to be made by. On 2026-11-13 the owner looked at the cast next to the models he had
+# brought and said: "deveria pegar os avatres. os rostos bonitinhos e usar ele spara gerar nossos avares com o make human. estilo do
+# mais bontios nao o Homem do Avaturn, roupa 2 . os de estilo cartoon disney tipo o rafa", and then "coloca os rostos como rostos
+# padroes bonitos registrando cada detalhes das medidas". Ten faces of grown people in that style were measured as the cast's are
+# (three portraits from the front, the middle value; the head from the side): six women and four men, Sofia and Rafa of the game
+# among them, two models he brought, and six characters of animated films that stand only as a reference of style (their measures
+# are kept, nothing of their meshes, textures or pictures, and no face is to be made after one of them: the aim is the middle of
+# the group). Every measure of every face is in data/parle_beauty/pretty_faces.json; here, of each measure this ruler reads off a
+# portrait (`measures`, `details`), the mean of the group and how far its faces spread about it (standard deviation, n - 1).
+# Six and four faces: a measure they happen to share stands with next to no spread, so `likeness` counts a spread of no less
+# than PRETTY_SPREAD of the mean. What sets these faces off from the women of the cast as it stood that day, by this ruler: the
+# opening of the eye taller for its width (0.47 against 0.36 to 0.39), more than one eye between the eyes (1.20 eyes against 1.00),
+# the eyes lower on the face (0.64 of its height from the chin against 0.69 to 0.70), the lower third short (0.35 against 0.42 to
+# 0.43: a chin 0.164 tall against 0.205 to 0.219, the lip 0.077 under the nose against 0.095 to 0.10), a face as wide as it is
+# tall (0.99 against 0.87 to 0.90) and a chin 0.169 wide against 0.19 to 0.20. The points of the Face Mesh are fitted to a face of
+# real proportions and sit inside the big eye of a drawn face: read on the colour of the portrait instead, the opening of the
+# eye of these faces is 0.60 to 0.86 as tall as wide and 0.25 to 0.34 of the face wide, the cast's 0.41 to 0.43 and 0.23 to 0.24.
+PRETTY = {
+    "female": {
+        "brow_high": (0.2174, 0.0227), "brow_over_lid": (0.1483, 0.0165), "brow_wide": (0.3150, 0.0061), "brows_apart": (0.2347, 0.0133),
+        "chin_long": (0.1639, 0.0212), "chin_tall": (0.1643, 0.0213), "chin_wide": (0.1691, 0.0058), "eye_level": (0.6396, 0.0208),
+        "eye_line": (0.3559, 0.0190), "eye_open": (0.1023, 0.0104), "eye_round": (0.4720, 0.0488), "eye_shown": (0.0304, 0.0039),
+        "eye_tall": (0.1035, 0.0124), "eye_wide": (0.2204, 0.0079), "eyes_apart": (0.4803, 0.0174), "eyes_gap_in_eyes": (1.1960, 0.0355),
+        "face_wide": (0.9893, 0.0652), "face_wide_of_tall": (0.9893, 0.0652), "forehead_tall": (0.1387, 0.0154),
+        "inner_corners_apart": (0.2629, 0.0123), "iris_of_eye": (0.4691, 0.0454), "iris_wide": (0.1027, 0.0100),
+        "jaw_corner_wide": (0.8697, 0.0155), "jaw_wide": (0.7780, 0.0148), "lip_contrast": (0.1574, 0.0421),
+        "lips_full": (0.3548, 0.0364), "lips_tall": (0.1105, 0.0095), "lower_lip_tall": (0.0605, 0.0061),
+        "mouth_curve": (-0.0100, 0.0172), "mouth_level": (0.2442, 0.0193), "mouth_wide": (0.3216, 0.0335),
+        "mouth_wide_of_nose": (1.4708, 0.0908), "mouth_wide_of_pupils": (0.6953, 0.0854), "nose_long": (0.3193, 0.0130),
+        "nose_tip_over_base": (0.0362, 0.0055), "nose_to_lip": (0.0768, 0.0096), "nose_wide": (0.2248, 0.0258),
+        "nose_wide_of_eye": (1.0197, 0.1069), "outer_corners_apart": (0.6976, 0.0240), "pupils_apart": (0.4657, 0.0156),
+        "sym_level": (0.0383, 0.0426), "sym_midline": (0.0312, 0.0381), "sym_sides": (0.4699, 0.5847), "sym_size": (0.1933, 0.2412),
+        "third_lower": (0.3540, 0.0211), "third_middle": (0.5034, 0.0304), "third_upper": (0.1387, 0.0154), "uneven": (0.0759, 0.0866),
+        "upper_leads": (0.1069, 0.0064), "upper_lip_tall": (0.0350, 0.0057),
+    },
+    "male": {
+        "brow_high": (0.1944, 0.0297), "brow_over_lid": (0.1389, 0.0189), "brow_wide": (0.3168, 0.0020), "brows_apart": (0.2329, 0.0098),
+        "chin_long": (0.2298, 0.0313), "chin_tall": (0.2300, 0.0314), "chin_wide": (0.1840, 0.0072), "eye_level": (0.6700, 0.0145),
+        "eye_line": (0.3299, 0.0146), "eye_open": (0.0858, 0.0209), "eye_round": (0.4501, 0.0772), "eye_shown": (0.0262, 0.0086),
+        "eye_tall": (0.1007, 0.0245), "eye_wide": (0.2211, 0.0194), "eyes_apart": (0.4780, 0.0301), "eyes_gap_in_eyes": (1.1819, 0.0435),
+        "face_wide": (0.8520, 0.0663), "face_wide_of_tall": (0.8520, 0.0663), "forehead_tall": (0.1355, 0.0167),
+        "inner_corners_apart": (0.2595, 0.0134), "iris_of_eye": (0.4575, 0.0065), "iris_wide": (0.1009, 0.0074),
+        "jaw_corner_wide": (0.8925, 0.0318), "jaw_wide": (0.8052, 0.0384), "lip_contrast": (0.0662, 0.0593),
+        "lips_full": (0.2449, 0.1260), "lips_tall": (0.0804, 0.0255), "lower_lip_tall": (0.0482, 0.0140),
+        "mouth_curve": (0.0340, 0.0614), "mouth_level": (0.2830, 0.0209), "mouth_wide": (0.4109, 0.0638),
+        "mouth_wide_of_nose": (1.5388, 0.1644), "mouth_wide_of_pupils": (0.8791, 0.1890), "nose_long": (0.3135, 0.0202),
+        "nose_tip_over_base": (0.0392, 0.0072), "nose_to_lip": (0.0825, 0.0193), "nose_wide": (0.2640, 0.0161),
+        "nose_wide_of_eye": (1.2121, 0.1601), "outer_corners_apart": (0.6985, 0.0481), "pupils_apart": (0.4715, 0.0293),
+        "sym_level": (0.0082, 0.0074), "sym_midline": (0.0071, 0.0028), "sym_sides": (0.1204, 0.0794), "sym_size": (0.0455, 0.0162),
+        "third_lower": (0.3928, 0.0281), "third_middle": (0.4713, 0.0430), "third_upper": (0.1355, 0.0167), "uneven": (0.0185, 0.0141),
+        "upper_leads": (0.1158, 0.0708), "upper_lip_tall": (0.0274, 0.0107),
+    },
+}
+PRETTY_SPREAD = 0.04
 NAMES = {
     **parle_profile.NAMES,
     "eye_shown": "olho que aparece (abertura/rosto)", "eye_open": "olho aberto (altura/rosto)", "eyes_apart": "olhos afastados (entre centros/largura)",
@@ -204,6 +258,49 @@ def measures(points):
         "face_wide": wide / tall,
         "uneven": float(uneven),
         **parle_symmetry.measures(points),
+    }
+
+
+# Points the details read beyond those of the measures: the tip of the nose, the corners of the jaw and the sides of the chin, the
+# middle of each pupil and the two ends of each iris, each eyebrow (outer end, top, inner end), where the lips meet.
+NOSE_TIP, GONION, CHIN_SIDES = 1, (58, 288), (148, 377)
+PUPILS, IRIS_SIDES = (468, 473), ((469, 471), (474, 476))
+BROW_ENDS = ((70, 105, 107), (300, 334, 336))
+
+
+def details(points):
+    """What `measures` leaves out, from the same points: the eye and its iris, the room between the eyes, the eyebrows, the forehead,
+    the nose, the lips, the chin, the jaw and the thirds of the face, each a share of the face (its width between the cheekbones or
+    its height from the top of the forehead to the chin) or of another feature. Kept apart from `measures`, whose marks and
+    likeness to the faces the owner likes were set on its own."""
+    spot = lambda index: np.asarray(points[index][:2], float)
+    apart = lambda a, b: float(np.linalg.norm(spot(a) - spot(b)))
+    height = lambda index: -float(spot(index)[1])
+    wide, tall = apart(*CHEEKS), apart(TOP, CHIN)
+    eye_wide = float(np.mean([apart(outer, inner) for outer, inner, _, _ in EYES]))
+    eye_tall = float(np.mean([apart(up, low) for _, _, up, low in EYES]))
+    eyes_height = float(np.mean([height(index) for outer, inner, _, _ in EYES for index in (outer, inner)]))
+    iris = float(np.mean([apart(a, b) for a, b in IRIS_SIDES]))
+    between = apart(*PUPILS)
+    brow_top = float(np.mean([height(top) for _, top, _ in BROW_ENDS]))
+    lid = float(np.mean([height(up) for _, _, up, _ in EYES]))
+    inner = apart(EYES[0][1], EYES[1][1])
+    return {
+        "face_wide_of_tall": wide / tall,
+        "eye_tall": eye_tall / wide, "eye_round": eye_tall / eye_wide,
+        "pupils_apart": between / wide, "inner_corners_apart": inner / wide, "eyes_gap_in_eyes": inner / eye_wide,
+        "outer_corners_apart": apart(EYES[0][0], EYES[1][0]) / wide, "eye_level": (eyes_height - height(CHIN)) / tall,
+        "iris_wide": iris / wide, "iris_of_eye": iris / eye_wide,
+        "brow_over_lid": (brow_top - lid) / tall, "brow_wide": float(np.mean([apart(outer, end) for outer, _, end in BROW_ENDS])) / wide,
+        "brows_apart": apart(BROW_ENDS[0][2], BROW_ENDS[1][2]) / wide, "forehead_tall": (height(TOP) - brow_top) / tall,
+        "nose_wide_of_eye": apart(*NOSE) / eye_wide, "nose_tip_over_base": (height(NOSE_TIP) - height(SUBNASALE)) / tall,
+        "mouth_wide_of_nose": apart(*MOUTH) / apart(*NOSE), "mouth_wide_of_pupils": apart(*MOUTH) / between,
+        "upper_lip_tall": apart(LIP_TOP, LIP_MEET[0]) / tall, "lower_lip_tall": apart(LIP_MEET[1], LIP_BOTTOM) / tall,
+        "lips_tall": apart(LIP_TOP, LIP_BOTTOM) / tall, "nose_to_lip": apart(SUBNASALE, LIP_TOP) / tall,
+        "mouth_level": (height(LIP_MEET[0]) - height(CHIN)) / tall,
+        "chin_tall": apart(LIP_BOTTOM, CHIN) / tall, "chin_wide": apart(*CHIN_SIDES) / wide, "jaw_corner_wide": apart(*GONION) / wide,
+        "third_upper": (height(TOP) - brow_top) / tall, "third_middle": (brow_top - height(SUBNASALE)) / tall,
+        "third_lower": (height(SUBNASALE) - height(CHIN)) / tall,
     }
 
 
@@ -269,11 +366,13 @@ def mark(value, aim, reach, way):
     return float(max(0.0, 1 - abs(value - edge) / reach))
 
 
-def likeness(found, sex):
-    """How far a face stands from the faces the owner likes (LIKED): for each measure both have, the difference from their mean
-    in their deviations, and over all of them the root of the mean square, each counted for no more than LIKED_MOST. None when
-    no measure is shared."""
-    far = {name: (found[name] - mean) / spread for name, (mean, spread) in LIKED[sex].items() if isinstance(found.get(name), float)}
+def likeness(found, sex, liked=None):
+    """How far a face stands from the faces the owner likes (LIKED, or the table given: PRETTY for the pretty faces, with the
+    measures of `details` among those found): for each measure both have, the difference from their mean in their deviations, and
+    over all of them the root of the mean square, each counted for no more than LIKED_MOST. None when no measure is shared. A
+    table other than LIKED has its spreads held to no less than PRETTY_SPREAD of the mean."""
+    table = LIKED[sex] if liked is None else {name: (mean, max(spread, PRETTY_SPREAD * abs(mean))) for name, (mean, spread) in liked[sex].items()}
+    far = {name: (found[name] - mean) / spread for name, (mean, spread) in table.items() if isinstance(found.get(name), float)}
     if not far:
         return None, far
     return float(np.sqrt(np.mean(np.square(np.clip(list(far.values()), -LIKED_MOST, LIKED_MOST))))), far

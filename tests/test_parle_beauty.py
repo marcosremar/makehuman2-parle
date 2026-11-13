@@ -112,6 +112,60 @@ for sex in ("female", "male"):
 assert parle_beauty.likeness({}, "female") == (None, {}), "a face with no measure stands somewhere"
 assert set(parle_symmetry.NAMES) <= set(parle_beauty.measures(face())), "the measures of how alike the two halves are do not come with the rest"
 
+# The details of a face (2026-11-13): on a face drawn with the eyes 44 px wide and 48 px between their inner corners, the chin 36 px
+# under the lower lip and the brows 36 px over the middle of the eyes, each detail reads what was drawn; a taller opening reads rounder
+# and nothing else moves; a longer chin reads on the chin and on the lower third.
+def whole_face(**given):
+    """`face` with the points only the details read: the pupils at the middle of each eye, an iris 20 px across, the eyebrows as
+    lines 50 px long ending 20 px from the middle, the corners of the jaw, the sides of the chin and the tip of the nose."""
+    points = face(**given)
+    put = lambda index, x, y: points.__setitem__(index, (x, y))
+    for sign, pupil, (near, far), (outer, top, inner) in zip((-1, 1), parle_beauty.PUPILS, parle_beauty.IRIS_SIDES, parle_beauty.BROW_ENDS):
+        put(pupil, sign * 46, 70), put(near, sign * 46 - 10, 70), put(far, sign * 46 + 10, 70)
+        put(outer, sign * 70, 36), put(top, sign * 46, 34), put(inner, sign * 20, 36)
+    put(parle_beauty.GONION[0], -70, 160), put(parle_beauty.GONION[1], 70, 160)
+    put(parle_beauty.CHIN_SIDES[0], -18, 196), put(parle_beauty.CHIN_SIDES[1], 18, 196)
+    put(parle_beauty.NOSE_TIP, 0, 112)
+    return points
+
+
+drawn = parle_beauty.details(whole_face())
+for name, wanted in (("face_wide_of_tall", 1.0), ("eye_round", 10 / 44), ("eye_tall", 10 / 200), ("eyes_gap_in_eyes", 48 / 44), ("pupils_apart", 92 / 200),
+                     ("iris_of_eye", 20 / 44), ("eye_level", 130 / 200), ("brow_over_lid", (36 - 5) / 200), ("brows_apart", 40 / 200), ("forehead_tall", 34 / 200),
+                     ("nose_wide_of_eye", 1.0), ("nose_tip_over_base", 10 / 200), ("mouth_wide_of_nose", 70 / 44), ("lips_tall", 32 / 200), ("nose_to_lip", 10 / 200),
+                     ("chin_tall", 36 / 200), ("chin_wide", 36 / 200), ("jaw_corner_wide", 140 / 200), ("third_lower", 78 / 200)):
+    assert abs(drawn[name] - wanted) < 1e-9, f"{name} reads {drawn[name]}, drawn {wanted}"
+assert abs(drawn["third_upper"] + drawn["third_middle"] + drawn["third_lower"] - 1) < 1e-9, "the three thirds of the face do not make the face"
+rounder = parle_beauty.details(whole_face(eye_open=20.0))
+assert abs(rounder["eye_round"] - 20 / 44) < 1e-9 and rounder["chin_tall"] == drawn["chin_tall"], "a taller opening does not read rounder, or moves the chin"
+longer = parle_beauty.details(whole_face(chin=50.0))
+assert longer["chin_tall"] > drawn["chin_tall"] and longer["lips_tall"] < drawn["lips_tall"] and longer["third_lower"] == drawn["third_lower"], "a longer chin under the same face"
+assert not set(drawn) & set(parle_beauty.measures(face())), "a detail has the name of a measure"
+
+# The pretty faces: every measure of the table is one this ruler reads off a portrait (or the profile), their middle stands nowhere off
+# them, and the file of the faces says what the table says. A measure they all share counts with a spread of PRETTY_SPREAD of its mean.
+import json  # noqa: E402
+
+kept = json.loads((Path(__file__).parent.parent / "data" / "parle_beauty" / "pretty_faces.json").read_text())
+read = set(parle_beauty.measures(face())) | set(drawn) | {"lip_contrast", "upper_leads"}
+for sex in ("female", "male"):
+    table = parle_beauty.PRETTY[sex]
+    assert set(table) <= read, f"the table of the pretty faces has measures this ruler does not read: {sorted(set(table) - read)}"
+    assert all(spread > 0 for _, spread in table.values()), "a measure of the pretty faces with no spread"
+    middle = {name: mean for name, (mean, _) in table.items()}
+    assert parle_beauty.likeness(middle, sex, parle_beauty.PRETTY)[0] == 0, "the middle of the pretty faces stands off them"
+    for name, (mean, spread) in table.items():
+        assert abs(kept["standard"][sex][name]["mean"] - mean) < 1e-9 and abs(kept["standard"][sex][name]["sd"] - spread) < 1e-9, f"{sex} {name}: the table and the file differ"
+    name = min(table, key=lambda key: table[key][1] / abs(table[key][0]))
+    mean, spread = table[name]
+    step = parle_beauty.PRETTY_SPREAD * abs(mean)
+    assert spread < step, "no measure of the pretty faces is shared closely enough to need the least spread"
+    far, by = parle_beauty.likeness(dict(middle, **{name: mean + step}), sex, parle_beauty.PRETTY)
+    assert abs(by[name] - 1) < 1e-9, f"a measure the pretty faces share, {name}, counts by its own spread: {by[name]}"
+    faces = [one for one in kept["faces"] if one["group"] == "standard" and one["sex"] == sex]
+    assert len(faces) == {"female": 6, "male": 4}[sex] and all("marcos" not in one and "points" not in one for one in faces), "the faces of the standard"
+assert parle_beauty.likeness(dict({name: mean for name, (mean, _) in parle_beauty.LIKED["female"].items()}), "female")[0] == 0, "the faces the owner likes are still the table when none is given"
+
 try:
     import cv2
 except ImportError:
