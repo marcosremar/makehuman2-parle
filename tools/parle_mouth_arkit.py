@@ -40,7 +40,7 @@ SHARE = {"mouthPucker": 0.6, "mouthFunnel": 0.6, "mouthRollUpper": 0.5}
 # at weight 1.0 it did not read as rounding on «v[o]cê» and «n[ã]o» (the lip protrusion of a real /o/ /u/ is 8 to 12 mm and the corners come in 8 to
 # 10 mm). The cast's own `viseme_U` has that narrowing (10.5 mm in, 6.9 mm forward) on a skin that takes it without a fold, so the rounding
 # shapes add this share of it to the pack's: pucker ends near 13 mm at full weight, funnel near 9 mm. Judged by eye, front and profile.
-ROUND_FROM_U = {"mouthPucker": 0.8, "mouthFunnel": 0.5}
+ROUND_FROM_U = {"mouthPucker": 0.6, "mouthFunnel": 0.4}
 BODY_POINTS = 13380
 SMOOTH_ROUNDS = (1600, 800, 400, 200, 100, 50, 25, 12, 6, 3, 2, 1)
 # The walk has landed when 90% of the body head is this close to a base point (metres): 3.3 to 5.6 mm on the 42 of the cast (2026-11-12;
