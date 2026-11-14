@@ -54,6 +54,14 @@ NECK = {"female": 0.75}
 # Widths of the blends, as shares of the height or in metres: trunk to legs, left leg to right leg, upper arm to forearm, wrist to hand.
 # The trunk hands over to the legs across 10 cm: with a short band, a pelvis made deeper than the thighs left a ledge at the groin.
 CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
+# The lengths (owner, 2026-11-14, of a man he had picked for his body: "copia toda a estrutura e formato"). A profile may say how
+# many times the kit's own the thigh and the shank are long, joint to joint (`lengths`). Each bone of the leg keeps its heading and
+# the foot its shape and its place on the floor, so the hips come down by what the legs lose, and the trunk takes that up between
+# the joints of the hips and the joints of the arms: the stature stays, and so does all that is above the shoulders, the arms with
+# it. The stretch of the trunk comes in and goes out over TRUNK_EASE of that span at each end: evenly spread from end to end, the
+# skin would go from no stretch to all of it on one level, across the buttocks and under the collarbones.
+LENGTHS = ("thigh", "shank")
+TRUNK_EASE = 0.1
 FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "parle_build")
 
 
@@ -140,15 +148,183 @@ def ring(points, start, end, depth, thick):
     return ((rel @ front) * (depth - 1))[:, None] * front + ((rel @ across) * (thick - 1))[:, None] * across
 
 
+def halves(profile, joints, height):
+    """`shares(points)`: how much of each point is leg and not trunk, and how much of that is the left leg's. The legs part
+    `profile["crotch"]` of the way down the thigh; trunk and legs, and one leg and the other, hand over across their bands."""
+    mid = (joints["LeftUpLeg"][0] + joints["RightUpLeg"][0]) / 2
+    hip, knee = (joints["LeftUpLeg"][2] + joints["RightUpLeg"][2]) / 2, (joints["LeftLeg"][2] + joints["RightLeg"][2]) / 2
+    cut, band = hip - profile["crotch"] * (hip - knee), CROTCH_BAND * height
+    side_sign = 1.0 if joints["LeftUpLeg"][0] > mid else -1.0
+
+    def shares(points):
+        lower = smooth((cut + band - points[:, 2]) / (2 * band))[:, None]
+        left = smooth(0.5 + side_sign * (points[:, 0] - mid) / (2 * MIDLINE_BAND * height))[:, None]
+        return lower, left
+
+    return shares
+
+
+def eased(t, ease):
+    """The share of a stretch that lies below `t` of its span (0 to 1), when the stretch is even in the middle and comes in and goes
+    out in a straight ramp over `ease` of the span at each end."""
+    t = np.clip(np.asarray(t, float), 0, 1)
+    below = lambda s: np.where(s < ease, s * s / (2 * ease), s - ease / 2)
+    return np.where(t < 0.5, below(t), (1 - ease) - below(1 - t)) / (1 - ease)
+
+
+def lengths_field(profile, joints, height):
+    """The lengths of a profile (LENGTHS), or None when it has none: `field(points, arms, head)`, the shift of each point in metres,
+    `ride(part, points)`, the shift of the bones of a part at those points ("trunk", or the side of a leg), and how far the hips
+    come down. `joints`, `arms` and `head` as in `build_field`. The thigh and the shank shorten or lengthen along their own bones,
+    the foot goes whole and stays at its height, the trunk stretches level by level, and what follows an arm or the head goes with
+    the joint of that arm or of the head."""
+    lengths = profile.get("lengths") or {}
+    thigh, shank = float(lengths.get("thigh", 1.0)), float(lengths.get("shank", 1.0))
+    if thigh == 1.0 and shank == 1.0:
+        return None
+    joints = {name: np.asarray(joints[name], float) for name in BONES}
+    legs = {}
+    for side in SIDES:
+        top, knee, foot = (joints[side + part] for part in LEG)
+        legs[side] = (top, knee, foot, (thigh - 1) * (knee - top), (shank - 1) * (foot - knee))
+    # What the two bones of a leg lose in height (how far the ankle would come up), the hips come down by: the soles stay on the floor.
+    drop = float(np.mean([upper[2] + lower[2] for *_, upper, lower in legs.values()]))
+    hip = (joints["LeftUpLeg"][2] + joints["RightUpLeg"][2]) / 2
+    top = (joints["LeftArm"][2] + joints["RightArm"][2]) / 2
+    shares = halves(profile, joints, height)
+
+    def trunk(points):
+        out = np.zeros_like(points)
+        out[:, 2] = -drop * (1 - eased((points[:, 2] - hip) / (top - hip), TRUNK_EASE))
+        return out
+
+    def leg(points, side):
+        start, knee, foot, upper, lower = legs[side]
+        on_upper = np.clip((points - start) @ (knee - start) / ((knee - start) @ (knee - start)), 0, 1)
+        on_lower = np.clip((points - knee) @ (foot - knee) / ((foot - knee) @ (foot - knee)), 0, 1)
+        out = np.outer(on_upper, upper) + np.outer(on_lower, lower)
+        out[:, 2] -= drop
+        return out
+
+    def ride(part, points):
+        points = np.atleast_2d(np.asarray(points, float))
+        return trunk(points) if part == "trunk" else leg(points, part)
+
+    def field(points, arms, head):
+        lower, left = shares(points)
+        out = (1 - lower) * trunk(points) + lower * (left * leg(points, "Left") + (1 - left) * leg(points, "Right"))
+        for side in SIDES:
+            share = np.asarray(arms[side])[:, None]
+            out = (1 - share) * out + share * trunk(joints[side + "Arm"][None])
+        top_share = np.asarray(head)[:, None]
+        return (1 - top_share) * out + top_share * trunk(joints["Head"][None])
+
+    return field, ride, drop
+
+
+def quat_times(first, second):
+    """The product of two turns, each as w, x, y, z."""
+    a, b = np.asarray(first, float), np.asarray(second, float)
+    return np.array([a[0] * b[0] - a[1:] @ b[1:], *(a[0] * b[1:] + b[0] * a[1:] + np.cross(a[1:], b[1:]))])
+
+
+def quat_turn(turn, vector):
+    """A vector turned by a turn (w, x, y, z)."""
+    turn, vector = np.asarray(turn, float), np.asarray(vector, float)
+    side = np.cross(turn[1:], vector)
+    return vector + 2 * (turn[0] * side + np.cross(turn[1:], side))
+
+
+# The soles. A foot meets the floor by its heel, by the ball or by the tip of the toes, as it turns: what is watched is the rim of
+# the sole, the points of the feet and of the shoes that rest within SOLE_BAND_M of the floor, as far out as any in each of SOLE_WAYS
+# headings, each with the bone it follows more, the foot's or the toes'. A body with no such points has the ball, under the joint
+# of the toes, and the heel, HEEL_BEHIND of the way from the ankle to the ball behind the ankle.
+SOLE_BAND_M = 0.025
+SOLE_WAYS = 8
+HEEL_BEHIND = 0.35
+SOLE = ("Foot", "ToeBase")
+
+
+def sole_points(ankle, toes, floor):
+    """The ball and the heel of a foot at rest (HEEL_BEHIND), on the level of its sole: `ankle` and `toes` are the joints."""
+    ankle, toes = np.asarray(ankle, float), np.asarray(toes, float)
+    heel = ankle - HEEL_BEHIND * (toes - ankle)
+    return np.array([[toes[0], toes[1], floor], [heel[0], heel[1], floor]])
+
+
+def sole_rim(points, ways=SOLE_WAYS):
+    """The points of a sole that are as far out as any, level with the floor, in each of `ways` headings."""
+    points = np.asarray(points, float).reshape(-1, 3)
+    if not len(points):
+        return points
+    angles = np.arange(ways) * 2 * np.pi / ways
+    return points[np.unique(np.argmax(points[:, :2] @ np.stack([np.cos(angles), np.sin(angles)]), axis=0))]
+
+
+def soles_under(turns, rests, joints, soles):
+    """How far over the head of the hips the lowest point of the two soles is in a pose (under it: negative). `turns` are the turns
+    the clip gives the hips and each thigh, shank, foot and toes, `rests` the headings those bones rest with and `joints` where they
+    rest; `soles` are the points of each sole where they rest, by side and by the bone they go with (SOLE). All in the frame of
+    the skeleton, the turns as w, x, y, z."""
+    back = lambda turn: np.asarray(turn, float) * (1, -1, -1, -1)
+    posed = lambda name, base: quat_times(base, quat_times(quat_times(rests[name], turns[name]), back(rests[name])))
+    hips, lows = posed("Hips", (1.0, 0.0, 0.0, 0.0)), []
+    for side in SIDES:
+        upper = posed(side + "UpLeg", hips)
+        lower = posed(side + "Leg", upper)
+        foot = posed(side + "Foot", lower)
+        toes = posed(side + "ToeBase", foot)
+        ankle = quat_turn(hips, joints[side + "UpLeg"] - joints["Hips"]) + quat_turn(upper, joints[side + "Leg"] - joints[side + "UpLeg"]) + quat_turn(lower, joints[side + "Foot"] - joints[side + "Leg"])
+        ball = ankle + quat_turn(foot, joints[side + "ToeBase"] - joints[side + "Foot"])
+        for name, start, turned in (("Foot", ankle, foot), ("ToeBase", ball, toes)):
+            mine = np.asarray(soles[side].get(name, ()), float).reshape(-1, 3)
+            if len(mine):
+                lows.append(float((start + quat_turn(turned, mine - joints[side + name]))[:, 2].min()))
+    return min(lows)
+
+
+def bone_rides(ride, heads, parents):
+    """How far the head of each bone goes with the lengths (`lengths_field`): `ride` is the field's, `heads` where the bones rest
+    and `parents` the parent of each, by name. What hangs from a foot, from an arm or from the head goes whole with that joint; a
+    bone of a leg goes by the field of its leg and every other by the trunk's, each by where its own joint is."""
+    whole = {**{side + "Foot": side for side in SIDES}, **{side + "Arm": "trunk" for side in SIDES}, "Head": "trunk"}
+    legs = {side + "UpLeg": side for side in SIDES}
+
+    def under(name, tops):
+        while name is not None and name not in tops:
+            name = parents.get(name)
+        return name
+
+    out = {}
+    for name, head in heads.items():
+        top = under(name, whole)
+        out[name] = ride(whole[top], heads[top])[0] if top is not None else ride(legs.get(under(name, legs), "trunk"), head)[0]
+    return out
+
+
+def hips_place(local, head, turn, head_new, across, lift):
+    """A place of the hips in a clip, for a body whose legs changed length. `local` is the place as the clip keeps it, in the axes of
+    the bone and counted from its head at rest, `head`; `turn` takes those axes to the skeleton's, and `head_new` is where the hips
+    rest now. Level with the floor the hips go `across` times as far from the origin of the skeleton, as the feet now do under them;
+    and they stand `lift` higher (lower, when it is negative): what keeps the lowest point of the two soles as high over the floor
+    as the clip had it (`soles_under`), so nothing goes further into the floor than it did. Three rules were tried before this one
+    on a man with legs an eighth shorter (2026-11-14), each read on his 58 clips as the lowest point of his feet and shoes. By the
+    height of the hips alone, the rule the clips are first set by (`parle_clips.retarget`), the standing clips came out right and
+    the walking ones sank a foot 8 to 18 mm further into the floor. By the lower of the two ankles the foot that stands flat stayed
+    where it was and the one on its toes still sank, up to 19 mm: a shank that slants loses less height than one that stands, and
+    the foot none. By the ball and the heel of each foot, up to 16 mm: on its toes a shoe reaches the floor with its tip."""
+    turn = np.asarray(turn, float)
+    place = np.asarray(head, float) + turn @ np.asarray(local, float)
+    return turn.T @ (np.array([across * place[0], across * place[1], place[2] + lift]) - np.asarray(head_new, float))
+
+
 def build_field(profile, joints, height):
     """`field(points, arms, head)` gives the shift of each point, in metres; `rides` is how far each arm and each leg goes as a whole, for the bones.
     `joints` are the heads of BONES in the world, `arms` the share of each point that follows each arm, `head` the share that follows the head."""
     joints = {name: np.asarray(joints[name], float) for name in BONES}
     mid = (joints["LeftUpLeg"][0] + joints["RightUpLeg"][0]) / 2
-    hip, knee = (joints["LeftUpLeg"][2] + joints["RightUpLeg"][2]) / 2, (joints["LeftLeg"][2] + joints["RightLeg"][2]) / 2
     spine = np.array(sorted((joints[name] for name in SPINE), key=lambda joint: joint[2]))
-    cut, band = hip - profile["crotch"] * (hip - knee), CROTCH_BAND * height
-    side_sign = 1.0 if joints["LeftUpLeg"][0] > mid else -1.0
+    shares = halves(profile, joints, height)
 
     girdle, joint_w = profile.get("girdle"), trunk_param((joints["LeftArm"][2] + joints["RightArm"][2]) / 2, joints)
 
@@ -188,8 +364,7 @@ def build_field(profile, joints, height):
         return out
 
     def body(points):
-        lower = smooth((cut + band - points[:, 2]) / (2 * band))[:, None]
-        left = smooth(0.5 + side_sign * (points[:, 0] - mid) / (2 * MIDLINE_BAND * height))[:, None]
+        lower, left = shares(points)
         return (1 - lower) * trunk(points) + lower * (left * leg(points, "Left") + (1 - left) * leg(points, "Right"))
 
     def arm(points, side):

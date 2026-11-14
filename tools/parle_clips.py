@@ -159,10 +159,10 @@ def ground(source, action):
     return floor
 
 
-def stance_of(rig, floor):
+def stance_of(rig, floor, gone=None):
     """How far apart the ankles are and how long the leg is from the hip joint to the ankle, in shares of the height of the body (the floor
-    to the top of the head), in the pose the skeleton is in."""
-    at = lambda name: rig.matrix_world @ rig.pose.bones[name].head
+    to the top of the head), in the pose the skeleton is in. `gone` is how far each joint is yet to go, by bone (`lengths_to_come`)."""
+    at = lambda name: rig.matrix_world @ rig.pose.bones[name].head + (gone or {}).get(name, Vector((0.0, 0.0, 0.0)))
     tall = at("HeadTop_End").z - floor
     leg = ((at("LeftFoot") - at("LeftUpLeg")).length + (at("RightFoot") - at("RightUpLeg")).length) / 2
     return abs(at("LeftFoot").x - at("RightFoot").x) / tall, leg / tall
@@ -191,6 +191,30 @@ def hips_to_come(rig, kit, height):
     return float(apart(rides) - apart({"LeftUpLeg": 0.0, "RightUpLeg": 0.0}))
 
 
+def lengths_to_come(rig, kit, height):
+    """How far each joint will go, in the pose the skeleton is in, once the lengths of the kit are on the
+    body (`parle_build.lengths_field`, run on the finished body, after the clips), by bone; nothing for a kit with no lengths. Each
+    bone keeps the turn the clip gives it, and what hangs from it goes that turn of how much further, or nearer, the two will
+    rest. Worked out as the body stood before them, the lean left the head of a man with legs an eighth shorter and a trunk a
+    quarter longer 1.1 cm further back than it meant to, and his feet 0.8 cm closer (2026-11-14)."""
+    profile = parle_build.load_profile(kit)
+    joints = {name: np.array(rig.matrix_world @ rig.data.bones[name].head_local) for name in parle_build.BONES}
+    found = parle_build.lengths_field(profile, joints, height) if profile else None
+    if found is None:
+        return {}
+    heads = {bone.name: np.array(rig.matrix_world @ bone.head_local) for bone in rig.data.bones}
+    rides = parle_build.bone_rides(found[1], heads, {bone.name: bone.parent.name if bone.parent else None for bone in rig.data.bones})
+    world, gone = rig.matrix_world.to_3x3(), {}
+    for bone in sorted(rig.pose.bones, key=lambda item: len(item.parent_recursive)):
+        if bone.parent is None:
+            # The hips come down as they rest: the soles stay on the floor.
+            gone[bone.name] = Vector(rides[bone.name])
+            continue
+        turn = world @ bone.parent.matrix.to_3x3() @ bone.parent.bone.matrix_local.to_3x3().inverted() @ world.inverted()
+        gone[bone.name] = gone[bone.parent.name] + turn @ Vector(rides[bone.name] - rides[bone.parent.name])
+    return gone
+
+
 def standing(source, new, body, idle, new_rest, posed_rest, wanted=None, kit=""):
     """How our body stands in the idle clip of `source` as it comes, and what sets it right: the lean of the spine that brings the head over
     the ankles (`parle_rig.trunk_lean`; with the MakeHuman spine the cast stooped, the head 5 cm in front of the ankles) and the turn of
@@ -200,16 +224,18 @@ def standing(source, new, body, idle, new_rest, posed_rest, wanted=None, kit="")
     new.animation_data.action_slot = slot
     bpy.context.scene.frame_set(int(sum(idle.frame_range) / 2))
     bpy.context.view_layer.update()
-    at = lambda name: new.matrix_world @ new.pose.bones[name].head
     points = [body.matrix_world @ vertex.co for vertex in body.data.vertices]
     tall = max(point.z for point in points) - min(point.z for point in points)
+    # The body is read as it will stand with the lengths of its kit, which go on after the clips.
+    gone = lengths_to_come(new, kit, tall)
+    at = lambda name: new.matrix_world @ new.pose.bones[name].head + gone.get(name, Vector((0.0, 0.0, 0.0)))
     group = body.vertex_groups["Head"].index
     skull = [points[vertex.index].y for vertex in body.data.vertices if any(item.group == group and item.weight > 0.8 for item in vertex.groups)]
     # The middle of the head follows its joint: the way from one to the other is the rest's.
     middle = (min(skull) + max(skull)) / 2 - (new.matrix_world @ new.data.bones["Head"].head_local).y
     ahead = -(at("Head").y + middle - (at("LeftFoot").y + at("RightFoot").y) / 2) / tall
     reach = sum(at("Head").z - at(name).z for name in parle_rig.SPINE) / len(parle_rig.SPINE) / tall
-    apart, leg = stance_of(new, 0.0)
+    apart, leg = stance_of(new, 0.0, gone)
     apart += hips_to_come(new, kit, tall) / (at("HeadTop_End").z - 0.0)
     new.animation_data.action = None
     bpy.data.actions.remove(made)

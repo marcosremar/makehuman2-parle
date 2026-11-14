@@ -218,7 +218,8 @@ EYE_TALL_MOST = 0.43
 # 0.6 to 0.67. On the pharmacy's attendant with the drawn head the lids give 0.50 as they are, and there the iris reaches from lid
 # to lid with no white over it. So Sofia's 0.50 is the most for a woman; a woman whose own lids give less keeps hers (the
 # apartment's neighbour, 0.41). The men keep 0.43: Rafa's reads no rounder than the café's owner's. On the size and the opening of
-# the eye the owner's eye decides, and this one was not yet shown to him.
+# the eye the owner's eye decides: shown the pharmacy's attendant and the pet shop's on the drawn head, each with the opening held
+# to 0.43 and let go to 0.50, he took the rounder one the same day ("A mais aberta").
 EYE_TALL_MOST_BY_SEX = {"female": 0.50}
 # How much of a point's weight on the head makes it the head's own for the drawn head (`drawn_head`).
 HEAD_WHOLE = 0.4
@@ -741,6 +742,128 @@ def drawn_head(meshes, rig, kit):
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.context.view_layer.update()
     return went
+
+
+def clip_actions(rig):
+    """The actions of the clips a skeleton carries: one on each of its tracks (`parle_clips.clips_on`), and the one it plays."""
+    data = rig.animation_data
+    if data is None:
+        return []
+    found = [strip.action for track in data.nla_tracks for strip in track.strips if strip.action] + ([data.action] if data.action else [])
+    return list({action.name: action for action in found}.values())
+
+
+def sole_rims(objects, back, ankles, toes):
+    """The rim of each sole (`parle_build.sole_rim`), by side and by the bone its points follow more, in the frame of the skeleton
+    (`back` takes the world to it): the points of those objects that follow a foot or its toes and rest within
+    `parle_build.SOLE_BAND_M` of the lowest of them. A side with none has the ball and the heel its joints give
+    (`parle_build.sole_points`); `ankles` and `toes` are those joints, by side."""
+    found = {side: {name: [] for name in parle_build.SOLE} for side in parle_build.SIDES}
+    for obj in objects:
+        names = {group.index: group.name for group in obj.vertex_groups if group.name[:4] in ("Left", "Righ") and ("Foot" in group.name or "Toe" in group.name)}
+        if not names or not len(obj.data.vertices):
+            continue
+        points = rest_points(obj) @ back[:3, :3].T + back[:3, 3]
+        for vertex in obj.data.vertices:
+            mine = [(item.weight, names[item.group]) for item in vertex.groups if item.group in names]
+            if mine and sum(weight for weight, _ in mine) > 0.5:
+                name = max(mine)[1]
+                found["Left" if name.startswith("Left") else "Right"]["ToeBase" if "Toe" in name else "Foot"].append(points[vertex.index])
+    lows = [point[2] for side in found.values() for points in side.values() for point in points]
+    floor = min(lows) if lows else 0.0
+    rims = {}
+    for side in parle_build.SIDES:
+        rims[side] = {name: parle_build.sole_rim([point for point in points if point[2] < floor + parle_build.SOLE_BAND_M]) for name, points in found[side].items()}
+        if not sum(len(points) for points in rims[side].values()):
+            rims[side] = {"Foot": parle_build.sole_points(ankles[side], toes[side], floor), "ToeBase": np.zeros((0, 3))}
+    return rims
+
+
+def natural_lengths(meshes, rig, height, kit):
+    """The lengths of the kit's profile (`parle_build.lengths_field`): shorter or longer legs under a trunk that takes up the
+    difference, on the stature the body has. Skin, cloth and bones go by the same field. Every bone goes whole, by how far its joint
+    goes, so each keeps the heading it rests with and the clips, which only turn the bones, turn them as before; a bone that was
+    joined to its parent and no longer starts where the parent ends is let loose from it. The hips of every clip the skeleton
+    carries are then set again, key by key, for the legs that hang from them now (`parle_build.hips_place`). Returns how far the
+    hips came down, in metres, and how many clips were set again; None for a profile with no lengths. Run before the build, which
+    reads the joints where they are."""
+    profile = parle_build.load_profile(kit)
+    if profile is None:
+        return None
+    bpy.context.view_layer.update()
+    joints = {name: np.array(rig.matrix_world @ rig.data.bones[name].head_local) for name in parle_build.BONES}
+    found = parle_build.lengths_field(profile, joints, height)
+    if found is None:
+        return None
+    field, ride, drop = found
+    world, back = np.array(rig.matrix_world), np.array(rig.matrix_world.inverted())
+    head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
+    body = next((obj for obj in meshes if obj.name.split(".")[0] == "Body" and obj.vertex_groups), None)
+    skin, skin_arms = KDTree(len(body.data.vertices) if body else 0), {side: arm_share(body, side) for side in parle_build.SIDES} if body else {}
+    for index, point in enumerate(rest_points(body) if body else ()):
+        skin.insert(point, index)
+    skin.balance()
+    for obj in meshes:
+        if not obj.vertex_groups:
+            continue
+        arms, top = {side: arm_share(obj, side) for side in parle_build.SIDES}, group_share(obj, head)
+        if body is not None and obj is not body:
+            arms = over_skin(obj, arms, skin, skin_arms)
+        warp(obj, lambda points: points + field(points, arms, top))
+    # The bones of the legs and the hips, as the clips see them: where each rests, in the frame of the skeleton, and its heading;
+    # and the rim of each sole (`sole_rims`). The feet have gone already, whole and level: their height is the one they had.
+    chain = ["Hips"] + [side + part for side in parle_build.SIDES for part in parle_build.LEG + ("ToeBase",)]
+    rested = lambda: {name: np.array(rig.data.bones[name].head_local) for name in chain}
+    before, rests = rested(), {name: np.array(rig.data.bones[name].matrix_local.to_quaternion()) for name in chain}
+    gone = {side: ride(side, joints[side + "Foot"])[0] @ back[:3, :3].T for side in parle_build.SIDES}
+    soles_now = sole_rims([obj for obj in meshes if obj is body or obj.name.startswith("Footwear")], back, {side: before[side + "Foot"] + gone[side] for side in parle_build.SIDES},
+                          {side: before[side + "ToeBase"] + gone[side] for side in parle_build.SIDES})
+    soles = {side: {name: points - gone[side] for name, points in soles_now[side].items()} for side in parle_build.SIDES}
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    bones = rig.data.edit_bones
+    heads = {bone.name: np.array(bone.head) @ world[:3, :3].T + world[:3, 3] for bone in bones}
+    rides = parle_build.bone_rides(ride, heads, {bone.name: bone.parent.name if bone.parent else None for bone in bones})
+    moves = {name: way @ back[:3, :3].T for name, way in rides.items()}
+    legs = {bone.name for side in parle_build.SIDES for bone in [bones[side + "UpLeg"]] + list(bones[side + "UpLeg"].children_recursive)}
+    loosed = [bone for bone in bones if bone.parent is not None and bone.use_connect and np.abs(moves[bone.name] - moves[bone.parent.name]).max() > 1e-9]
+    for bone in loosed:
+        bone.use_connect = False
+    # Every end is read before any is written.
+    ends = [(bone, np.array(bone.head) + moves[bone.name], np.array(bone.tail) + moves[bone.name]) for bone in bones]
+    for bone, head_at, tail_at in ends:
+        bone.head, bone.tail = head_at, tail_at
+    # A bone of a leg still ends where the next one starts: the next one went along its line.
+    for bone in loosed:
+        if bone.name in legs and bone.parent.name in legs:
+            bone.parent.tail = bone.head
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update()
+    after, turn = rested(), np.array(rig.data.bones["Hips"].matrix_local.to_3x3())
+    long = lambda joints: sum(np.linalg.norm(joints[side + low] - joints[side + high]) for side in parle_build.SIDES for high, low in zip(parle_build.LEG, parle_build.LEG[1:]))
+    across, clips = float(long(after) / long(before)), 0
+    for action in clip_actions(rig):
+        table = {}
+        for curve in (curve for layer in action.layers for strip in layer.strips for bag in strip.channelbags for curve in bag.fcurves):
+            if curve.data_path.startswith('pose.bones["') and curve.data_path.split('"')[1] in chain:
+                table.setdefault((curve.data_path.split('"')[1], curve.data_path.rsplit(".", 1)[-1]), {})[curve.array_index] = curve
+        place = table.get(("Hips", "location"), {})
+        if len(place) != 3:
+            continue
+        for index in range(len(place[0].keyframe_points)):
+            keys = [place[axis].keyframe_points[index] for axis in range(3)]
+            turns = {}
+            for name in chain:
+                curves = table.get((name, "rotation_quaternion"), {})
+                value = np.array([curves[axis].evaluate(keys[0].co.x) if axis in curves else (1.0, 0.0, 0.0, 0.0)[axis] for axis in range(4)])
+                turns[name] = value / np.linalg.norm(value)
+            lift = parle_build.soles_under(turns, rests, before, soles) - parle_build.soles_under(turns, rests, after, soles_now)
+            for key, value in zip(keys, parle_build.hips_place([key.co.y for key in keys], before["Hips"], turn, after["Hips"], across, lift)):
+                key.co.y = float(value)
+        for curve in place.values():
+            curve.update()
+        clips += 1
+    return drop, clips
 
 
 def natural_build(meshes, rig, height, kit):
@@ -1409,8 +1532,8 @@ def brows_on_skin(meshes):
 
 
 def natural_body(meshes, rig, height, sex, kit):
-    """The body of a finished character: the arms, the head in the shape of the drawn ones (`drawn_head`, where the body has its eye
-    globes), then the build of the kit. The cast and the loop that finds the build (`body_match`, through
+    """The body of a finished character: the lengths of the kit (`natural_lengths`, where its profile has them), the arms, the head
+    in the shape of the drawn ones (`drawn_head`, where the body has its eye globes), then the build of the kit. The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
@@ -1422,6 +1545,10 @@ def natural_body(meshes, rig, height, sex, kit):
     where the lids do not show them (`globes_behind_skin`), and a lid that shuts shuts on its globe (`blinks_shut`). Last, on a
     woman of the cast, the border of the lips becomes an edge of the mesh (`parle_lip_cut`): it adds points, so nothing that
     reads the points by their number runs after it."""
+    lengths = natural_lengths(meshes, rig, height, kit)
+    if lengths:
+        print("COMPRIMENTO das pernas pelo perfil: o quadril desceu", round(lengths[0] * 100, 1), "cm e o tronco tomou a diferença; o quadril de", lengths[1],
+              "clipes foi posto de novo sobre as solas")
     natural_arms(meshes, rig, height, sex)
     drawn = drawn_head(meshes, rig, kit)
     if drawn:

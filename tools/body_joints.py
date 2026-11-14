@@ -15,6 +15,8 @@
     A reference measured this way may lack rows: what its clothes hide is left out by whoever prepares it (and what they only
     thicken is taken off there), and `match` moves nothing where the reference says nothing. `match` starts from the profile that is
     there, so what an earlier reference gave the kit stays where this one is silent. Only measures of a reference are kept.
+    A reference may also say how high its joints stand barefoot (`joints_up`: the knees and the hips, as shares of the stature): the
+    kit then takes the lengths that put its own there (`parle_build.LENGTHS`), its foot as it is.
 """
 import json
 import os
@@ -148,13 +150,16 @@ def pull(name, curve, params, ratios, fade):
     ratios, and outside them it is left as it is, the pull dying away over `fade` of the curve's own measure. Held to the end as
     `body_match.pull` holds it, the ratio of the calf thinned the thigh, which the shorts hide, and the ratio of the waist widened
     the hips (2026-11-14, the first run). And it is the pull that is made even from station to station, not the curve: evened
-    whole every round, the curve lost its own shape where nothing pulled it (the thigh again)."""
+    whole every round, the curve lost its own shape where nothing pulled it (the thigh again). Past the fade no station moves at
+    all: the evening out let a little of the pull through to the next station or two, and matched again, with the legs their
+    new length, the waist under the shirt went on widening, half a percent a run."""
     stations = parle_build.CURVES[name]
     order = np.argsort(params)
     places, gains = np.array(params, float)[order], np.array(ratios, float)[order] ** body_match.STEP
     inside = np.clip(1 - np.maximum(places[0] - stations, stations - places[-1]) / fade, 0, 1)
     low, high = body_match.limits(name)
-    return list(np.clip(np.array(curve) * body_match.soft(np.interp(stations, places, gains) ** inside), low, high))
+    pulled = np.where(inside > 0, body_match.soft(np.interp(stations, places, gains) ** inside), 1.0)
+    return list(np.clip(np.array(curve) * pulled, low, high))
 
 
 def update(profile, found, reference):
@@ -185,6 +190,18 @@ def update(profile, found, reference):
     if found.get("bideltoid") and reference.get("bideltoid"):
         closer = 1 + (reference["bideltoid"] - found["bideltoid"]) / found["shoulders_apart"]
         profile["girdle"] = float(np.clip((profile.get("girdle") or 1.0) * closer ** body_match.STEP, *body_match.GIRDLE_LIMITS))
+    if reference.get("joints_up"):
+        profile["lengths"] = lengths(profile.get("lengths"), {name: joint[2] for name, joint in joints.items()}, reference["joints_up"])
+
+
+def lengths(now, mine, theirs):
+    """The lengths of a profile (`parle_build.LENGTHS`) that put the knees and the hips of the kit as high as the reference's:
+    `now` are the lengths the kit was measured with, `mine` how high its joints stand with them and `theirs` how high the
+    reference's do, all in shares of the stature. The ankle stays where the kit has it: the foot keeps its shape."""
+    now = now or {}
+    thigh = (theirs["hip"] - theirs["knee"]) / (mine["hip"] - mine["knee"])
+    shank = (theirs["knee"] - mine["ankle"]) / (mine["knee"] - mine["ankle"])
+    return dict(thigh=round(float(now.get("thigh", 1.0) * thigh), 4), shank=round(float(now.get("shank", 1.0) * shank), 4))
 
 
 def likeness(found, reference):
@@ -197,6 +214,8 @@ def likeness(found, reference):
     for name in ("bideltoid", "neck_width", "neck_depth"):
         if found.get(name) and reference.get(name):
             parts[name] = round(100 * (1 - abs(reference[name] / found[name] - 1)), 1)
+    if reference.get("joints_up"):
+        parts["joints_up"] = round(100 * (1 - float(np.mean([abs(reference["joints_up"][name] / found["joints"][name][2] - 1) for name in ("knee", "hip")]))), 1)
     return round(float(np.mean(list(parts.values()))), 2) if parts else 0.0, parts
 
 
@@ -206,7 +225,9 @@ def match(kit_glb, reference_path, out, opts):
     os.makedirs(work, exist_ok=True)
     profile = parle_build.load_profile(out) or parle_build.identity(opts["kit"])
     # What the profile was matched to before, for the record: this match starts from it and keeps it where the reference is silent.
-    started = {key: profile.get(key) for key in ("reference", "similarity") if profile.get(key)}
+    # Matched again to the reference it has (which may have learnt to say more), the record is the one it carries.
+    again = profile.get("reference") == os.path.basename(reference_path)
+    started = profile.get("started_from") if again else {key: profile.get(key) for key in ("reference", "similarity") if profile.get(key)}
     for key in ("similarity", "parts", "before", "rounds", "arm_deg", "bideltoid"):
         profile.pop(key, None)
     base = body_match.dump_options(opts) + [f"hang={body_match.HANG_DEG}", f"arm={float(reference.get('arm_deg', 40)):.1f}"]

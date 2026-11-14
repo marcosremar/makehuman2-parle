@@ -94,6 +94,13 @@ pulled = body_joints.pull("leg_x", curve, [1.2, 1.5], [0.9, 0.9], body_joints.LI
 thigh, calf = parle_build.LEG_Q < 1.2 - body_joints.LIMB_FADE - 0.2, (parle_build.LEG_Q >= 1.2) & (parle_build.LEG_Q <= 1.5)
 assert np.allclose(np.array(pulled)[thigh], np.array(curve)[thigh], atol=1e-3), "the ratio of the calf thinned the thigh, which the reference does not show"
 assert (np.array(pulled)[calf] < np.array(curve)[calf] - 0.03).all(), "the calf did not take its ratio"
+# Past the fade a station does not move at all, however many times the kit is matched: the evening out of the pull let a little of
+# it through, and the waist under the shirt went on widening run after run.
+far = parle_build.LEG_Q < 1.2 - body_joints.LIMB_FADE - 1e-9
+again = curve
+for _ in range(5):
+    again = body_joints.pull("leg_x", again, [1.2, 1.5], [0.9, 0.9], body_joints.LIMB_FADE)
+assert far.sum() >= 4 and np.array_equal(np.array(again)[far], np.array(curve)[far]), "a station past the fade moved"
 # No curve goes past the limits of the loop on skin (`body_match.limits`).
 wide = body_joints.pull("trunk_x", [1.2] * len(parle_build.TRUNK_W), [0.2, 0.4], [1.5, 1.5], body_joints.TRUNK_FADE)
 assert max(wide) <= body_match.LIMITS[1] + 1e-9, f"the trunk went past its limit: {max(wide)}"
@@ -112,10 +119,18 @@ assert max(profile["trunk_x"]) > 1.05 and profile["trunk_y"] == [1.0] * len(parl
 assert profile["leg_x"] == [1.0] * len(parle_build.LEG_Q) and profile["girdle"] > 1.02, "a leg moved with no row to follow, or the shoulders did not"
 percent, parts = body_joints.likeness(bare, reference)
 assert percent < 100 and "leg.width" not in parts and body_joints.likeness(bare, bare)[0] == 100, "the likeness counts rows the reference lacks, or a body is not like itself"
+# A reference that says how high its joints stand: the kit takes the lengths that put its knees and its hips there, and one that
+# does not say leaves the legs as they are (tests/test_parle_lengths.py has the sums).
+assert "lengths" not in profile and "joints_up" not in parts, "a reference with no joints asked for lengths"
+reference["joints_up"] = dict(knee=bare["joints"]["knee"][2] - 0.02, hip=bare["joints"]["hip"][2] - 0.05)
+body_joints.update(profile, bare, reference)
+thigh, shank = (bare["joints"][top][2] - bare["joints"][low][2] for top, low in (("hip", "knee"), ("knee", "ankle")))
+assert abs(profile["lengths"]["thigh"] - (thigh - 0.03) / thigh) < 1e-3 and abs(profile["lengths"]["shank"] - (shank - 0.02) / shank) < 1e-3, f"the lengths the reference's joints ask: {profile['lengths']}"
+assert body_joints.likeness(bare, reference)[1]["joints_up"] < 95, "joints that stand elsewhere count as like"
 
 # The reference: measures only, and nothing where the clothes hide the body.
 dressed_man = json.load(open(ROOT / "data" / "parle_build" / "reference-dressed-man.json"))
-assert set(dressed_man) == {"stature_m", "shoulders_apart", "bideltoid", "neck_width", "neck_depth", "trunk", "arm", "leg", "arm_deg", "about"}, f"the reference keeps more than measures: {sorted(dressed_man)}"
+assert set(dressed_man) == {"stature_m", "shoulders_apart", "bideltoid", "neck_width", "neck_depth", "trunk", "arm", "leg", "arm_deg", "about", "joints_up", "sole_m"}, f"the reference keeps more than measures: {sorted(dressed_man)}"
 assert all(row is None for row in dressed_man["leg"] if row is None or row["t"] < 1.05), "the thigh under the shorts was kept"
 assert all(row is None for row in dressed_man["trunk"] if row is None or row["u"] < 0.55), "the waist and the abdomen under the hanging shirt were kept"
 assert 0.28 < dressed_man["bideltoid"] < 0.31, f"the breadth across his shoulders: {dressed_man['bideltoid']}"

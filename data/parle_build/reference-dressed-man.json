@@ -165,6 +165,12 @@
   null,
   null
  ],
+ "joints_up": {
+  "knee": 0.266,
+  "hip": 0.5003,
+  "shoulder": 0.8115
+ },
+ "sole_m": 0.0197,
  "arm_deg": 41.9,
- "about": "A man the owner picked for his body (2026-11-13: 'consegue usar o corpo desse avatar padrao para homem'; 2026-11-14: 'o homem tem bom corpo, copia toda a estrutura e formato'), dressed in a T-shirt and shorts, measured by his joints (tools/body_joints.py). Only measures, as shares of the stature. What the clothes hide is left out (the waist and the abdomen under the hanging shirt, hips and thighs under the shorts, the ankle in the shoe); where the cloth only thickens the body its ease is taken off: 6 and 8 mm (width, depth) from the chest up, 6 mm across the shoulders and 6 mm across the arm under its sleeve."
+ "about": "A man the owner picked for his body (2026-11-13: 'consegue usar o corpo desse avatar padrao para homem'; 2026-11-14: 'o homem tem bom corpo, copia toda a estrutura e formato'), dressed in a T-shirt and shorts, measured by his joints (tools/body_joints.py). Only measures, as shares of the stature. What the clothes hide is left out (the waist and the abdomen under the hanging shirt, hips and thighs under the shorts, the ankle in the shoe); where the cloth only thickens the body its ease is taken off: 6 and 8 mm (width, depth) from the chest up, 6 mm across the shoulders and 6 mm across the arm under its sleeve. joints_up: how high the joints of the knees, of the hips and of the arms stand, as shares of the stature barefoot; he wears trainers, and their sole (sole_m) is taken as what lifts his ankle joint over 0.039 of the stature (Drillis & Contini 1966, the figure in Winter 2009, fig. 4.1)."
 }

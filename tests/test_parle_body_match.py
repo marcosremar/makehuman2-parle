@@ -23,7 +23,8 @@ polish = (ROOT / "tools" / "parle_polish.py").read_text()
 whole = re.search(r"def natural_body\(meshes, rig, height, sex, kit\):.*?(?=\n\n\ndef )", polish, re.S)
 assert whole, "the cast and the loop have no step in common"
 steps = re.findall(r"\b(natural_\w+)\(", whole.group(0).split('"""')[-1])
-assert steps == ["natural_arms", "natural_build"], f"the body is the arms, then the build: {steps}"
+# The lengths go first (2026-11-14): the build reads the joints where the lengths leave them.
+assert steps == ["natural_lengths", "natural_arms", "natural_build"], f"the body is the lengths, the arms, then the build: {steps}"
 dump = (ROOT / "tools" / "body_dump.py").read_text()
 assert re.findall(r"parle_polish\.(natural_\w+)\(", dump) == ["natural_body"], "the dump measures a body the cast does not build"
 assert "body=" in (ROOT / "tools" / "body_match.py").read_text(), "the loop does not ask the dump for the cast's step"
