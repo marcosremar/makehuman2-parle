@@ -72,6 +72,11 @@ LIPS_CUPID = {"female": 0.8, "male": 0.0}
 # In the wide-open vowels the lining of the mouth came out through the cheek in two cuts (owner, 2026-11-09).
 MOUTH_LINING_REACH_M = 0.08
 GUM_TOOTH_MOST_POINTS = 60
+# The stock front teeth are tapered crowns with a gap between each pair: wide open on /a/ the row read as a jagged saw of white triangles over the dark gum
+# («the jagged /a/» of Helena, 2026-11-14, and the gaps on the tail of «fr[a]ncês» of the three). The front crowns, 2.5 cm each side of the middle, are widened
+# so neighbours touch; the molars are left alone (they sit behind the cheek).
+TEETH_WIDEN = 1.35
+TEETH_WIDEN_FRONT_M = 0.025
 GUM_KEEP_M = 0.009
 GUM_TORN_M = 0.005
 # Held still, the cheek's skin still closed over it when the jaw dropped: it also sits further in, past 2 cm from the middle.
@@ -402,6 +407,42 @@ def trim_gums(teeth):
     print("GENGIVA aparada:", len(doomed), "faces")
 
 
+def widen_teeth(teeth):
+    """Widens the front crowns across the arch (every shape key), so the row stops reading as separate triangles with dark gaps between."""
+    keys = teeth.data.shape_keys.key_blocks
+    rest = key_points(keys[0])
+    parent = np.arange(len(rest))
+
+    def root(index):
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    for edge in teeth.data.edges:
+        a, b = root(edge.vertices[0]), root(edge.vertices[1])
+        if a != b:
+            parent[max(a, b)] = min(a, b)
+    labels = np.array([root(index) for index in range(len(rest))])
+    middle = float(rest[:, 0].mean())
+    widened = 0
+    for label in np.unique(labels):
+        part = np.where(labels == label)[0]
+        if len(part) > GUM_TOOTH_MOST_POINTS:
+            continue
+        centre = float(rest[part, 0].mean())
+        if abs(centre - middle) > TEETH_WIDEN_FRONT_M:
+            continue
+        for block in keys:
+            points = key_points(block)
+            points[part, 0] = centre + (points[part, 0] - centre) * TEETH_WIDEN
+            block.data.foreach_set("co", points.ravel())
+        widened += 1
+    teeth.data.vertices.foreach_set("co", key_points(keys[0]).ravel())
+    teeth.data.update()
+    print("DENTES alargados:", widened)
+
+
 def carried_lip(keys, rest):
     moves = [np.linalg.norm(key_points(keys[name]) - rest, axis=1) for name in ("viseme_U", "viseme_PP") if name in keys]
     if not moves or "jawOpen" not in keys:
@@ -673,6 +714,7 @@ def clean_face(body, added, job, env):
     parle_mouth_arkit.add_arkit_mouth(body)
     for obj in [item for item in added if item.type == "MESH" and "teeth" in item.name]:
         trim_gums(obj)
+        widen_teeth(obj)
     opening = os.path.join(os.path.dirname(job["out"]), f"eye-open-{job.get('kit')}.json")
     if os.path.exists(opening):
         tuck_eyes(body, added, opening)
