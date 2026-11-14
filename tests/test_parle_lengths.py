@@ -3,7 +3,8 @@
 The owner picked a man for his body, dressed in a T-shirt and shorts: "o homem tem bom corpo, copia toda a estrutura e formato". The
 widths of the normal man followed him first; his structure is other too: the joints of his hips stand at 50% of his stature
 barefoot and his knees at 27%, where the kit, whose skeleton had been set by the game's own man, has them at 56% and 31%. A profile
-may now say how many times the kit's own the thigh and the shank are long. This checks the field (each bone of the leg keeps its
+may now say how many times the kit's own the thigh and the shank are long, and shown the normal man both ways the owner took the
+reference's ("A do Avaturn"). This checks the field (each bone of the leg keeps its
 heading, the foot its shape and its height, the hips come down by what the legs lose and the trunk takes it up under shoulders that
 stay), the hips of a clip set again over the soles, and the lengths a reference's joints ask of a kit.
 """

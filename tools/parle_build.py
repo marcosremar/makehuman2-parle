@@ -60,6 +60,10 @@ CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
 # the joints of the hips and the joints of the arms: the stature stays, and so does all that is above the shoulders, the arms with
 # it. The stretch of the trunk comes in and goes out over TRUNK_EASE of that span at each end: evenly spread from end to end, the
 # skin would go from no stretch to all of it on one level, across the buttocks and under the collarbones.
+# The kit's own legs are Rafa's: on 2026-11-03 the owner had the skeleton of the cast's men set by his ("modifica o nosso para
+# ficar idêntico"), the joints of the hips at 55 to 56% of the stature, where the reference man has them at 50%. Shown the normal
+# man both ways, standing beside the reference and beside Rafa, and walking, he took the reference's ("A do Avaturn", 2026-11-14):
+# the lengths of `male-normal` are his choice over that earlier one. The slim and the muscled men keep Rafa's until he says.
 LENGTHS = ("thigh", "shank")
 TRUNK_EASE = 0.1
 FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "parle_build")
