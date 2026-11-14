@@ -6,6 +6,7 @@
     copia toda a estrutura e formato").
       python tools/body_joints.py measure <dump.npz> <out.json> [hanging=<dump.hang.npz>]
       python tools/body_joints.py match <kit.glb> <reference.json> <profile.json> kit=<name> height=<m> sex=<male|female> [chest=<npy>] [rounds=4] [work=<folder>]
+      python tools/body_joints.py lengths <kit.glb> <reference.json> <profile.json> height=<m> sex=<male|female> [chest=<npy>] [own=<reference.json>] [work=<folder>]
     `tools/body_measure.py` finds the crotch, the armpit and the neck on the skin and reads its rows between them: on this dressed
     body it found the armpit above the joints of the arms (0.84 of the stature, the joints at 0.81) and the crotch at 0.545, above
     the joints of the hips, so no row of its was read where it should be. Here the levels come from the skeleton, which a dressed model has too: the trunk from the joints of the hips (0)
@@ -16,7 +17,9 @@
     thicken is taken off there), and `match` moves nothing where the reference says nothing. `match` starts from the profile that is
     there, so what an earlier reference gave the kit stays where this one is silent. Only measures of a reference are kept.
     A reference may also say how high its joints stand barefoot (`joints_up`: the knees and the hips, as shares of the stature): the
-    kit then takes the lengths that put its own there (`parle_build.LENGTHS`), its foot as it is.
+    kit then takes the lengths that put its own there (`parle_build.LENGTHS`), its foot as it is. `lengths` gives a profile that is
+    already there those lengths alone, every curve left as it is: for a kit whose widths came of another reference (`own=`, to see
+    how like that one the kit stays).
 """
 import json
 import os
@@ -252,11 +255,40 @@ def match(kit_glb, reference_path, out, opts):
     print(f"done: {history[0]}% -> {best['similarity']}% in {len(history) - 1} rounds, at the limit: {best['at_limit']}", flush=True)
 
 
+def take_lengths(kit_glb, reference_path, out, opts):
+    """Gives the profile at `out` the lengths that put the knees and the hips of its kit as high as the reference's (`lengths`), and
+    nothing else: its curves are another reference's work. The kit is dumped as the profile has it and again with the lengths, and
+    each time it says where the joints stand and, with `own=`, how like the reference of its widths the body is."""
+    reference, profile = json.load(open(reference_path)), parle_build.load_profile(out)
+    if profile is None:
+        raise SystemExit(f"no profile to give lengths to: {out}")
+    work = opts.get("work") or os.path.join(os.path.dirname(os.path.abspath(out)), "work")
+    os.makedirs(work, exist_ok=True)
+    own = json.load(open(opts["own"])) if opts.get("own") else None
+    base = body_match.dump_options(opts) + ([f"arm={float(profile['arm_deg']):.1f}"] if profile.get("arm_deg") else [])
+    npz, trial = os.path.join(work, "lengths.npz"), os.path.join(work, "profile.json")
+    for turn in range(2):
+        parle_build.save_profile(profile, trial)
+        found, _ = body_match.dump(kit_glb, npz, base + [f"body={trial}"])
+        joints = frame_of(npz)[2]
+        ups = {name: float(joints[name][2]) for name in ("hip", "knee", "ankle")}
+        like = body_measure.similarity(found, own) if own else None
+        print(f"round {turn}: knees at {ups['knee']:.4f} and hips at {ups['hip']:.4f} of the stature" + (f"; {like[0]:.2f}% like its own reference {like[1]}" if like else ""), flush=True)
+        if turn:
+            break
+        profile["lengths"] = lengths(profile.get("lengths"), ups, reference["joints_up"])
+    profile["lengths_from"] = os.path.basename(reference_path)
+    parle_build.save_profile(profile, out)
+    print(f"done: lengths {profile['lengths']} from {profile['lengths_from']}", flush=True)
+
+
 if __name__ == "__main__":
     paths = [item for item in sys.argv[2:] if "=" not in item]
     options = dict(item.split("=", 1) for item in sys.argv[2:] if "=" in item)
     if sys.argv[1] == "match":
         match(paths[0], paths[1], paths[2], options)
+    elif sys.argv[1] == "lengths":
+        take_lengths(paths[0], paths[1], paths[2], options)
     else:
         json.dump(measure(paths[0], options.get("hanging")), open(paths[1], "w"), indent=1)
         print("measured", paths[1])

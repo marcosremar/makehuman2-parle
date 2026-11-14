@@ -63,7 +63,9 @@ CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
 # The kit's own legs are Rafa's: on 2026-11-03 the owner had the skeleton of the cast's men set by his ("modifica o nosso para
 # ficar idêntico"), the joints of the hips at 55 to 56% of the stature, where the reference man has them at 50%. Shown the normal
 # man both ways, standing beside the reference and beside Rafa, and walking, he took the reference's ("A do Avaturn", 2026-11-14):
-# the lengths of `male-normal` are his choice over that earlier one. The slim and the muscled men keep Rafa's until he says.
+# the lengths of `male-normal` are his choice over that earlier one. The slim and the muscled men have the skeleton of the normal
+# one (the joints of the hips and of the knees within 0.2% of the stature on the three kits); shown one of each with the same
+# lengths, he took them for all the men ("Sim, todos os homens", the same day). Their widths stay their own references' work.
 LENGTHS = ("thigh", "shank")
 TRUNK_EASE = 0.1
 FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "parle_build")

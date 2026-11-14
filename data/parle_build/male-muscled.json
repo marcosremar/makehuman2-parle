@@ -172,5 +172,10 @@
   "leg_y": 4,
   "arm_out": 1,
   "shoulder_rise": 5
- }
+ },
+ "lengths": {
+  "thigh": 0.9218,
+  "shank": 0.8376
+ },
+ "lengths_from": "reference-dressed-man.json"
 }

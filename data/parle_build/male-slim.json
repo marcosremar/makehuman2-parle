@@ -169,5 +169,10 @@
   "arm_thick": 1,
   "leg_x": 3,
   "leg_y": 2
- }
+ },
+ "lengths": {
+  "thigh": 0.9254,
+  "shank": 0.8334
+ },
+ "lengths_from": "reference-dressed-man.json"
 }

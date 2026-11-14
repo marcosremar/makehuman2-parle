@@ -166,7 +166,13 @@ ups = dressed_man["joints_up"]
 assert 0.25 < ups["knee"] < 0.28 and 0.49 < ups["hip"] < 0.51 and 0.80 < ups["shoulder"] < 0.82 and 0.01 < dressed_man["sole_m"] < 0.03, f"how high the reference's joints stand: {ups}"
 normal = json.load(open(ROOT / "data" / "parle_build" / "male-normal.json"))
 assert 0.90 < normal["lengths"]["thigh"] < 0.95 and 0.81 < normal["lengths"]["shank"] < 0.86, f"the lengths of the normal man: {normal['lengths']}"
-for kit_name in ("male-slim", "male-muscled", "female-normal", "female-slim", "female-muscled"):
+# All the men ("Sim, todos os homens"): the three kits have one skeleton, so their lengths are the same to a hundredth; the slim and
+# the muscled keep the curves their own references gave them, and say where the lengths came from. The women have none.
+for kit_name, own in (("male-slim", "reference-fortnite.json"), ("male-muscled", "reference-spider.json")):
+    other = json.load(open(ROOT / "data" / "parle_build" / f"{kit_name}.json"))
+    assert all(abs(other["lengths"][part] - normal["lengths"][part]) < 0.01 for part in parle_build.LENGTHS), f"{kit_name} does not have the legs of the normal man: {other['lengths']}"
+    assert other["lengths_from"] == "reference-dressed-man.json" and other["reference"] == own, f"{kit_name}: the lengths came with another reference's widths"
+for kit_name in ("female-normal", "female-slim", "female-muscled"):
     assert "lengths" not in json.load(open(ROOT / "data" / "parle_build" / f"{kit_name}.json")), f"{kit_name} has lengths nobody asked for"
 polish = (ROOT / "tools" / "parle_polish.py").read_text()
 assert polish.index("lengths = natural_lengths(meshes, rig, height, kit)") < polish.index("built = natural_build(meshes, rig, height, kit)"), "the lengths do not run before the build"
