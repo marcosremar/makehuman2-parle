@@ -117,6 +117,9 @@ assert abs(skin_gap(point, (Vector((0.15, 0, 1)), Vector((1, 0, 0)), 0.05), 0.03
 assert abs(skin_gap(point, (Vector((0.21, 0, 1)), Vector((1, 0, 0)), 0.01), 0.03) + 0.04) < 1e-9, "inside the body the gap is negative"
 assert skin_gap(point, (Vector((0.5, 0, 1)), Vector((1, 0, 0)), 0.3), 0.03) > 0, "a face far away, looking the other way, is not a body the arm is in"
 assert len(arm_spots(Vector((0, 0, 1)), Vector((0, 0, 0.7)), Vector((0, 0, 0.6)))) == 5
+# With the tip of the middle finger, the finger is watched too, down to its tip.
+with_tip = arm_spots(Vector((0, 0, 1)), Vector((0, 0, 0.7)), Vector((0, 0, 0.6)), Vector((0, 0, 0.5)))
+assert len(with_tip) == 7 and abs(with_tip[-1].z - 0.5) < 1e-6 and abs(with_tip[-2].z - 0.55) < 1e-6
 assert abs(skin_gap(point, (Vector((0.15, 0, 1)), Vector((1, 0, 0)), 0.05), 0.002) - 0.04) < 1e-9, "the hand is read as thin as the skin over its knuckle"
 # An arm hanging straight down on +x swings out to +x, the other to -x, and by the angle asked.
 down = Vector((0, 0, -1))

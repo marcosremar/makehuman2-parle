@@ -166,11 +166,16 @@ INSIDE_MOST_M = 0.08
 ARM_SKIN_LEAST_M = 0.01
 # Where the arm is watched, from the elbow (0) to the wrist (1); the wrist and the knuckles come on top.
 FOREARM_SPOTS = (0.0, 0.35, 0.65)
+# And along the middle finger, from the knuckle (0) to its tip (1): watched only to the knuckle, the fingers of the muscled men went into
+# their shorts standing still (14/11/2026, idle at 0.78, Fábio, the surfer and h24), with the gap read at 2.7 cm.
+FINGER_SPOTS = (0.5, 1.0)
 
 
-def arm_spots(elbow, wrist, knuckle):
-    """The points on the centre line of a forearm and hand whose gap to the body is watched. The upper arm is left out: it always runs along the trunk."""
-    return [elbow.lerp(wrist, share) for share in FOREARM_SPOTS] + [wrist, knuckle]
+def arm_spots(elbow, wrist, knuckle, tip=None):
+    """The points on the centre line of a forearm and hand whose gap to the body is watched, and down the middle finger when its tip is
+    given. The upper arm is left out: it always runs along the trunk."""
+    spots = [elbow.lerp(wrist, share) for share in FOREARM_SPOTS] + [wrist, knuckle]
+    return spots + ([knuckle.lerp(tip, share) for share in FINGER_SPOTS] if tip is not None else [])
 
 
 def skin_gap(point, body_hit, arm_distance):

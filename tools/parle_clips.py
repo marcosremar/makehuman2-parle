@@ -362,7 +362,8 @@ def standing_gap(rig, actions, body, arm):
     for _ in clip_poses(rig, actions, GAP_SHARES):
         solid, skins = posed_trees(body), posed_trees(arm)
         for side in ("Left", "Right"):
-            for point in parle_rig.arm_spots(at(side + "ForeArm"), at(side + "Hand"), at(side + "HandMiddle1")):
+            tip = side + "HandMiddle4" if side + "HandMiddle4" in rig.pose.bones else side + "HandMiddle3"
+            for point in parle_rig.arm_spots(at(side + "ForeArm"), at(side + "Hand"), at(side + "HandMiddle1"), at(tip) if tip in rig.pose.bones else None):
                 hits = [hit for hit in (tree.find_nearest(point) for tree in solid) if hit[0] is not None]
                 if not hits:
                     continue
