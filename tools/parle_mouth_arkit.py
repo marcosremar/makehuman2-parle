@@ -36,6 +36,11 @@ SHAPES = (
 # and the upper roll folds a moustache into a dark blob. At 0.6, 0.6 and 0.5 of the pack they read clean on Carlos, Helena and
 # Seu Manoel, so the shape at weight 1.0 is that share of the pack.
 SHARE = {"mouthPucker": 0.6, "mouthFunnel": 0.6, "mouthRollUpper": 0.5}
+# The pack's pucker narrows the mouth corners by 2.6 mm and pushes the lips 4.9 mm forward at the share above (Ivone, 2026-11-13): in the player
+# at weight 1.0 it did not read as rounding on «v[o]cê» and «n[ã]o» (the lip protrusion of a real /o/ /u/ is 8 to 12 mm and the corners come in 8 to
+# 10 mm). The cast's own `viseme_U` has that narrowing (10.5 mm in, 6.9 mm forward) on a skin that takes it without a fold, so the rounding
+# shapes add this share of it to the pack's: pucker ends near 13 mm at full weight, funnel near 9 mm. Judged by eye, front and profile.
+ROUND_FROM_U = {"mouthPucker": 0.8, "mouthFunnel": 0.5}
 BODY_POINTS = 13380
 SMOOTH_ROUNDS = (1600, 800, 400, 200, 100, 50, 25, 12, 6, 3, 2, 1)
 # The walk has landed when 90% of the body head is this close to a base point (metres): 3.3 to 5.6 mm on the 42 of the cast (2026-11-12;
@@ -186,7 +191,7 @@ def same_side(body_move, mapped):
     return float(a @ b / max(np.linalg.norm(a) * np.linalg.norm(b), 1e-12))
 
 
-def arkit_moves(rest, body_jaw, body_edges, body_smile_left=None, pack=PACK, base=None, edges=None):
+def arkit_moves(rest, body_jaw, body_edges, body_smile_left=None, pack=PACK, base=None, edges=None, body_round=None):
     """The move of every body point for each of `SHAPES`, and the check cosines (jaw, left smile)."""
     if base is None:
         base, edges = read_base()
@@ -198,6 +203,9 @@ def arkit_moves(rest, body_jaw, body_edges, body_smile_left=None, pack=PACK, bas
     if min(checks.values()) < MIN_CHECK:
         raise ValueError(f"the pack shapes do not match the body's own: {checks}")
     moves = {name: SHARE.get(name, 1.0) * clean(on_body(dense(Path(pack) / f"{name}.target"), ids, scale), rest, body_edges) for name in SHAPES}
+    if body_round is not None:
+        for name, share in ROUND_FROM_U.items():
+            moves[name] = moves[name] + share * body_round
     return moves, checks
 
 
@@ -214,9 +222,10 @@ def add_arkit_mouth(body):
 
     rest = points(keys[0])
     smile = points(keys["mouthSmileLeft"]) - rest if "mouthSmileLeft" in keys else None
+    rounding = points(keys["viseme_U"]) - rest if "viseme_U" in keys else None
     edges = np.empty(len(body.data.edges) * 2, int)
     body.data.edges.foreach_get("vertices", edges)
-    moves, checks = arkit_moves(rest, points(keys["jawOpen"]) - rest, edges.reshape(-1, 2), smile)
+    moves, checks = arkit_moves(rest, points(keys["jawOpen"]) - rest, edges.reshape(-1, 2), smile, body_round=rounding)
     for name, move in moves.items():
         if name in keys:
             body.shape_key_remove(keys[name])
