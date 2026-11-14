@@ -16,6 +16,7 @@ from mathutils.kdtree import KDTree
 
 import parle_build
 import parle_bust
+import parle_head
 import parle_rig
 
 CLOTHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local/mhd/data/clothes/hm08")
@@ -209,6 +210,20 @@ BLINK_SHUT_MOST_M = 0.004
 # brings it there (0.13 of it on the pet shop's attendant), at most EYE_TALL_BLINK_MOST of the blink: past that it is a sleepy eye.
 # Tried on her at 0.40 as well (0.21 of the blink): calmer still, and heavy-lidded from three quarters.
 EYE_TALL_MOST = 0.43
+# On a drawn head the women's eyes may open rounder (2026-11-14). The 0.43 above was read on the head the cast had then, of real
+# proportions, and on it a rounder opening showed white about the iris: the stare the owner called "esbugalhado". He has since had
+# the faces he finds pretty kept as the standard (`parle_beauty.PRETTY`) and asked for the head to follow them (`parle_head`), and
+# on those the opening is rounder: Sofia's, the one of the game, is half as tall as it is wide (read on her portrait at the size
+# where the pupils are as far apart as the cast's: 150 by 75 against 150 by 60 on the pharmacy's attendant), and the film faces
+# 0.6 to 0.67. On the pharmacy's attendant with the drawn head the lids give 0.50 as they are, and there the iris reaches from lid
+# to lid with no white over it. So Sofia's 0.50 is the most for a woman; a woman whose own lids give less keeps hers (the
+# apartment's neighbour, 0.41). The men keep 0.43: Rafa's reads no rounder than the café's owner's. On the size and the opening of
+# the eye the owner's eye decides, and this one was not yet shown to him.
+EYE_TALL_MOST_BY_SEX = {"female": 0.50}
+# How much of a point's weight on the head makes it the head's own for the drawn head (`drawn_head`).
+HEAD_WHOLE = 0.4
+# A trial of another limit without touching this file (`eye_round_most`): a QA door, not a mode of the cast.
+EYE_ROUND_TRIAL = "PARLE_EYE_ROUND"
 EYE_TALL_STEP_M = 0.0004
 EYE_TALL_ROUNDS = 5
 EYE_TALL_BLINK_MOST = 0.35
@@ -686,6 +701,48 @@ def over_skin(obj, own, skin, skin_arms):
     return {side: parle_build.share_over_skin(own[side], skin_arms[side][nearest], away, SKIN_NEAR_M, SKIN_FAR_M) for side in own}
 
 
+def drawn_head(meshes, rig, kit):
+    """The head takes the shape of the drawn ones (`parle_head`): each point by how much of it follows the head, in every shape key,
+    and the bones of the head with it. How many points went; none for a kit with no chart, or a body with no eye globes."""
+    chart = parle_head.load_chart(kit)
+    globe = next((obj for obj in meshes if "low-poly" in obj.name), None)
+    if chart is None or globe is None:
+        return 0
+    bpy.context.view_layer.update()
+    field = parle_head.head_field(chart, eye_balls(globe))
+    head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
+    went = 0
+    for obj in meshes:
+        # The skin along the jaw follows the head by 0.4 to 0.9 of its weight and the neck by the rest (read on the pharmacy's
+        # attendant, 2026-11-14): taken by that share, the corner of the jaw would get half of the chart's move and the cheek over
+        # it the whole. From HEAD_WHOLE of its weight on, a point is the head's. (The ruler's jaw did not change with it, 0.750 to
+        # 0.749 of the face: what it read narrow was the mouth come down, which the loop on the chart sees to.)
+        top = smooth(group_share(obj, head) / HEAD_WHOLE) if obj.vertex_groups else np.zeros(0)
+        on = top > 0
+        if not on.any():
+            continue
+
+        def move(points, top=top, on=on):
+            out = points.copy()
+            out[on] += top[on, None] * (field(points[on]) - points[on])
+            return out
+
+        warp(obj, move)
+        went += int(on.sum())
+    world, back = np.array(rig.matrix_world), np.array(rig.matrix_world.inverted())
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    crown = rig.data.edit_bones["Head"]
+    # The joint of the head stays: it is the end of the neck. Every end is read before any is written.
+    ends = [(crown, "tail")] + [(child, end) for child in crown.children_recursive for end in ("head", "tail")]
+    placed = field(np.array([np.array(getattr(bone, end)) for bone, end in ends]) @ world[:3, :3].T + world[:3, 3]) @ back[:3, :3].T + back[:3, 3]
+    for (bone, end), point in zip(ends, placed):
+        setattr(bone, end, point)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.context.view_layer.update()
+    return went
+
+
 def natural_build(meshes, rig, height, kit):
     """The build of the kit's profile (`parle_build`): trunk, arms and legs get the widths found against a reference body. Run last, after the arms.
     The head keeps its shape, the spine stays, and each arm and leg goes as a whole with its bones, so every clip still plays. Cloth goes
@@ -1097,6 +1154,12 @@ def globe_shown(points, faces, globe, centre, radius, step=EYE_TALL_STEP_M):
     return float((tall > 0).sum() * step), float(tall.max())
 
 
+def eye_round_most(sex):
+    """How round the opening of an eye of that sex may be: its height over its width (EYE_TALL_MOST_BY_SEX). EYE_ROUND_TRIAL is a
+    QA door for trying another number without touching this file."""
+    return float(os.environ.get(EYE_ROUND_TRIAL) or EYE_TALL_MOST_BY_SEX.get(sex, EYE_TALL_MOST))
+
+
 def eyes_no_rounder(meshes, most=EYE_TALL_MOST):
     """The opening of an eye is no taller than `most` of its width. Where one is, the rest shape of both eyes takes the share of
     their blinks that brings it there: the upper lid comes down on the globe the way it shuts, and the blink still ends where it
@@ -1346,7 +1409,8 @@ def brows_on_skin(meshes):
 
 
 def natural_body(meshes, rig, height, sex, kit):
-    """The body of a finished character: the arms, then the build of the kit. The cast and the loop that finds the build (`body_match`, through
+    """The body of a finished character: the arms, the head in the shape of the drawn ones (`drawn_head`, where the body has its eye
+    globes), then the build of the kit. The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
@@ -1359,6 +1423,9 @@ def natural_body(meshes, rig, height, sex, kit):
     woman of the cast, the border of the lips becomes an edge of the mesh (`parle_lip_cut`): it adds points, so nothing that
     reads the points by their number runs after it."""
     natural_arms(meshes, rig, height, sex)
+    drawn = drawn_head(meshes, rig, kit)
+    if drawn:
+        print("CABEÇA de desenho:", drawn, "pontos foram com o mapa do rosto")
     built = natural_build(meshes, rig, height, kit)
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
     if over:
@@ -1392,7 +1459,7 @@ def natural_body(meshes, rig, height, sex, kit):
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
     for name, (was, left) in blinks_shut(meshes).items():
         print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
-    for name, (wide, was, tall, share) in eyes_no_rounder(meshes).items():
+    for name, (wide, was, tall, share) in eyes_no_rounder(meshes, eye_round_most(sex)).items():
         print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
     if sex == "female" and body is not None and globe is not None:
         import parle_lip_cut  # here and not above: it reads this module

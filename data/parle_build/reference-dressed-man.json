@@ -1,0 +1,170 @@
+{
+ "stature_m": 1.8582,
+ "shoulders_apart": 0.2197,
+ "bideltoid": 0.2947,
+ "neck_width": 0.0692,
+ "neck_depth": 0.1016,
+ "trunk": [
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "u": 0.55,
+   "z": 0.675,
+   "width": 0.1736,
+   "depth": 0.1281
+  },
+  {
+   "u": 0.6,
+   "z": 0.6904,
+   "width": 0.1806,
+   "depth": 0.134
+  },
+  {
+   "u": 0.65,
+   "z": 0.7057,
+   "width": 0.1886,
+   "depth": 0.1394
+  },
+  {
+   "u": 0.7,
+   "z": 0.7211,
+   "width": 0.1978,
+   "depth": 0.1464
+  },
+  {
+   "u": 0.75,
+   "z": 0.7365,
+   "width": 0.2063,
+   "depth": 0.1517
+  },
+  {
+   "u": 0.8,
+   "z": 0.7519,
+   "width": 0.2158,
+   "depth": 0.153
+  },
+  null,
+  null,
+  null,
+  null
+ ],
+ "arm": [
+  {
+   "t": 0.3,
+   "girth": 0.0674
+  },
+  {
+   "t": 0.4,
+   "girth": 0.0637
+  },
+  {
+   "t": 0.5,
+   "girth": 0.0627
+  },
+  {
+   "t": 0.6,
+   "girth": 0.0624
+  },
+  {
+   "t": 0.7,
+   "girth": 0.059
+  },
+  {
+   "t": 0.8,
+   "girth": 0.0549
+  },
+  {
+   "t": 0.9,
+   "girth": 0.0509
+  },
+  {
+   "t": 1.0,
+   "girth": 0.047
+  },
+  {
+   "t": 1.1,
+   "girth": 0.0457
+  },
+  {
+   "t": 1.2,
+   "girth": 0.0464
+  },
+  {
+   "t": 1.3,
+   "girth": 0.0463
+  },
+  {
+   "t": 1.4,
+   "girth": 0.0453
+  },
+  {
+   "t": 1.5,
+   "girth": 0.0418
+  },
+  {
+   "t": 1.6,
+   "girth": 0.0381
+  },
+  {
+   "t": 1.7,
+   "girth": 0.0333
+  },
+  null,
+  null
+ ],
+ "leg": [
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  null,
+  {
+   "t": 1.1,
+   "width": 0.054,
+   "depth": 0.0573
+  },
+  {
+   "t": 1.2,
+   "width": 0.0585,
+   "depth": 0.0603
+  },
+  {
+   "t": 1.3,
+   "width": 0.062,
+   "depth": 0.0633
+  },
+  {
+   "t": 1.4,
+   "width": 0.0618,
+   "depth": 0.0624
+  },
+  {
+   "t": 1.5,
+   "width": 0.0568,
+   "depth": 0.0587
+  },
+  {
+   "t": 1.6,
+   "width": 0.048,
+   "depth": 0.0523
+  },
+  null,
+  null,
+  null
+ ],
+ "arm_deg": 41.9,
+ "about": "A man the owner picked for his body (2026-11-13: 'consegue usar o corpo desse avatar padrao para homem'; 2026-11-14: 'o homem tem bom corpo, copia toda a estrutura e formato'), dressed in a T-shirt and shorts, measured by his joints (tools/body_joints.py). Only measures, as shares of the stature. What the clothes hide is left out (the waist and the abdomen under the hanging shirt, hips and thighs under the shorts, the ankle in the shoe); where the cloth only thickens the body its ease is taken off: 6 and 8 mm (width, depth) from the chest up, 6 mm across the shoulders and 6 mm across the arm under its sleeve."
+}

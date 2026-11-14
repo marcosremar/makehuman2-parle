@@ -126,6 +126,8 @@ FAIR_LOOK = {
 # the other two had next to none, and those were the two the owner found "com olho gigante" (2026-11-12). What a woman's own trait
 # gives past none is taken back; a trait that makes her eyes smaller or less open stays hers.
 EYES_OWN = ("faceEyeSize", "faceEyeOpen")
+# A trial of other weights for the look, as JSON, without touching this file: a QA door, not a mode of the cast.
+LOOK_TRIAL = "PARLE_LOOK"
 # How thick an eyebrow is left, of the kit's own, about its middle line. At three quarters the women's read as a line drawn in
 # pencil once the skin of the face was smooth, next to Sofia's and Rafa's, which are thick; at 0.9 still "thin hard marker strokes"
 # to the judge by sight, past the kit's own (1.2) a frown, and at the kit's own, set low, "the darkest, hardest shape on the face"
@@ -332,7 +334,7 @@ def own_traits(job):
 def fair_look(sex, own):
     """The look of that sex for a person with those traits of her own: FAIR_LOOK, and for a woman what her own traits give her
     eyes past the kit's taken back (EYES_OWN)."""
-    look = dict(FAIR_LOOK[sex])
+    look = {**FAIR_LOOK[sex], **json.loads(os.environ.get(LOOK_TRIAL) or "{}")}
     if sex == "female":
         for name in EYES_OWN:
             past = max(0.0, float(own.get(name, 0.0)))

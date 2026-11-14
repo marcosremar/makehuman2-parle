@@ -184,12 +184,16 @@ assert 'if "hang" in opts' in dump and ".hang.npz" in dump, "the dump no longer 
 
 women = json.load(open(ROOT / "data" / "parle_build" / "reference-women.json"))
 assert 0.22 < women["bideltoid"] < 0.25, f"the reference women have no breadth across the shoulders, or another one: {women.get('bideltoid')}"
+# A profile has a ratio of the shoulders only where its reference has a breadth for it to follow, and then it stands on that breadth: the
+# reference women since 2026-11-11, and since 2026-11-14 the dressed man the normal man is matched to by his joints (`body_joints`).
 for path in profiles:
     profile = json.load(open(path))
-    if profile["reference"] != "reference-women.json":
+    wanted = json.load(open(ROOT / "data" / "parle_build" / profile["reference"])).get("bideltoid")
+    if not wanted:
         assert profile.get("girdle") is None, f"{path.name} has the shoulders moved with no breadth to follow"
         continue
-    gap = profile["bideltoid"] - women["bideltoid"]
-    assert abs(gap) <= body_match.GIRDLE_NEAR + 1e-9, f"{path.name} stands {gap * 100:.1f}% of the stature off the reference women across the shoulders"
-    assert profile["arm_out"] == 0.0 and not body_match.at_limit(profile).get("girdle"), f"{path.name} moves the arm on its own, or holds the shoulders at the limit"
+    gap = profile["bideltoid"] - wanted
+    assert abs(gap) <= body_match.GIRDLE_NEAR + 1e-9, f"{path.name} stands {gap * 100:.1f}% of the stature off its reference across the shoulders"
+    assert not body_match.at_limit(profile).get("girdle"), f"{path.name} holds the shoulders at the limit"
+    assert profile["reference"] != "reference-women.json" or profile["arm_out"] == 0.0, f"{path.name} moves the arm on its own"
 print("ok")
