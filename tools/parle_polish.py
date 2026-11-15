@@ -319,12 +319,17 @@ def rest_points(obj):
     return to_world(obj, read(obj.data.vertices))
 
 
-def warp(obj, field):
-    """`field` takes world points; every key is absolute, so a stretched lid still closes all the way."""
+def warp(obj, field, kept=None):
+    """`field` takes world points; every key is absolute, so a stretched lid still closes all the way. A key whose name `kept` accepts
+    keeps its move instead: its points follow the rest, where the field takes it, by the move they had."""
     blocks = obj.data.shape_keys.key_blocks if obj.data.shape_keys else []
+    rest = rest_points(obj)
+    placed = field(rest)
     for block in blocks:
-        block.data.foreach_set("co", to_local(obj, field(to_world(obj, read(block)))).ravel())
-    obj.data.vertices.foreach_set("co", to_local(obj, field(rest_points(obj))).ravel())
+        points = to_world(obj, read(block))
+        moved = placed + (points - rest) if kept is not None and kept(block.name) else field(points)
+        block.data.foreach_set("co", to_local(obj, moved).ravel())
+    obj.data.vertices.foreach_set("co", to_local(obj, placed).ravel())
     obj.data.update()
 
 
@@ -702,6 +707,18 @@ def over_skin(obj, own, skin, skin_arms):
     return {side: parle_build.share_over_skin(own[side], skin_arms[side][nearest], away, SKIN_NEAR_M, SKIN_FAR_M) for side in own}
 
 
+# The mouth keeps the moves it was given (2026-11-15). Warped as absolute points like the rest, the drawn head, whose lower third of
+# a woman's face is a quarter shorter, shrank her open jaw by a fifth (Mariana's lower teeth came down 10.5 mm at full `jawOpen`,
+# 12.9 with PARLE_HEAD=0, where `calm_speech` had set the open of speech by the leads'), the tongue tip by as much (under the 8 mm of
+# babylon-cinema test/npcs/cast-tongue-follows-jaw), and `mouthClose`, the jaw's move backwards (`parle_mouth_close`), no longer took
+# the jaw back exactly: 0.7 mm past it on every body (test/npcs/cast-mouth-arkit). The lids are not kept: they grow with the eye.
+MOUTH_MOVES = ("viseme_", "jawOpen", "mouth", "tongue")
+
+
+def keeps_its_move(name):
+    return name.startswith(MOUTH_MOVES)
+
+
 def drawn_head(meshes, rig, kit):
     """The head takes the shape of the drawn ones (`parle_head`): each point by how much of it follows the head, in every shape key,
     and the bones of the head with it. How many points went; none for a kit with no chart, or a body with no eye globes."""
@@ -728,7 +745,7 @@ def drawn_head(meshes, rig, kit):
             out[on] += top[on, None] * (field(points[on]) - points[on])
             return out
 
-        warp(obj, move)
+        warp(obj, move, kept=keeps_its_move)
         went += int(on.sum())
     world, back = np.array(rig.matrix_world), np.array(rig.matrix_world.inverted())
     bpy.context.view_layer.objects.active = rig

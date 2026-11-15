@@ -89,7 +89,16 @@ for path in sorted((ROOT / "data" / "parle_head").glob("*.json")):
 # the head's from HEAD_WHOLE of its weight on, and the bones of the head go with it; it runs before the build of the body.
 polish = (ROOT / "tools" / "parle_polish.py").read_text()
 step = polish.split("def drawn_head(meshes, rig, kit):")[1].split("\n\n\ndef ")[0]
-assert "parle_head.head_field(chart, eye_balls(globe))" in step and "warp(obj, move)" in step, "the head is not moved by the chart, or not in every shape key"
+assert "parle_head.head_field(chart, eye_balls(globe))" in step and "warp(obj, move, kept=keeps_its_move)" in step, "the head is not moved by the chart, or not in every shape key"
+# The mouth keeps the moves it was given (2026-11-15): warped as absolute points, the drawn head shrank the women's open jaw by a
+# fifth and `mouthClose` went 0.7 mm past the jaw on every body (babylon-cinema test/npcs/cast-mouth-arkit, cast-tongue-follows-jaw).
+# The lids still grow with the eye.
+moves = eval(polish.split("MOUTH_MOVES = ")[1].split("\n")[0])
+kept = lambda name: name.startswith(moves)
+assert all(kept(name) for name in ("jawOpen", "viseme_aa", "viseme_O", "mouthClose", "mouthPucker", "mouthSmileLeft")), "a mouth key is warped"
+assert not any(kept(name) for name in ("eyeBlinkLeft", "eyeBlinkRight", "browInnerUp", "faceEyeOpen", "Basis")), "a lid or brow keeps its move"
+warp = polish.split("def warp(obj, field, kept=None):")[1].split("\n\n\ndef ")[0]
+assert "rest = rest_points(obj)" in warp and "placed + (points - rest)" in warp and "field(points)" in warp, "a kept key does not follow the rest by its move, or the others are not warped whole"
 assert "smooth(group_share(obj, head) / HEAD_WHOLE)" in step and "edit_bones" in step, "the jaw is taken by its weight alone, or the bones of the head stay behind"
 body = polish.split("def natural_body(meshes, rig, height, sex, kit):")[1].split("\n\n\ndef ")[0]
 assert body.index("drawn_head(meshes, rig, kit)") < body.index("natural_build(meshes, rig, height, kit)"), "the head takes its shape after the body is built"
