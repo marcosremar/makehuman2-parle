@@ -31,10 +31,13 @@ TRIAL = "PARLE_TOON"
 
 
 def shares(kind):
+    """The targets of a kind and their shares: the hand-sculpted head of that kind (`parle_toon_sculpt`, `<kind>.target`) whole when
+    it exists, TOON otherwise, and the trial door over both."""
     import json
     import os
 
-    return {**TOON[kind], **json.loads(os.environ.get(TRIAL) or "{}")}
+    own = {kind: 1.0} if (FOLDER / f"{kind}.target").exists() else {}
+    return {**TOON[kind], **own, **json.loads(os.environ.get(TRIAL) or "{}")}
 
 
 def toon_move(rest, jaw, edges, mix, base=None, base_edges=None):
