@@ -25,6 +25,7 @@ import parle_mouth_arkit  # noqa: E402
 import parle_mouth_close  # noqa: E402
 import parle_polish  # noqa: E402
 import parle_style  # noqa: E402
+import parle_toon  # noqa: E402
 import parle_normals  # noqa: E402
 import parle_teeth  # noqa: E402
 import parle_tongue  # noqa: E402
@@ -962,6 +963,8 @@ def clean_face(body, added, job, env):
         bpy.data.objects.remove(obj, do_unlink=True)
     weld_seams(body)
     sex = "female" if str(job.get("kit", "")).startswith("female") else "male"
+    # First the cartoon head of the kind (`parle_toon`): every step below works on the drawn head.
+    print("CABEÇA cartoon do tipo", parle_style.kind_of(sex, job), "andou até", round(parle_toon.toon_head(body, parle_style.kind_of(sex, job), [obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly"))]) * 1000, 1), "mm")
     for obj in [item for item in added if item.type == "MESH" and "low-poly" in item.name]:
         parle_polish.round_globes(obj)
     own = own_traits(job)

@@ -52,6 +52,8 @@ STRAY_ROUNDS = 12
 # Then the field is eased this many rounds over the skin, with the seam copies as one point: a base id is a whole face wide on the
 # lip line, and a step from one id to the next showed as a crease.
 EASE_ROUNDS = 2
+# What `parle_toon.toon_head` added to the base head for this body, in Blender axes and metres (one move per base point).
+BASE_SHIFT = np.zeros((BODY_POINTS, 3))
 
 
 def mh_to_blender(points):
@@ -190,6 +192,8 @@ def arkit_moves(rest, body_jaw, body_edges, body_smile_left=None, pack=PACK, bas
     """The move of every body point for each of `SHAPES`, and the check cosines (jaw, left smile)."""
     if base is None:
         base, edges = read_base()
+        # The base takes the cartoon head the body took (`parle_toon.toon_head`), or the walk would not find the head.
+        base = base + BASE_SHIFT
     pack_jaw = dense(Path(pack) / "jawOpen.target")
     ids, scale = base_ids(rest + body_jaw, base + pack_jaw, edges)
     checks = {"jawOpen": same_side(body_jaw, on_body(pack_jaw, ids, scale))}
