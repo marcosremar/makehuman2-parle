@@ -1624,9 +1624,12 @@ def natural_body(meshes, rig, height, sex, kit):
     faired, far = fair_face(body, rig, balls=balls) if body is not None else (0, 0.0)
     if faired:
         print("ROSTO alisado:", faired, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
-    folded, far = lids_with_a_fold(body, balls) if balls else (0, 0.0)
-    if folded:
-        print("PÁLPEBRA de cima com dobra:", folded, "pontos da pele, o que mais andou", round(far * 1000, 1), "mm")
+    # No fold on the upper lid: the series the owner chose (2026-11-15) draws the lid as one smooth shell (`parle_style.sculpt_field`).
+    if balls:
+        kind = str(body.get("parle_kind", sex))
+        tip = parle_style.nose_tip(rest_points(body), balls)
+        warp(body, parle_style.sculpt_field(tip, balls, kind), kept=keeps_its_move)
+        print("CABEÇA esculpida do tipo", kind)
     lined = lining_behind_skin(meshes)
     if lined:
         print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")

@@ -119,7 +119,7 @@ FAIR_LOOK = {
                "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": 0.25, "faceEyeOpen": 0.0, "eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceEyeTilt": 0.3,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
     # The series' men have round eyes with white showing (2026-11-15): the lids open half again, as the women's.
-    "male": {"eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceCheek": 0.8, "mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
+    "male": {"faceNoseLength": -0.3, "noseShape-curto": 0.5, "eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceCheek": 0.8, "mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
 }
 # The traits of a person's own that make her eyes bigger or more open than the kit's (`<head>.glb.face.json`, read off the game's
 # face of that person by the game's repository and already in the rest shape when the look is given). The game's faces have eyes
@@ -975,6 +975,8 @@ def clean_face(body, added, job, env):
     parle_polish.warp(body, parle_style.nose_field(tip, style["nose"], style["forward"]), kept=parle_polish.keeps_its_move)
     parle_polish.warp(body, parle_style.tip_field(tip, style["tip"], style["forward"]), kept=parle_polish.keeps_its_move)
     print("NARIZ do tipo", parle_style.kind_of(sex, job), "cresceu", style["nose"], "e a ponta", style["tip"])
+    # The sculpted head runs last in `parle_polish.natural_body`, after the steps that lay the lids and even the skin out.
+    body["parle_kind"] = parle_style.kind_of(sex, job)
     skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None)
     if skin is not None:
         pixels = np.array(skin.pixels[:]).reshape(-1, 4)

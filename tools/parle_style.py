@@ -112,3 +112,85 @@ def warmer(rgb, amount):
     out = grey + (rgb - grey) * amount
     out = out + np.array([1.0, 0.25, -0.6]) * SKIN_WARM
     return np.clip(out, 0, 1)
+
+
+# The sculpted head (owner, 2026-11-15, "cabeça base esculpida"): the trait morphs and the fields above stopped near 4.5 in 10 against
+# the series, the judge by sight naming what a real face keeps under them: deep orbits with the lids of an anatomy, the folds from
+# the nose to the mouth, hollow cheeks, a nose with grooved nostrils. The series' heads are simple volumes. So each place is laid
+# onto a simple form here: the nose onto a ball, each cheek out onto a ball under the eye, the skin about each eye out onto a thick
+# shell over its globe, the chin onto a ball. Every form is placed from the person's own eyes and nose tip, in distances between
+# the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
+# to its form a point goes.
+SCULPT = {
+    "male": {"nose_ball": (0.32, 0.27, 0.25), "nose_share": 0.95, "cheek": 0.52, "cheek_share": 0.45, "shell": 0.28, "chin": 0.42},
+    "male-old": {"nose_ball": (0.38, 0.31, 0.3), "nose_share": 0.95, "cheek": 0.56, "cheek_share": 0.5, "shell": 0.3, "chin": 0.45},
+    "female": {"nose_ball": (0.21, 0.18, 0.17), "nose_share": 0.9, "cheek": 0.5, "cheek_share": 0.45, "shell": 0.22, "chin": 0.36},
+    "female-old": {"nose_ball": (0.25, 0.21, 0.2), "nose_share": 0.9, "cheek": 0.53, "cheek_share": 0.5, "shell": 0.24, "chin": 0.38},
+}
+# Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
+# (the nose ball behind it, the chin under it): across, back (+y), up.
+CHEEK_AT = (0.12, 0.62, -0.62)
+CHIN_AT = (0.0, 0.55, -1.25)
+# How far about each form its pull reaches, in its own radii, and the zone of the nose about the tip, in distances between the eyes.
+REACH = 1.4
+# The shell over an eye leaves the rim of the opening alone: from this many radii of the globe out (round 12: thickened over the rim,
+# it closed the eye).
+SHELL_FROM = 1.18
+NOSE_BALL_UP = 0.1
+NOSE_ZONE = 0.55
+
+
+def onto_ball(points, centre, radii, share, outward_only):
+    """Each point moved `share` of the way to the surface of the ellipsoid about `centre` (radii across, back, up), along the line
+    from the centre; with `outward_only`, only the points inside it, which fills hollows and leaves the rest."""
+    off = points - centre
+    scaled = np.linalg.norm(off / np.asarray(radii, float), axis=1)
+    scaled = np.maximum(scaled, 1e-9)
+    onto = centre + off / scaled[:, None]
+    pull = share * smooth((REACH - scaled) / (REACH - 1.0))
+    if outward_only:
+        pull = np.where(scaled < 1.0, pull, 0.0)
+    return points + pull[:, None] * (onto - points)
+
+
+def sculpt_field(tip, eyes, kind):
+    """`field(points)`: the head laid onto the forms of its kind (SCULPT), the face looking at -y."""
+    spec = SCULPT[kind]
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    tip = np.asarray(tip, float)
+
+    def field(points):
+        points = np.asarray(points, float).copy()
+        front = points[:, 1] < tip[1] + 0.9 * unit
+        # The skin about each eye out onto a thick shell over its globe: a lid with no fold of an anatomy, the orbit shallow.
+        for (centre, radius) in eyes:
+            centre = np.asarray(centre, float)
+            off = points - centre
+            far = np.maximum(np.linalg.norm(off, axis=1), 1e-9)
+            ahead = (-off[:, 1] / far > 0.0) & front
+            # The rim of the opening stays where the lids put it (SHELL_FROM): the shell thickens from there outwards.
+            want = radius * (1.0 + spec["shell"] * smooth((far / radius - SHELL_FROM) / 0.6))
+            near = ahead & (far < want) & (far < 2.4 * radius) & (far > SHELL_FROM * radius)
+            fade = smooth((2.4 * radius - far) / (0.8 * radius))
+            points[near] = centre + off[near] / far[near, None] * (far[near] + (want[near] - far[near]) * fade[near])[:, None]
+        # The cheeks out onto a ball under each eye.
+        for centre, _ in eyes:
+            side = np.sign(centre[0] - (centres[0][0] + centres[1][0]) / 2)
+            at = np.asarray(centre, float) + np.array([side * CHEEK_AT[0], CHEEK_AT[1], CHEEK_AT[2]]) * unit
+            radius = spec["cheek"] * unit
+            points[front] = onto_ball(points[front], at, (radius, radius, radius * 0.9), spec["cheek_share"], True)
+        # The chin onto a ball.
+        chin = tip + np.array(CHIN_AT) * unit
+        radius = spec["chin"] * unit
+        points[front] = onto_ball(points[front], chin, (radius * 1.1, radius, radius * 0.85), 0.5, True)
+        # The nose onto a ball behind its tip, in the zone of the nose only.
+        radii = np.array(spec["nose_ball"]) * unit
+        # The ball stands a little above the tip, so the tip comes up into it: a nose shorter and round, not hanging (round 13).
+        ball = tip + np.array([0.0, radii[1], NOSE_BALL_UP * unit])
+        zone = np.linalg.norm((points - tip) * np.array([1.0, 1.0, 1.4]), axis=1) < NOSE_ZONE * unit
+        zone &= points[:, 1] < tip[1] + 2 * radii[1]
+        points[zone] = onto_ball(points[zone], ball, radii, spec["nose_share"], False)
+        return points
+
+    return field
