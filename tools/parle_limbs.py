@@ -42,8 +42,10 @@ ELBOW_FADE_M = 0.04
 WRIST_FADE_M = 0.035
 SECTION_REACH_M = 0.09
 ARM_BONES = ("Arm", "ForeArm", "Hand")
-# Upper bone, lower bone, helper: the helper turns HELPER_SHARE of the lower bone's local turn.
-HELPERS = (("Arm", "ForeArm", "ElbowHelper"), ("ForeArm", "Hand", "WristHelper"))
+# Upper bone, lower bone, helper: the helper turns HELPER_SHARE of the lower bone's local turn. The shoulder took one too (2026-11-15,
+# "melhora o corpo do avatar"): with the arm raised or forward, the armpit lost 13 to 20% of its girth (Dona Rosa pointing, the gym man
+# jogging) and showed a crease behind it; the skin there is on the collarbone and the arm, as at the other joints.
+HELPERS = (("Shoulder", "Arm", "ShoulderHelper"), ("Arm", "ForeArm", "ElbowHelper"), ("ForeArm", "Hand", "WristHelper"))
 HELPER_SHARE = 0.5
 # After the split, the weights near each joint are evened out over the mesh (`even_joint`): this many rounds, within this far of the
 # joint. Sharp steps of weight between neighbours folded faces outwards in a deep bend: on the strong man of the gym, bits of the
@@ -51,7 +53,7 @@ HELPER_SHARE = 0.5
 # and 337, and nothing stands out. Points at the same place (the seam of the hand) are one point: evened apart, they parted, and the
 # wrist showed a ring like a bracelet.
 EVEN_ROUNDS = 12
-EVEN_REACH_M = {"ElbowHelper": 0.10, "WristHelper": 0.07}
+EVEN_REACH_M = {"ShoulderHelper": 0.09, "ElbowHelper": 0.10, "WristHelper": 0.07}
 SAME_PLACE_M = 1e-4
 
 

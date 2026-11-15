@@ -69,4 +69,17 @@ assert found is None or found[1] < parle_bust.TALL_LEAST_M, "a flat chest passed
 polish = (Path(__file__).parent.parent / "tools" / "parle_polish.py").read_text()
 assert 'cups = round_bust(meshes, rig) if sex == "female" else []' in polish, "the body's step no longer shapes the bust of the women, or shapes the men's"
 assert "parle_bust.tip_of(cloth" in polish and "parle_bust.cupped(points" in polish, "the tip is no longer read on the cloth, or the cup is not the rule's"
+
+# After the cup the cloth round the tip is made even (2026-11-15: a small point stayed at the tip of the T-shirt and a hard edge under
+# the breast). A grid with a sharp spike at the tip: the spike comes down to a fraction, and the cloth far from the tip does not move.
+side = np.linspace(-0.1, 0.1, 41)
+gx, gz = np.meshgrid(side, side)
+grid = np.stack([gx.ravel(), np.zeros(gx.size), gz.ravel()], axis=1)
+tip_index = 20 * 41 + 20
+grid[tip_index, 1] = -0.01
+quads = [(r * 41 + c, r * 41 + c + 1, (r + 1) * 41 + c + 1, (r + 1) * 41 + c) for r in range(40) for c in range(40)]
+flat = parle_bust.evened(grid, quads, [grid[tip_index]], 0.035)
+assert -flat[tip_index, 1] < 0.003, flat[tip_index]
+assert np.abs(flat[0] - grid[0]).max() < 1e-9 and np.abs(flat[-1] - grid[-1]).max() < 1e-9
+assert "parle_bust.evened(rest" in polish, "the cloth round the tip is no longer made even after the cup"
 print("ok")

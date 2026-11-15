@@ -117,7 +117,9 @@ for half, was in zip(halves, ragged):
     now = parle_polish.rest_points(half)
     hem = was[:, 2] < 0.63
     assert np.ptp(now[hem, 2]) < 1e-4, f"the hem still goes up and down: {np.ptp(now[hem, 2]) * 1000:.1f} mm"
-    assert np.allclose(now[~hem], was[~hem], atol=1e-7), "waist or seams moved with the hem"
+    # The band just above the hem is made even since 2026-11-15 (its teeth showed at rest); above the band the waist and the seams stay.
+    above = was[:, 2] > 0.63 + parle_polish.HEM_BAND_M
+    assert np.allclose(now[above], was[above], atol=1e-7), "waist or seams moved with the hem"
     assert np.allclose(now[hem][:, :2], was[hem][:, :2], atol=1e-4), "the hem came nearer the leg, or further from it"
 
 # A skirt is one opening, right across the middle.

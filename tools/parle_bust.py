@@ -85,3 +85,40 @@ def cupped(points, tip, axis, tall, reach):
     share = np.clip(1 + along / tall, 0, 1)
     fade = smooth((reach - across) / (0.3 * reach))
     return (tall * (cup(share) - share) * fade)[:, None] * axis
+
+
+# After the cup, the cloth round each tip is made even: the cup moves points along the breast's axis alone, and the T-shirt kept a small
+# point at the tip and a hard edge under the breast where its own folds had been (2026-11-15, seen up close from the side). The cloth
+# is drawn toward the mean of its neighbours (Laplacian smoothing, half a step a round), whole within EVEN_REACH - EVEN_FADE of the rim's
+# distance from the axis and fading out to EVEN_REACH, so the tip goes round and the rest of the bust keeps its fullness. Taubin's
+# smoothing, which keeps the size (lambda 0.5, mu -0.53: Taubin 1995, SIGGRAPH '95, DOI 10.1145/218380.218473), was tried first over the
+# whole bust: it kept the point too, which is as big as what it keeps.
+EVEN_REACH = 1.0
+EVEN_FADE = 0.6
+EVEN_ROUNDS = 8
+EVEN_IN, EVEN_OUT = 0.5, 0.0
+SAME_M = 1e-5
+
+
+def evened(points, faces, tips, reach):
+    """The points of a top with the cloth round each tip in `tips` made even (`faces` lists each face's points). Points at the same
+    place (a seam of the texture) move as one."""
+    points = np.asarray(points, float)
+    _, weld = np.unique(np.round(points / SAME_M).astype(np.int64), axis=0, return_inverse=True)
+    weld = weld.ravel()
+    count = int(weld.max()) + 1
+    merged = np.zeros((count, 3))
+    merged[weld] = points
+    pairs = np.array([(face[k], face[(k + 1) % len(face)]) for face in faces for k in range(len(face))], np.int64).reshape(-1, 2)
+    edges = np.unique(np.sort(weld[pairs], axis=1), axis=0)
+    edges = edges[edges[:, 0] != edges[:, 1]]
+    near = np.min([np.linalg.norm(merged - np.asarray(tip), axis=1) for tip in tips], axis=0)
+    share = smooth((EVEN_REACH * reach - near) / (EVEN_FADE * reach))[:, None]
+    links = np.bincount(edges.ravel(), minlength=count).astype(float)[:, None]
+    for _ in range(EVEN_ROUNDS):
+        for step in (EVEN_IN, EVEN_OUT):
+            around = np.zeros_like(merged)
+            np.add.at(around, edges[:, 0], merged[edges[:, 1]])
+            np.add.at(around, edges[:, 1], merged[edges[:, 0]])
+            merged = merged + step * share * (around / np.maximum(links, 1) - merged)
+    return merged[weld]

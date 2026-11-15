@@ -32,6 +32,10 @@ SIDE = (0.78, 0.35)
 BAND = 0.02
 ROUNDS = 8
 BLUR = 2
+# The new chest's skin made even (`even_surface`): rounds of Taubin's pair of steps, in and out (his values, lambda 0.5 and mu -0.53).
+SMOOTH_ROUNDS = 12
+SMOOTH_IN = 0.5
+SMOOTH_OUT = -0.53
 
 
 def trunk_curve(points, centre, level, chosen):
@@ -68,7 +72,7 @@ def plate_depth(level, side):
 def plates(points, faces, trunk, arms, hips):
     """The shift (one per vertex, along y) that gives the front of the chest its two plates. `trunk` is the share of each vertex on the
     spine and hip bones, `arms` the two shoulder joints and `hips` the two hip joints of the body."""
-    merged, twin, _, _ = welded(points, faces)
+    merged, twin, edges, _ = welded(points, faces)
     shoulder, hip = (arms[0] + arms[1]) / 2, (hips[0] + hips[1]) / 2
     marks = rigged_landmarks(merged, float(shoulder[2]), float(hip[2]))
     centre, crotch, pit = marks[0], marks[2], marks[3]
@@ -87,8 +91,26 @@ def plates(points, faces, trunk, arms, hips):
               * smoothstep((ahead - 0.02) / 0.05) * smoothstep((bone - 0.3) / 0.5))
     depth = -merged[:, 1]
     new = depth + weight * (curve + plate_depth(level, side) - depth)
-    shift = np.zeros_like(merged)
-    shift[:, 1] = depth - new
+    placed = merged.copy()
+    placed[:, 1] = -new
+    placed = even_surface(placed, edges, weight)
     print("PLACA do peito: até", round(float(plate_depth(level, side).max()) * 1000, 1), "mm, monte tirado até",
           round(float(np.max(weight * np.maximum(depth - curve, 0))) * 1000, 1), "mm")
-    return shift[twin]
+    return (placed - merged)[twin]
+
+
+def even_surface(points, edges, weight, rounds=SMOOTH_ROUNDS):
+    """The skin of the plates made even: the base mesh's nipple is a small cone and its fine rings, laid on the plate, folded over
+    one another (dark specks at each nipple) and the plate's own field left ridges across the chest (2026-11-15, seen up close).
+    Taubin's two-step smoothing (Taubin 1995, SIGGRAPH '95, DOI 10.1145/218380.218473), which does not shrink the surface the way plain
+    neighbour averaging does, on each point by its `weight` in the new chest."""
+    count = np.bincount(edges.ravel(), minlength=len(points)).astype(float)
+    share = np.clip(weight, 0, 1)[:, None]
+    for _ in range(rounds):
+        for step in (SMOOTH_IN, SMOOTH_OUT):
+            around = np.zeros_like(points)
+            np.add.at(around, edges[:, 0], points[edges[:, 1]])
+            np.add.at(around, edges[:, 1], points[edges[:, 0]])
+            around /= np.maximum(count, 1)[:, None]
+            points = points + step * share * (around - points)
+    return points

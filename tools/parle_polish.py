@@ -16,9 +16,11 @@ from mathutils.kdtree import KDTree
 
 import parle_build
 import parle_bust
+import parle_even
 import parle_head
 import parle_limbs
 import parle_rig
+import skin_islands
 
 CLOTHES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".local/mhd/data/clothes/hm08")
 
@@ -63,6 +65,11 @@ HEM_LEAST_POINTS = 8
 HEM_UPRIGHT = 0.7
 HEM_MIDDLE_M = 0.02
 HEM_SKIRT_DEEP = 0.6
+# The band above the hems that is made even after they are levelled, whole up to the last HEM_BAND_FADE of it.
+HEM_BAND_M = 0.06
+HEM_BAND_FADE = 0.5
+# A top whose lowest point is this far below the hip joints is a dress (`even_dress_hems`).
+DRESS_BELOW_HIP_M = 0.2
 # A point of the globe that is not seen goes this far behind the skin, when the skin is no further behind it than the reach.
 EYE_BEHIND_M = 0.001
 EYE_BEHIND_REACH_M = 0.02
@@ -293,6 +300,12 @@ OVER_ROUNDS = 6
 OVER_SHARED = 2
 
 
+# A loose bit of skin under the clothes (`loose_skin_under_cloth`) goes when it lies on these bones and has cloth this near over it.
+LOOSE_TRUNK = ("Hips", "Spine", "Spine1", "Spine2", "Shoulder", "Arm", "UpLeg")
+# The loose bits of the cast's trunk lay up to 4.2 cm from the cloth where this runs (the gym man's, in his shorts).
+LOOSE_COVER_M = 0.06
+
+
 def smooth(t):
     t = np.clip(t, 0, 1)
     return t * t * (3 - 2 * t)
@@ -400,7 +413,42 @@ def level_hems(meshes):
     for obj in pieces:
         if moves[obj.name].any():
             warp(obj, lambda world, move=moves[obj.name]: world + move)
+    # Level, the cloth above each hem still went in and out in teeth (the pharmacist's shorts, 2026-11-15, seen at rest from below): the
+    # band of HEM_BAND_M above the hems is made even (`even_band`), the levelled hem kept.
+    hems = np.array([clouds[name][index] + moves[name][index] for name, index in found])
+    for obj in pieces if levelled else ():
+        even_band(obj, hems, keep=[index for name, index in found if name == obj.name])
     return levelled
+
+
+def even_band(obj, hems, keep=()):
+    """The cloth of `obj` within HEM_BAND_M of the hem points `hems` made even, the hem along itself (`parle_even`); the points in
+    `keep` (a hem already levelled) stay where they are."""
+    rest = rest_points(obj)
+    near = np.min(np.linalg.norm(rest[:, None, :] - hems[None, :, :], axis=2), axis=1)
+    weight = smooth((HEM_BAND_M - near) / (HEM_BAND_FADE * HEM_BAND_M))
+    weight[list(keep)] = 0.0
+    if weight.any():
+        move = parle_even.evened(rest, [tuple(poly.vertices) for poly in obj.data.polygons], weight) - rest
+        warp(obj, lambda world, move=move: world + move)
+
+
+def even_dress_hems(meshes, rig):
+    """A dress is a top that goes below the hips: the florist's camisole dress (2026-11-15), whose hem went round in spikes, torn-looking,
+    in every gesture and at rest. `level_hems` reads the bottoms alone; here the band above a dress's hem is made even the same way
+    (`even_band`), without levelling it, since a full skirt hangs in folds. Returns how many dresses."""
+    hip = min(float((rig.matrix_world @ rig.data.bones[name].head_local).z) for name in ("LeftUpLeg", "RightUpLeg"))
+    done = 0
+    for obj in [obj for obj in meshes if obj.name.startswith("Outfit_Top") and len(obj.data.vertices)]:
+        rest = rest_points(obj)
+        low, tall = rest[:, 2].min(), np.ptp(rest[:, 2])
+        if low > hip - DRESS_BELOW_HIP_M:
+            continue
+        found = hem_points(obj, rest, low, tall)
+        if len(found) >= HEM_LEAST_POINTS:
+            even_band(obj, rest[found])
+            done += 1
+    return done
 
 
 def under_the_lid(skin, at, centre, radius, front):
@@ -1025,6 +1073,57 @@ def seamless_normals(obj):
     return int((count > 1).sum())
 
 
+def drop_custom_normals(obj):
+    """Takes away the normals a mesh brought from its file, so its own are worked out from its faces again. Writing zero normals,
+    which the API documents as "back to the automatic ones", left the glTF's in place on Blender 4.5 (they live in the `custom_normal`
+    attribute there): on the gym man's shorts the normals stood 10 degrees off at the median and up to 144 off their faces."""
+    mesh = obj.data
+    if "custom_normal" in mesh.attributes:
+        mesh.attributes.remove(mesh.attributes["custom_normal"])
+    if mesh.has_custom_normals:
+        with bpy.context.temp_override(object=obj, active_object=obj):
+            bpy.ops.mesh.customdata_custom_splitnormals_clear()
+    mesh.update()
+
+
+def garment_normals(meshes):
+    """The normals of the clothes worked out again on their final shape, the same at each place two points share (a seam of the
+    texture, or the seam of a sleeve to the body of a top, which is two pieces). The clothes come from a glTF with its normals, and
+    every step after (the fit, the build, the bust, the hems) moved the points and left those normals as they were: lit by them, the
+    pharmacist's T-shirt had a hollow on the back at rest and the gym man's shorts a lump in front and a hole behind, none of them in
+    the mesh (2026-11-15: gone with the file's normals taken away, `drop_custom_normals`). Run last, on the rest shape the game plays.
+    Returns how many pieces."""
+    pieces = [obj for obj in meshes if obj.name.startswith(("Outfit_", "Footwear")) and len(obj.data.polygons)]
+    if not pieces:
+        return 0
+    corners, places = [], []
+    for obj in pieces:
+        mesh = obj.data
+        drop_custom_normals(obj)
+        for polygon in mesh.polygons:
+            polygon.use_smooth = True
+        mesh.update()
+        own = np.empty(len(mesh.loops) * 3)
+        mesh.corner_normals.foreach_get("vector", own)
+        point_of = np.empty(len(mesh.loops), dtype=np.int64)
+        mesh.loops.foreach_get("vertex_index", point_of)
+        corners.append(own.reshape(-1, 3) @ np.array(obj.matrix_world.to_3x3()).T)
+        places.append(np.round(rest_points(obj), 4)[point_of])
+    _, place = np.unique(np.concatenate(places), axis=0, return_inverse=True)
+    place = place.ravel()
+    total = np.zeros((int(place.max()) + 1, 3))
+    np.add.at(total, place, np.concatenate(corners))
+    total /= np.maximum(np.linalg.norm(total, axis=1, keepdims=True), 1e-9)
+    start = 0
+    for obj, own in zip(pieces, corners):
+        local = total[place[start:start + len(own)]] @ np.array(obj.matrix_world.to_3x3().inverted()).T
+        local /= np.maximum(np.linalg.norm(local, axis=1, keepdims=True), 1e-9)
+        obj.data.normals_split_custom_set(local.tolist())
+        obj.data.update()
+        start += len(own)
+    return len(pieces)
+
+
 def round_bust(meshes, rig):
     """Under a top each breast of a woman takes the shape of a cup, as in a bra (`parle_bust`): the pieces of the top, and the skin
     with them. Run at rest on the finished body. Returns how far each tip came back, in metres; nothing when no top covers the bust."""
@@ -1043,6 +1142,10 @@ def round_bust(meshes, rig):
             cups.append((tip, *found))
     for obj in [obj for obj in meshes if obj in tops or obj.name.split(".")[0] == "Body"] if cups else ():
         warp(obj, lambda points: points + sum(parle_bust.cupped(points, tip, axis, tall, reach) for tip, axis, tall in cups))
+    for obj in tops if cups else ():
+        rest = rest_points(obj)
+        move = parle_bust.evened(rest, [tuple(poly.vertices) for poly in obj.data.polygons], [tip for tip, _, _ in cups], reach) - rest
+        warp(obj, lambda points, move=move: points + move)
     return [(1 - parle_bust.CUP) * tall for _, _, tall in cups]
 
 
@@ -1549,10 +1652,86 @@ def brows_on_skin(meshes):
     return furthest
 
 
+def loose_skin_under_cloth(body, cloth, reach=LOOSE_COVER_M):
+    """Takes away the loose bits of skin the cut under the clothes left (`skin_islands`). A bit goes only when it lies on the
+    trunk (its points are mostly on the spine, hips, shoulders, upper arms or thighs) and every point of it has cloth
+    within `reach`, in or out: the ankle between the trouser hem and the shoe is a loose bit too, and it is seen. Run after the skin
+    under the clothes was cut, in the rest pose. Returns the faces taken away."""
+    points, faces = [], []
+    for obj in cloth:
+        offset = len(points)
+        points.extend(obj.matrix_world @ vertex.co for vertex in obj.data.vertices)
+        obj.data.calc_loop_triangles()
+        faces.extend(tuple(index + offset for index in triangle.vertices) for triangle in obj.data.loop_triangles)
+    if not faces:
+        return 0
+    tree = BVHTree.FromPolygons(points, faces)
+    world = body.matrix_world
+    rest = np.array([tuple(world @ vertex.co) for vertex in body.data.vertices])
+    # The edges of faces only: the cut takes faces away and leaves their bare edges, which still tie a loose bit to the body.
+    edges = np.array([pair for poly in body.data.polygons for pair in zip(poly.vertices, list(poly.vertices[1:]) + [poly.vertices[0]])],
+                     np.int64).reshape(-1, 2)
+    piece, size = skin_islands.pieces(rest, edges)
+    found = np.flatnonzero(size[piece] < skin_islands.LOOSE_MOST)
+    names = {group.index: group.name for group in body.vertex_groups}
+    gone = set()
+    for label in np.unique(piece[found]):
+        members = np.flatnonzero(piece == label)
+        bones = [names[max(body.data.vertices[i].groups, key=lambda entry: entry.weight).group] if body.data.vertices[i].groups else ""
+                 for i in members]
+        if np.mean([name.endswith(LOOSE_TRUNK) for name in bones]) < 0.5:
+            continue
+        # Near the cloth, in or out: a bit that already came out through it has no cloth along its normal, and neither has one under
+        # a fold of the cloth (rays missed the two bits in the gym man's shorts and the one on the pharmacist's back, 2026-11-15).
+        far = max(tree.find_nearest(world @ body.data.vertices[int(i)].co)[3] for i in members)
+        if far < reach:
+            gone.update(int(i) for i in members)
+    if not gone:
+        return 0
+    mesh = bmesh.new()
+    mesh.from_mesh(body.data)
+    doomed = [face for face in mesh.faces if all(vert.index in gone for vert in face.verts)]
+    bmesh.ops.delete(mesh, geom=doomed, context="FACES")
+    mesh.to_mesh(body.data)
+    mesh.free()
+    return len(doomed)
+
+
 def arm_helpers(rig, meshes):
-    """The helper bones of the elbows and wrists (`parle_limbs.helpers`), keyed in every clip the skeleton carries. Run after the
-    clips are final, the last thing before the export."""
-    return parle_limbs.helpers(rig, meshes, clip_actions(rig))
+    """The helper bones of the shoulders, elbows and wrists (`parle_limbs.helpers`), keyed in every clip the skeleton carries, and
+    then the seams of the clothes held together (`seams_together`), which the helpers' evening of the weights, piece by piece, parts
+    again. Run after the clips are final, the last thing before the export."""
+    made = parle_limbs.helpers(rig, meshes, clip_actions(rig))
+    print("COSTURA", seams_together(meshes), "pontos da roupa com o mesmo peso dos dois lados")
+    return made
+
+
+def seams_together(meshes):
+    """The points of the clothes at one place, in two pieces (the sleeve and the body of a T-shirt) or twice in one (a seam of the
+    texture), take the mean of their weights: each piece's weights were worked out on its own, and in a gesture the seam opened, a
+    slit at the top of the pharmacist's sleeve when she stood still (2026-11-15). Returns how many points were given the mean."""
+    pieces = [obj for obj in meshes if obj.name.startswith(("Outfit_", "Footwear")) and len(obj.data.vertices) and obj.vertex_groups]
+    if not pieces:
+        return 0
+    groups = parle_even.shared_places([rest_points(obj) for obj in pieces])
+    done = 0
+    for group in groups:
+        total = {}
+        for number, index in group:
+            obj = pieces[number]
+            names = {item.index: item.name for item in obj.vertex_groups}
+            for item in obj.data.vertices[index].groups:
+                total[names[item.group]] = total.get(names[item.group], 0.0) + item.weight / len(group)
+        for number, index in group:
+            obj = pieces[number]
+            for name in {item.name for item in obj.vertex_groups} | set(total):
+                group_of = obj.vertex_groups.get(name) or obj.vertex_groups.new(name=name)
+                if total.get(name, 0.0) > 1e-6:
+                    group_of.add([index], total[name], "REPLACE")
+                else:
+                    group_of.remove([index])
+            done += 1
+    return done
 
 
 def natural_body(meshes, rig, height, sex, kit):
@@ -1591,6 +1770,9 @@ def natural_body(meshes, rig, height, sex, kit):
     hems = level_hems(meshes)
     if hems:
         print("BARRA nivelada em", hems, "aberturas de perna")
+    dresses = even_dress_hems(meshes, rig)
+    if dresses:
+        print("BARRA do vestido alisada em", dresses, "peças")
     body = next((obj for obj in meshes if obj.name == "Body"), None)
     globe = next((obj for obj in meshes if "low-poly" in obj.name), None)
     balls = eye_balls(globe) if globe is not None and body is not None else ()
