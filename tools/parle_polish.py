@@ -720,13 +720,14 @@ def keeps_its_move(name):
     return name.startswith(MOUTH_MOVES)
 
 
-def drawn_head(meshes, rig, kit):
+def drawn_head(meshes, rig, sex):
     """The head takes the shape of the drawn ones (`parle_head`): each point by how much of it follows the head, in every shape key,
-    and the bones of the head with it. How many points went; none for a kit with no chart, or a body with no eye globes."""
-    chart = parle_head.load_chart(kit)
+    and the bones of the head with it. How many points went. Every face of the cast is drawn (owner, 2026-11-15): a body with no eye
+    globes, or none of whose points follow the head, would keep the kit's face of real proportions, so it raises."""
+    chart = parle_head.load_chart(sex)
     globe = next((obj for obj in meshes if "low-poly" in obj.name), None)
-    if chart is None or globe is None:
-        return 0
+    if globe is None:
+        raise ValueError("a body with no eye globes cannot take the drawn head, and every face of the cast is drawn")
     bpy.context.view_layer.update()
     field = parle_head.head_field(chart, eye_balls(globe))
     head = {"Head"} | {bone.name for bone in rig.data.bones["Head"].children_recursive}
@@ -748,6 +749,8 @@ def drawn_head(meshes, rig, kit):
 
         warp(obj, move, kept=keeps_its_move)
         went += int(on.sum())
+    if not went:
+        raise ValueError("no point of the body follows the head: the face would stay the kit's, and every face of the cast is drawn")
     world, back = np.array(rig.matrix_world), np.array(rig.matrix_world.inverted())
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode="EDIT")
@@ -1557,7 +1560,7 @@ def arm_helpers(rig, meshes):
 
 def natural_body(meshes, rig, height, sex, kit):
     """The body of a finished character: the lengths of the kit (`natural_lengths`, where its profile has them), the arms, the head
-    in the shape of the drawn ones (`drawn_head`, where the body has its eye globes), then the build of the kit and the girth of the
+    in the shape of the drawn ones (`drawn_head`, on every body: there is no face of real proportions), then the build of the kit and the girth of the
     forearm (`parle_limbs.natural_forearms`). The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
@@ -1575,9 +1578,7 @@ def natural_body(meshes, rig, height, sex, kit):
         print("COMPRIMENTO das pernas pelo perfil: o quadril desceu", round(lengths[0] * 100, 1), "cm e o tronco tomou a diferença; o quadril de", lengths[1],
               "clipes foi posto de novo sobre as solas")
     natural_arms(meshes, rig, height, sex)
-    drawn = drawn_head(meshes, rig, kit)
-    if drawn:
-        print("CABEÇA de desenho:", drawn, "pontos foram com o mapa do rosto")
+    print("CABEÇA de desenho:", drawn_head(meshes, rig, sex), "pontos foram com o mapa do rosto")
     built = natural_build(meshes, rig, height, kit)
     # The girth of the forearm after the build, which thins a man's arm.
     for side, forearm in parle_limbs.natural_forearms(meshes, rig, height, sex, warp, rest_points).items():

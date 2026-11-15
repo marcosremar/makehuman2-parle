@@ -17,10 +17,26 @@ sys.path.insert(0, str(ROOT / "tools"))
 import parle_head  # noqa: E402
 
 os.environ.pop(parle_head.TRIAL, None)
-women, men = parle_head.load_chart("female-slim"), parle_head.load_chart("male-normal")
-assert women is not None and men is not None and parle_head.load_chart("dog") is None, "a chart per sex, and none for what is neither"
-os.environ[parle_head.TRIAL] = "0"
-assert parle_head.load_chart("female-slim") is None, "the trial door does not turn the chart off"
+women, men = parle_head.load_chart("female"), parle_head.load_chart("male")
+assert parle_head.load_chart("female-slim")["sex"] == "female" and parle_head.load_chart("male-normal")["sex"] == "male", "a kit's name is not read as its sex"
+
+
+def refused(sex, why):
+    try:
+        parle_head.load_chart(sex)
+    except (ValueError, FileNotFoundError):
+        return
+    raise AssertionError(why)
+
+
+# Only drawn faces (owner, 2026-11-15, "faz ele gerar só rostos cartoon"): no way to a body with the kit's face of real proportions.
+# Until then a kit whose name gave no sex (the loop that matches the build passed the path of its profile), the chart file gone or
+# the trial door set to "0" each gave no chart, and the body kept the kit's face with nothing said.
+refused("dog", "a body that is neither a woman nor a man gets no chart and keeps the kit's face")
+refused("/tmp/work/profile.json", "the path of a profile is read as a body with no chart")
+for door in ("0", "off", "/nowhere/chart.json"):
+    os.environ[parle_head.TRIAL] = door
+    refused("female", f"the trial door {door!r} turns the drawn head off")
 os.environ.pop(parle_head.TRIAL)
 
 # The chart: the two sides of the face alike, nothing across on the middle line, and the grid read back at its own nodes.
@@ -88,7 +104,9 @@ for path in sorted((ROOT / "data" / "parle_head").glob("*.json")):
 # The cast's step: the chart goes to every shape key (`warp`), by how much of each point follows the head, a point of the jaw being
 # the head's from HEAD_WHOLE of its weight on, and the bones of the head go with it; it runs before the build of the body.
 polish = (ROOT / "tools" / "parle_polish.py").read_text()
-step = polish.split("def drawn_head(meshes, rig, kit):")[1].split("\n\n\ndef ")[0]
+step = polish.split("def drawn_head(meshes, rig, sex):")[1].split("\n\n\ndef ")[0]
+# The step itself refuses a body it cannot draw: no eye globes, or no point that follows the head.
+assert step.count("raise ValueError") >= 2 and "return 0" not in step, "the step can still leave a body with the kit's face"
 assert "parle_head.head_field(chart, eye_balls(globe))" in step and "warp(obj, move, kept=keeps_its_move)" in step, "the head is not moved by the chart, or not in every shape key"
 # The mouth keeps the moves it was given (2026-11-15): warped as absolute points, the drawn head shrank the women's open jaw by a
 # fifth and `mouthClose` went 0.7 mm past the jaw on every body (babylon-cinema test/npcs/cast-mouth-arkit, cast-tongue-follows-jaw).
@@ -101,6 +119,7 @@ warp = polish.split("def warp(obj, field, kept=None):")[1].split("\n\n\ndef ")[0
 assert "rest = rest_points(obj)" in warp and "placed + (points - rest)" in warp and "field(points)" in warp, "a kept key does not follow the rest by its move, or the others are not warped whole"
 assert "smooth(group_share(obj, head) / HEAD_WHOLE)" in step and "edit_bones" in step, "the jaw is taken by its weight alone, or the bones of the head stay behind"
 body = polish.split("def natural_body(meshes, rig, height, sex, kit):")[1].split("\n\n\ndef ")[0]
-assert body.index("drawn_head(meshes, rig, kit)") < body.index("natural_build(meshes, rig, height, kit)"), "the head takes its shape after the body is built"
+assert body.index("drawn_head(meshes, rig, sex)") < body.index("natural_build(meshes, rig, height, kit)"), "the head takes its shape before the build"
+assert "if drawn" not in body and body.count("drawn_head(") == 1, "the body can go on without its drawn head"
 assert "eyes_no_rounder(meshes, eye_round_most(sex))" in body, "the eyes of a drawn head open no rounder than the kit's own limit"
 print("ok")

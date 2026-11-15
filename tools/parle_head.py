@@ -53,7 +53,8 @@ FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", 
 EYE_WHOLE, EYE_REACH = 1.35, 2.0
 # In distances between the eyes, behind their middles: the chart is whole to the first, past the ears, and gone by the second.
 FACE_BACK = (1.25, 1.9)
-# A trial of another chart, or of none ("0"), without touching the data: a QA door, not a mode of the cast.
+# A trial of another chart (the path of its .json) without touching the data: a QA door, not a mode of the cast. There is no door
+# to no chart: every face the fork makes is a drawn one (owner, 2026-11-15, "faz ele gerar só rostos cartoon").
 TRIAL = "PARLE_HEAD"
 
 
@@ -62,17 +63,17 @@ def smooth(t):
     return t * t * (3 - 2 * t)
 
 
-def load_chart(kit):
-    """The chart of the kit's sex, as arrays; None for a kit with no chart. The grid is kept for one side of the face and is the
-    same on the other."""
-    path = os.environ.get(TRIAL, "")
-    if path in ("0", "off"):
-        return None
-    if not path.endswith(".json"):
-        sex = next((name for name in ("female", "male") if str(kit).startswith(name)), None)
-        path = os.path.join(FOLDER, f"{sex}.json")
-    if not os.path.exists(path):
-        return None
+def load_chart(sex):
+    """The chart of that sex ("female" or "male"; a kit's name that starts with one is read as it), as arrays. The grid is kept for
+    one side of the face and is the same on the other. Every face of the cast is drawn (owner, 2026-11-15: "estuda os rostos de
+    cartoon e faz ele gerar só rostos cartoon"): until then a kit whose name gave no sex, a chart file gone or the trial door set to
+    "0" left the kit's own face, of real proportions, with nothing said. Each of those is now a broken contract and raises."""
+    found = next((name for name in ("female", "male") if str(sex).startswith(name)), None)
+    if found is None:
+        raise ValueError(f"no drawn head for {sex!r}: every body of the cast is a woman or a man, and every face is drawn")
+    path = os.environ.get(TRIAL) or os.path.join(FOLDER, f"{found}.json")
+    if not path.endswith(".json") or not os.path.exists(path):
+        raise FileNotFoundError(f"the chart of the drawn head is missing: {path!r}")
     chart = json.load(open(path))
     across, up = np.asarray(chart["move_across"], float), np.asarray(chart["move_up"], float)
     # Both sides: the move across turns over with the side, the move up does not.
