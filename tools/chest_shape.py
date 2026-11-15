@@ -4,7 +4,8 @@
     python tools/chest_shape.py <body.npz> <base.npy> <shift.npy> [kit=<name>] [shirtless=<0|1>] [--plain]
 
 Every bare-chested man takes the chest of the sculpture in the place of the base mesh's own, which is two round mounds: on the normal man
-of the beach they hung like breasts (owner, 2026-11-11). The muscled man takes all of its relief and the deltoid targets; the others take
+of the beach they hung like breasts (owner, 2026-11-11). The muscled man takes all of its relief and the deltoid targets, and bare-chested
+his chest is laid again as two plates (`core.chest_plate`, 2026-11-15); the others take
 a share of it and keep their shoulders. Under a shirt the muscled man goes without the relief, which only tears the cloth (`shirtless=0`,
 or `--plain`); the others take theirs, smoothed, so the cloth does not show two points. A kit that is not a man's is left as it is.
 
@@ -20,6 +21,7 @@ from scipy.spatial import cKDTree
 
 sys.path.insert(0, ".")
 from core.body_shape import moulded, muscles  # noqa: E402
+from core.chest_plate import plates  # noqa: E402
 
 
 RELIEF = "data/sculpt/male-torso-relief.npz"
@@ -28,7 +30,10 @@ STRENGTH = {"male-muscled": 1.0, "male-normal": 0.9, "male-slim": 0.4}
 # How many times the relief is smoothed over the mesh. Not smoothed, on the normal man the lower edge of the chest came out as a hard
 # straight ledge with a square notch at the breastbone; six times over it is the soft edge of a chest that does not train (2026-11-11).
 # On the slim man 0.7 read as a band strapped across the chest (2026-11-11).
-SOFT = {"male-muscled": 1, "male-normal": 6, "male-slim": 8}
+# On the muscled man 1 left the edge as a ledge too, and his plates come from `core.chest_plate` on top (2026-11-15).
+SOFT = {"male-muscled": 4, "male-normal": 6, "male-slim": 8}
+# Whose bare chest is laid again as two plates (`core.chest_plate`): the base mesh's mounds hung as breasts under the relief.
+PLATES = {"male-muscled"}
 # How wide the skin is laid again around each nipple, in shares of crotch to neck pit; elsewhere it is the nipple alone (2.5 cm). On the
 # slim man the base mesh's chest is a cone under each nipple, and it stayed as a small breast under whatever came on top of it (owner,
 # 2026-11-11: "o peitoral está com tetas").
@@ -64,6 +69,10 @@ def main():
         joints = ((height["LeftArm"] + height["RightArm"]) / 2, (height["LeftUpLeg"] + height["RightUpLeg"]) / 2)
         strength, soft = float(tuned.get("strength", STRENGTH[kit])), int(tuned.get("soft", SOFT[kit]))
         fine = moulded(original + shift, data["faces"].astype(np.int64), relief, trunk, strength, soft, patch, joints)
+        if kit in PLATES and asked.get("plates", "1") != "0":
+            joint = {str(name): np.asarray(place, float) for name, place in zip(data["joint_names"], data["joints"])}
+            fine = fine + plates(original + shift + fine, data["faces"].astype(np.int64), trunk, (joint["LeftArm"], joint["RightArm"]),
+                                 (joint["LeftUpLeg"], joint["RightUpLeg"]))
         shift = shift + fine
         gaps, near = cKDTree(original).query(base)
         moved += fine[near] * (gaps < 0.02)[:, None]
