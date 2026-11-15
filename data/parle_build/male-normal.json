@@ -163,10 +163,6 @@
   "reference": "reference-men.json",
   "similarity": 95.15
  },
- "lengths": {
-  "thigh": 0.9235,
-  "shank": 0.836
- },
  "similarity": 98.19,
  "parts": {
   "trunk.width": 95.5,

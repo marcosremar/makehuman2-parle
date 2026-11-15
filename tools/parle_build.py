@@ -66,6 +66,11 @@ CROTCH_BAND, MIDLINE_BAND, ELBOW_BAND, HAND_FADE = 0.03, 0.02, 0.025, 0.15
 # the lengths of `male-normal` are his choice over that earlier one. The slim and the muscled men have the skeleton of the normal
 # one (the joints of the hips and of the knees within 0.2% of the stature on the three kits); shown one of each with the same
 # lengths, he took them for all the men ("Sim, todos os homens", the same day). Their widths stay their own references' work.
+# Seen in the game on the whole cast, he took it back on 2026-11-15: "o tronco os homens e braços estão muito compridos" and
+# "os braços estão deformados, copia um glb bom". The trunk had gone from 24.5% of the stature to 30.3% to take up the legs
+# (knees at 27.5% where they had been at 32%), and the arms, as long as they were, hung past the middle of the thigh. No
+# profile of a man carries lengths now: trunk, arms and legs are the published cast's again, Rafa's. A refit of `male-normal`
+# by `body_joints.py` against the dressed man writes them back; take them out of the profile after it.
 LENGTHS = ("thigh", "shank")
 TRUNK_EASE = 0.1
 FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "parle_build")
