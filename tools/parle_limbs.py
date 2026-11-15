@@ -37,6 +37,14 @@ ARM_BONES = ("Arm", "ForeArm", "Hand")
 # Upper bone, lower bone, helper: the helper turns HELPER_SHARE of the lower bone's local turn.
 HELPERS = (("Arm", "ForeArm", "ElbowHelper"), ("ForeArm", "Hand", "WristHelper"))
 HELPER_SHARE = 0.5
+# After the split, the weights near each joint are evened out over the mesh (`even_joint`): this many rounds, within this far of the
+# joint. Sharp steps of weight between neighbours folded faces outwards in a deep bend: on the strong man of the gym, bits of the
+# inner elbow stood out of the skin bent shut (41 faces of the elbow crossing others at worst, 629 in all the clips); evened out, 21
+# and 337, and nothing stands out. Points at the same place (the seam of the hand) are one point: evened apart, they parted, and the
+# wrist showed a ring like a bracelet.
+EVEN_ROUNDS = 12
+EVEN_REACH_M = {"ElbowHelper": 0.10, "WristHelper": 0.07}
+SAME_PLACE_M = 1e-4
 
 
 def hull_perimeter(flat):
@@ -170,6 +178,52 @@ def new_curve(action, path, index, group):
         return bag.fcurves.new(path, index=index, group_name=group)
 
 
+def even_joint(obj, joint, names, rounds=EVEN_ROUNDS, reach=0.1):
+    """The shares of `names` (upper, helper, lower) in each point within `reach` of `joint` (world) made the mean of their neighbours',
+    half a step a round, the sum each point holds on them kept. Points at the same place move as one."""
+    if any(name not in obj.vertex_groups for name in names) or not len(obj.data.vertices):
+        return 0
+    mw = np.array(obj.matrix_world)
+    rest = np.array([v.co[:] for v in obj.data.vertices]) @ mw[:3, :3].T + mw[:3, 3]
+    index = [obj.vertex_groups[name].index for name in names]
+    weights = np.zeros((len(rest), 3))
+    for vertex in obj.data.vertices:
+        for item in vertex.groups:
+            if item.group in index:
+                weights[vertex.index, index.index(item.group)] = item.weight
+    total = weights.sum(axis=1)
+    place, group = {}, np.empty(len(rest), int)
+    for number, point in enumerate(rest):
+        group[number] = place.setdefault(tuple(np.round(point / SAME_PLACE_M).astype(int)), len(place))
+    count_places = len(place)
+    edges = np.array([edge.vertices[:] for edge in obj.data.edges], int).reshape(-1, 2)
+    edges = np.unique(np.sort(group[edges], axis=1), axis=0)
+    edges = edges[edges[:, 0] != edges[:, 1]]
+    members = np.bincount(group, minlength=count_places).astype(float)
+    held = np.bincount(group, weights=total, minlength=count_places)
+    shares = np.stack([np.bincount(group, weights=weights[:, k], minlength=count_places) for k in range(3)], axis=1) / np.maximum(held, 1e-9)[:, None]
+    near_joint = (np.linalg.norm(rest - np.asarray(joint), axis=1) < reach) & (total > 0.05)
+    free = np.bincount(group, weights=near_joint.astype(float), minlength=count_places) > 0
+    if not free.any() or not len(edges):
+        return 0
+    count = np.bincount(edges.ravel(), minlength=count_places).astype(float)
+    for _ in range(rounds):
+        around = np.stack([np.bincount(edges[:, 0], weights=shares[edges[:, 1], k], minlength=count_places)
+                           + np.bincount(edges[:, 1], weights=shares[edges[:, 0], k], minlength=count_places) for k in range(3)], axis=1)
+        around /= np.maximum(count[:, None], 1)
+        shares = np.where(free[:, None], 0.5 * shares + 0.5 * around, shares)
+    moved = 0
+    for number in np.where(free[group] & (total > 0))[0]:
+        moved += 1
+        for k, name in enumerate(names):
+            weight = float(shares[group[number], k] * total[number])
+            if weight > 1e-5:
+                obj.vertex_groups[name].add([int(number)], weight, "REPLACE")
+            else:
+                obj.vertex_groups[name].remove([int(number)])
+    return moved
+
+
 def helpers(rig, meshes, actions):
     """Adds the helper bones of the elbows and wrists, gives them the middle of each joint's blend in every mesh, and keys them in every
     clip. Run last, once the clips are final: the keys are worked out from the lower bone's. Gives the names of the helpers."""
@@ -206,6 +260,8 @@ def helpers(rig, meshes, actions):
                         group.add([vertex.index], weight, "REPLACE")
                     else:
                         group.remove([vertex.index])
+            joint = rig.matrix_world @ rig.data.bones[lower].head_local
+            even_joint(obj, joint, (upper, helper, lower), reach=EVEN_REACH_M[helper.removeprefix("Left").removeprefix("Right")])
     for action in actions:
         curves = action_curves(action)
         for _, lower, helper in made:
