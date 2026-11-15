@@ -17,6 +17,7 @@ from mathutils.kdtree import KDTree
 import parle_build
 import parle_bust
 import parle_head
+import parle_style
 import parle_limbs
 import parle_rig
 
@@ -221,7 +222,8 @@ EYE_TALL_MOST = 0.43
 # apartment's neighbour, 0.41). The men keep 0.43: Rafa's reads no rounder than the café's owner's. On the size and the opening of
 # the eye the owner's eye decides: shown the pharmacy's attendant and the pet shop's on the drawn head, each with the opening held
 # to 0.43 and let go to 0.50, he took the rounder one the same day ("A mais aberta").
-EYE_TALL_MOST_BY_SEX = {"female": 0.50}
+# The series the owner chose on 2026-11-15 has round eyes, 0.6 to 0.7 as tall as wide.
+EYE_TALL_MOST_BY_SEX = {"female": 0.62, "male": 0.62}
 # How much of a point's weight on the head makes it the head's own for the drawn head (`drawn_head`).
 HEAD_WHOLE = 0.4
 # A trial of another limit without touching this file (`eye_round_most`): a QA door, not a mode of the cast.
@@ -229,6 +231,7 @@ EYE_ROUND_TRIAL = "PARLE_EYE_ROUND"
 EYE_TALL_STEP_M = 0.0004
 EYE_TALL_ROUNDS = 5
 EYE_TALL_BLINK_MOST = 0.35
+EYE_OPEN_BLINK_MOST = 0.6
 FAIR_SOFT_FROM = 0.15
 # The lips are the points their own traits move by this share or more. They take part with a small weight: point against point
 # their sculpted form came out rough, a row of ridges along the upper lip (2026-11-12, in clay), and a small weight takes out what
@@ -548,7 +551,8 @@ def globes_behind_skin(meshes):
 
 def eye_scale(kit):
     """How many times their own size the eyes of a kit are."""
-    return next((scale for sex, scale in EYE_SCALE_BY_SEX.items() if str(kit).startswith(sex)), EYE_SCALE)
+    sex = next((sex for sex in ("female", "male") if str(kit).startswith(sex)), "male")
+    return EYE_SCALE_BY_SEX.get(sex, EYE_SCALE) * parle_style.eye_grow(sex)
 
 
 def bigger_eyes(meshes, eye, scale=EYE_SCALE):
@@ -718,6 +722,18 @@ MOUTH_MOVES = ("viseme_", "jawOpen", "mouth", "tongue")
 
 def keeps_its_move(name):
     return name.startswith(MOUTH_MOVES)
+
+
+def matte_skin(body):
+    """The skin smooth and matte, as the series' (2026-11-15, round 6 of the loop judged by sight: "pele lisa e fosca, sem o relevo
+    de poros ou caroços"): the normal map laid on the skin is let go. How many links went."""
+    if body.active_material is None or not body.active_material.use_nodes:
+        return 0
+    tree = body.active_material.node_tree
+    gone = [link for link in tree.links if link.to_node.type == "BSDF_PRINCIPLED" and link.to_socket.name == "Normal"]
+    for link in gone:
+        tree.links.remove(link)
+    return len(gone)
 
 
 def drawn_head(meshes, rig, sex):
@@ -1304,11 +1320,14 @@ def eye_round_most(sex):
     return float(os.environ.get(EYE_ROUND_TRIAL) or EYE_TALL_MOST_BY_SEX.get(sex, EYE_TALL_MOST))
 
 
-def eyes_no_rounder(meshes, most=EYE_TALL_MOST):
+def eyes_no_rounder(meshes, most=EYE_TALL_MOST, least=0.0):
     """The opening of an eye is no taller than `most` of its width. Where one is, the rest shape of both eyes takes the share of
     their blinks that brings it there: the upper lid comes down on the globe the way it shuts, and the blink still ends where it
     ended. For each blink (BLINKS): how wide the opening, how tall it was and how tall it is, in metres, and the share of the blink
-    taken. The same share for the two eyes; every other shape keeps its move. The face looks at -y."""
+    taken. The same share for the two eyes; every other shape keeps its move. The face looks at -y.
+    An opening less tall than `least` of its width takes a share of its blink the other way, the upper lid going up off the iris
+    (2026-11-15: the series the owner chose has round eyes with white about the iris, and the cast's lids lay on it, "dark slits" to
+    the judge by sight), at most EYE_OPEN_BLINK_MOST of the blink; that share is given as a negative one."""
     body = next((obj for obj in meshes if obj.name == "Body"), None)
     eye = next((obj for obj in meshes if "low-poly" in obj.name), None)
     blocks = body.data.shape_keys.key_blocks if body is not None and body.data.shape_keys else None
@@ -1350,13 +1369,17 @@ def eyes_no_rounder(meshes, most=EYE_TALL_MOST):
     def too_round(opening):
         return any(tall > most * wide for wide, tall in opening.values() if wide > 0)
 
+    def too_flat(opening):
+        return any(tall < least * wide for wide, tall in opening.values() if wide > 0)
+
     before = shown(0.0)
     share, after = 0.0, before
-    if too_round(before):
-        low, share = 0.0, EYE_TALL_BLINK_MOST
+    if too_round(before) or (least and too_flat(before)):
+        wrong = too_round if too_round(before) else too_flat
+        low, share = 0.0, EYE_TALL_BLINK_MOST if wrong is too_round else -EYE_OPEN_BLINK_MOST
         for _ in range(EYE_TALL_ROUNDS):
             middle = (low + share) / 2
-            if too_round(shown(middle)):
+            if wrong(shown(middle)):
                 low = middle
             else:
                 share = middle
@@ -1615,8 +1638,10 @@ def natural_body(meshes, rig, height, sex, kit):
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
     for name, (was, left) in blinks_shut(meshes).items():
         print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
-    for name, (wide, was, tall, share) in eyes_no_rounder(meshes, eye_round_most(sex)).items():
+    for name, (wide, was, tall, share) in eyes_no_rounder(meshes, eye_round_most(sex), parle_style.EYE_TALL_LEAST).items():
         print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
+    if body is not None:
+        print("PELE lisa: relevo tirado de", matte_skin(body), "ligações")
     if sex == "female" and body is not None and globe is not None:
         import parle_lip_cut  # here and not above: it reads this module
 

@@ -121,5 +121,5 @@ assert "smooth(group_share(obj, head) / HEAD_WHOLE)" in step and "edit_bones" in
 body = polish.split("def natural_body(meshes, rig, height, sex, kit):")[1].split("\n\n\ndef ")[0]
 assert body.index("drawn_head(meshes, rig, sex)") < body.index("natural_build(meshes, rig, height, kit)"), "the head takes its shape before the build"
 assert "if drawn" not in body and body.count("drawn_head(") == 1, "the body can go on without its drawn head"
-assert "eyes_no_rounder(meshes, eye_round_most(sex))" in body, "the eyes of a drawn head open no rounder than the kit's own limit"
+assert "eyes_no_rounder(meshes, eye_round_most(sex), parle_style.EYE_TALL_LEAST)" in body, "the eyes of a drawn head open between the least and the most of their kind"
 print("ok")

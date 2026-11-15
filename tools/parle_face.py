@@ -24,6 +24,7 @@ import parle_mouth  # noqa: E402
 import parle_mouth_arkit  # noqa: E402
 import parle_mouth_close  # noqa: E402
 import parle_polish  # noqa: E402
+import parle_style  # noqa: E402
 import parle_normals  # noqa: E402
 import parle_teeth  # noqa: E402
 import parle_tongue  # noqa: E402
@@ -114,10 +115,11 @@ REST_SMILE = {"female": 0.05, "male": 0.12}
 # 0.195 and 0.203, nose 0.30 against 0.302 (read off the shapes of the finished bodies). The judge by sight had asked for a face
 # less square; on the shape of the face the owner's eye decides.
 FAIR_LOOK = {
-    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.2, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.1, "faceCheek": 0.4,
-               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": 0.25, "faceEyeOpen": 0.0, "eyeWideLeft": 0.5, "eyeWideRight": 0.5, "faceEyeTilt": 0.3,
+    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.2, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.1, "faceCheek": 0.9,
+               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": 0.25, "faceEyeOpen": 0.0, "eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceEyeTilt": 0.3,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
-    "male": {"mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
+    # The series' men have round eyes with white showing (2026-11-15): the lids open half again, as the women's.
+    "male": {"eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceCheek": 0.8, "mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
 }
 # The traits of a person's own that make her eyes bigger or more open than the kit's (`<head>.glb.face.json`, read off the game's
 # face of that person by the game's repository and already in the rest shape when the look is given). The game's faces have eyes
@@ -149,7 +151,7 @@ BROW_ARCH = {"female": 0.5, "male": 0.6}
 # way: its whole reach on the eyebrow is 3 mm.
 # The men's too, once their arch came down (`BROW_ARCH`): flattened where it was, it lay on the eye, a slab, and its height over
 # the eye read 12% of the face where Rafa's reads 15 (`parle_beauty.brow_high`, 2026-11-12).
-BROW_LIFT_M = {"female": 0.003, "male": 0.003}
+BROW_LIFT_M = {"female": 0.003, "male": 0.006}
 # The traits of the look that open or close the lids at rest, and the shapes that shut them: a point a blink moves this far or
 # more gives back the whole of what those traits moved it (`blink_still_closes`).
 LID_TRAITS = ("faceEyeOpen", "eyeWideLeft", "eyeWideRight")
@@ -281,7 +283,7 @@ SPEECH_MIX = {
 # and the same women's in the game 30 to 38%; the lips have since been given a form of their own (`LIPS_FULL`) and the mouth sent
 # back (`MOUTH_BACK`), which is what the pout was. +0.1 left it at 38%, to the judge by sight still twice the width of the nose
 # where Sofia's is one and a half: -0.25, about 35%.
-MOUTH_WIDE = {"female": -0.25, "male": 0.0}
+MOUTH_WIDE = {"female": 0.5, "male": 0.7}
 MOUTH_CORE_M = 0.006
 MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035
@@ -963,8 +965,22 @@ def clean_face(body, added, job, env):
     for obj in [item for item in added if item.type == "MESH" and "low-poly" in item.name]:
         parle_polish.round_globes(obj)
     own = own_traits(job)
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], fair_look(sex, own), BROW_THIN[sex], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex], own)
+    style = parle_style.STYLE[parle_style.kind_of(sex, job)]
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], fair_look(sex, own), style["brow"], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex], own)
     soften_pout(body, POUT_FORWARD[sex])
+    globe = next((obj for obj in added if obj.type == "MESH" and "low-poly" in obj.name), None)
+    if globe is None:
+        raise ValueError("no eye globes: the nose of the kind cannot be found, and every face of the cast is drawn")
+    tip = parle_style.nose_tip(parle_polish.rest_points(body), parle_polish.eye_balls(globe))
+    parle_polish.warp(body, parle_style.nose_field(tip, style["nose"], style["forward"]), kept=parle_polish.keeps_its_move)
+    parle_polish.warp(body, parle_style.tip_field(tip, style["tip"], style["forward"]), kept=parle_polish.keeps_its_move)
+    print("NARIZ do tipo", parle_style.kind_of(sex, job), "cresceu", style["nose"], "e a ponta", style["tip"])
+    skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None)
+    if skin is not None:
+        pixels = np.array(skin.pixels[:]).reshape(-1, 4)
+        pixels[:, :3] = parle_style.warmer(pixels[:, :3], style["skin"])
+        skin.pixels.foreach_set(pixels.astype(np.float32).ravel())
+        skin.pack()
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
     for obj in [item for item in added if item.type == "MESH" and "teeth" in item.name]:
@@ -995,6 +1011,11 @@ def clean_face(body, added, job, env):
                 shader = obj.active_material.node_tree.nodes.get("Principled BSDF")
                 if shader:
                     shader.inputs["Roughness"].default_value = EYE_ROUGHNESS
+                    # The eye lit from inside a little, as the series' are: in the orbit the white read grey (round 8 of the loop).
+                    texture = next((node for node in obj.active_material.node_tree.nodes if node.type == "TEX_IMAGE"), None)
+                    if texture is not None:
+                        obj.active_material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Emission Color"])
+                        shader.inputs["Emission Strength"].default_value = parle_style.EYE_GLOW
                 for polygon in obj.data.polygons:
                     polygon.use_smooth = True
     # Last: the steps above tell the lips, the lining and the gums apart by how far the open jaw carries them.

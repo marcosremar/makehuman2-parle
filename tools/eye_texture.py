@@ -23,7 +23,7 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # and asked for the iris bigger with the opening (2026-11-12, `parle_face.FAIR_LOOK`): on a drawn face the iris fills more of the eye.
 # At 0.13 it filled the opening from lid to lid, with slivers of white: "two dark beads" (the same judge, five rounds on). Against
 # the width of the face it measured 0.109, Sofia's 0.097 and the same woman's in the game 0.101: a little smaller.
-IRIS_RADIUS = 0.125
+IRIS_RADIUS = 0.12
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 # Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
 # it: at 0.2 the upper lid still lay across the top of the pupil. With the lids as they are now (`parle_face.FAIR_LOOK`), at 0.3
@@ -52,11 +52,14 @@ LIMBUS_SHARE = 0.90
 # never b* over a* (the orange). Chroma 20 / 17 (a* = b* = 14.1 and 12.0) sits inside the dark-brown a* (12 to 23) and b* (7.7 to 15)
 # ranges but below each class mean: the full measured chroma is HSV saturation 0.67, more than the orange we are removing. Chroma is
 # also a choice by eye, to be judged in the player. Converted to sRGB.
-IRISES = {
+# The series the owner chose on 2026-11-15 has lighter, clearer brown irises: a judge by sight against it asked for them a quarter
+# lighter (round 8 of the loop), so each colour is IRIS_LIGHTER times the one chosen above.
+IRIS_LIGHTER = 1.0
+IRISES = {name: tuple(min(1.0, value * IRIS_LIGHTER) for value in colour) for name, colour in {
     "castanho-escuro": (0.16, 0.2, 0.316),
     "castanho": (0.202, 0.251, 0.393),
     "mel": (0.307, 0.47, 0.64),
-}
+}.items()}
 LIMBUS = np.array((0.09, 0.07, 0.03))
 PUPIL = np.array((0.0, 0.0, 0.0))
 SCLERA = np.array((0.93, 0.95, 0.99))
