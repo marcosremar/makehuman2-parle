@@ -1,8 +1,8 @@
 """Regression for the arms (2026-11-15): run with `Blender -b --python-exit-code 1 -P tests/test_parle_limbs.py`.
 
 The women's wrists went 10.1 to 10.6 cm round and their forearms tapered to them like a cone; every wrist and elbow pinched when it bent,
-the player blending two turns linearly (Seu Jorge's wrist lost 14.7% of its girth, his elbow 19.8%). The forearm grows to the men's
-taper on a wrist of `WRIST_SHARE` of the height, and a helper bone at each joint turns half the lower bone's turn and takes the middle of
+the player blending two turns linearly (Seu Jorge's wrist lost 14.7% of its girth, his elbow 19.8%). The forearm goes to the taper the
+owner picked on a wrist of `WRIST_SHARE` of the height, and a helper bone at each joint turns half the lower bone's turn and takes the middle of
 the blend.
 """
 import math
@@ -26,23 +26,28 @@ edges = np.array([[i, i + 16] for i in range(16)])
 girth = parle_limbs.section_girth(tube, edges, np.array([0.05, 0, 0]), np.array([1.0, 0, 0]))
 assert abs(girth - 2 * 16 * 0.02 * math.sin(math.pi / 16)) < 1e-6, girth
 
-# The cast's florist: 1.62 m, her forearm 21.4 cm round at the elbow and 11.1 at the wrist. It grows to a wrist of 14.1 cm and to the
-# men's taper above it, never shrinks, and grows no more than FOREARM_GROW_MOST.
-florist = [0.214, 0.203, 0.196, 0.171, 0.144, 0.116, 0.111]
+# The cast's florist: 1.62 m, her forearm 22.7 cm round at the elbow and 11.0 at the wrist. Her wrist grows to 13 cm (8% of her height),
+# the rest goes to the taper on it, and nothing grows past FOREARM_GROW_MOST or thins past FOREARM_GROW_LEAST.
+florist = [0.227, 0.218, 0.217, 0.191, 0.155, 0.118, 0.110]
 grow = parle_limbs.forearm_growth(florist, 1.62, "female")
-assert grow[0] == 1.0 and grow[1] == 1.0, grow
 assert abs(grow[-1] * florist[-1] - parle_limbs.WRIST_SHARE["female"] * 1.62) < 1e-9, grow
-assert all(g >= 1.0 for g in grow) and max(grow) <= parle_limbs.FOREARM_GROW_MOST
-# A wrist far too thin grows only as far as allowed.
+assert grow[-1] > 1.15 and grow[0] < 1.0, grow
+assert min(grow) >= parle_limbs.FOREARM_GROW_LEAST and max(grow) <= parle_limbs.FOREARM_GROW_MOST
 assert parle_limbs.forearm_growth([0.2] * 6 + [0.05], 1.62, "female")[-1] == parle_limbs.FOREARM_GROW_MOST
-# Seu Jorge's forearm, a man's, stays as it was.
-assert np.allclose(parle_limbs.forearm_growth([0.237, 0.243, 0.252, 0.244, 0.215, 0.186, 0.177], 1.74, "male"), 1.0)
+# Seu Jorge's forearm, a man's tube (24.4 cm a tenth down, 18.2 at the wrist), narrows: the wrist to 15.4 cm on his 1.75 m.
+jorge = parle_limbs.forearm_growth([0.282, 0.244, 0.252, 0.244, 0.215, 0.190, 0.182], 1.75, "male")
+assert all(g < 1.0 for g in jorge) and abs(jorge[-1] * 0.182 - 0.088 * 1.75) < 1e-9, jorge
+# The strong man's, far thicker, thins no more than FOREARM_GROW_LEAST.
+assert min(parle_limbs.forearm_growth([0.3, 0.3, 0.335, 0.311, 0.258, 0.215, 0.195], 1.8, "male")) == parle_limbs.FOREARM_GROW_LEAST
 
 # Along the forearm: nothing above the elbow, the wrist's growth into the palm fading to none, nothing past that.
 shares = np.array([share for share, _ in parle_limbs.TAPER])
 along = parle_limbs.growth_along(np.array([-0.2, 0.0, 1.0, 1.05, 1.2]), shares, grow, 0.15)
 assert along[0] == 1.0 and along[1] == grow[0] and abs(along[2] - grow[-1]) < 1e-9, along
 assert 1.0 < along[3] < grow[-1] and along[4] == 1.0, along
+# With a fade above the elbow, the elbow's thinning goes out over it: half-way up, between the two.
+up = parle_limbs.growth_along(np.array([-0.2, -0.05, 0.0]), shares, grow, 0.15, elbow_fade=0.1)
+assert up[0] == 1.0 and grow[0] < up[1] < 1.0 and up[2] == grow[0], up
 
 # The helper takes the middle of the blend: a point half on each bone goes whole to it, a point on one bone stays there, and the weight
 # a point holds is kept.

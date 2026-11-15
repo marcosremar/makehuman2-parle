@@ -17,19 +17,27 @@
       the player needs no code: whatever plays a clip plays the helper.
     - The women's forearms were sticks. Their wrists went 10.1 to 10.6 cm round, where the slimmest woman in twenty measured by ANSUR II
       goes 14.2 (Gordon et al. 2014, NATICK/TR-15/007; 5th percentile, median 15.4, men 17.6), and the forearm tapered from the elbow
-      to it like a cone. The men's were right: 17.7 cm at the wrist, 25 at the belly of the forearm. `natural_forearms` gives every arm
-      at least the men's taper on a wrist of `WRIST_SHARE` of the height, so a man's arm stays as it was and a woman's forearm fills out.
+      to it like a cone; the men's went down like a tube. `natural_forearms` gives every forearm the taper the owner picked (`TAPER`) on a
+      wrist of `WRIST_SHARE` of the height: a woman's fills out near the hand, a man's narrows.
 """
+import os
+
 import bpy
 import mathutils
 import numpy as np
 
-# The girth of the wrist as a share of the height, at the least: a man's is the ANSUR II median (176 mm on 1756 mm), a woman's the 5th
-# percentile (142 mm on 1628 mm), slimmer than most women as the drawn cast is, but no stick.
-WRIST_SHARE = {"female": 0.087, "male": 0.100}
-# The girth down the forearm over the girth at the wrist, from the elbow (0) to the wrist (1): Seu Jorge's, the cast's men.
-TAPER = ((0.0, 1.34), (0.1, 1.37), (0.3, 1.42), (0.5, 1.38), (0.7, 1.21), (0.9, 1.05), (1.0, 1.0))
+# The girth of the forearm, from the elbow (0) to the wrist (1), over the girth at the wrist, and the wrist as a share of the height.
+# First the forearm took the men's own taper on a wrist of the ANSUR II median (176 mm on 1756 mm) and of a woman's 5th percentile
+# (142 mm on 1628 mm): the women's filled out, the men's stayed. Seen on the cast the owner said "os antebraços ainda estão muito
+# gordos, melhora os braços em geral" (2026-11-15): the forearm went down to the wrist like a tube. He picked, of three, the one whose
+# forearm narrows from the elbow to a slimmer wrist (sheet 131, "B"): 8.8% of the height at a man's wrist (15.4 cm on 1.75 m) and 8% at
+# a woman's (13 cm on 1.62 m), slimmer than most people as the drawn cast is, with the belly of the forearm a tenth of the way down.
+WRIST_SHARE = {"female": 0.080, "male": 0.088}
+TAPER = ((0.0, 1.50), (0.1, 1.55), (0.3, 1.50), (0.5, 1.36), (0.7, 1.20), (0.9, 1.05), (1.0, 1.0))
 FOREARM_GROW_MOST = 1.45
+FOREARM_GROW_LEAST = 0.75
+# Above the elbow the growth fades out over this much, so the upper arm meets the forearm with no step.
+ELBOW_FADE_M = 0.04
 # Into the palm the growth of the wrist fades out over this much, so the hand meets the wrist with no step and the fingers do not move.
 WRIST_FADE_M = 0.035
 SECTION_REACH_M = 0.09
@@ -86,20 +94,23 @@ def section_girth(points, edges, centre, axis, reach=SECTION_REACH_M):
 
 
 def forearm_growth(girths, height, sex):
-    """How much the forearm grows across its bone at each share of it, from the girths measured at the shares of `TAPER`: never less than
-    1, never more than FOREARM_GROW_MOST."""
+    """How much the forearm grows (or thins) across its bone at each share of it, to the girths of `TAPER` on a wrist of `WRIST_SHARE`
+    of the height: between FOREARM_GROW_LEAST and FOREARM_GROW_MOST."""
     wrist = WRIST_SHARE[sex] * height
-    grow = [max(1.0, wrist * ratio / girth) if girth > 0 else 1.0 for (_, ratio), girth in zip(TAPER, girths)]
-    return np.clip(grow, 1.0, FOREARM_GROW_MOST)
+    grow = [wrist * ratio / girth if girth > 0 else 1.0 for (_, ratio), girth in zip(TAPER, girths)]
+    return np.clip(grow, FOREARM_GROW_LEAST, FOREARM_GROW_MOST)
 
 
-def growth_along(along, shares, grow, fade):
-    """The growth at each point by its share of the forearm (`along`, 0 at the elbow, 1 at the wrist): none above the elbow, the wrist's
-    fading to none `fade` (a share of the forearm) into the hand."""
+def growth_along(along, shares, grow, fade, elbow_fade=None):
+    """The growth at each point by its share of the forearm (`along`, 0 at the elbow, 1 at the wrist): the elbow's fading to none
+    `elbow_fade` (a share of the forearm) up the upper arm, the wrist's fading to none `fade` into the hand."""
     out = np.interp(np.clip(along, 0.0, 1.0), shares, grow)
     past = np.clip((along - 1.0) / fade, 0.0, 1.0)
     out = 1.0 + (out - 1.0) * (1.0 - past * past * (3 - 2 * past))
-    return np.where(along < 0.0, 1.0, out)
+    if not elbow_fade:
+        return np.where(along < 0.0, 1.0, out)
+    above = np.clip(-along / elbow_fade, 0.0, 1.0)
+    return 1.0 + (out - 1.0) * (1.0 - above * above * (3 - 2 * above))
 
 
 def arm_share(obj, side):
@@ -110,9 +121,26 @@ def arm_share(obj, side):
     return np.clip(share * 2, 0, 1)
 
 
+# Trial door (like PARLE_HEAD): PARLE_FOREARM="<woman's wrist share>,<man's wrist share>,<least growth>,<taper>" with the taper
+# "fine" (TAPER) or "men" (TAPER_MEN, the cast's men's own: the first try), to build the same body with another forearm.
+TRIAL = "PARLE_FOREARM"
+TAPER_MEN = ((0.0, 1.34), (0.1, 1.37), (0.3, 1.42), (0.5, 1.38), (0.7, 1.21), (0.9, 1.05), (1.0, 1.0))
+
+
+def trial():
+    global TAPER, FOREARM_GROW_LEAST
+    text = os.environ.get(TRIAL)
+    if not text:
+        return
+    woman, man, least, taper = text.split(",")
+    WRIST_SHARE.update(female=float(woman), male=float(man))
+    FOREARM_GROW_LEAST, TAPER = float(least), {"men": TAPER_MEN, "fine": TAPER}[taper]
+
+
 def natural_forearms(meshes, rig, height, sex, warp, rest_points):
     """Run at rest, the bones in their final place. The skin's forearm is measured across its bone; skin and cloth then grow out from the
     bone by `forearm_growth`, as much as each point follows the arm. The bones do not move. Gives the growth of each side."""
+    trial()
     body = next((obj for obj in meshes if obj.name == "Body"), None)
     if body is None:
         return {}
@@ -137,7 +165,7 @@ def natural_forearms(meshes, rig, height, sex, warp, rest_points):
             off = points - elbow
             along = off @ axis / length
             radial = off - np.outer(off @ axis, axis)
-            return (growth_along(along, shares, grow, fade) - 1.0)[:, None] * radial
+            return (growth_along(along, shares, grow, fade, ELBOW_FADE_M / length) - 1.0)[:, None] * radial
 
         for obj in meshes:
             if not obj.vertex_groups:

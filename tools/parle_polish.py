@@ -1556,9 +1556,9 @@ def arm_helpers(rig, meshes):
 
 
 def natural_body(meshes, rig, height, sex, kit):
-    """The body of a finished character: the lengths of the kit (`natural_lengths`, where its profile has them), the arms (their
-    length, then the girth of the forearm, `parle_limbs.natural_forearms`), the head
-    in the shape of the drawn ones (`drawn_head`, where the body has its eye globes), then the build of the kit. The cast and the loop that finds the build (`body_match`, through
+    """The body of a finished character: the lengths of the kit (`natural_lengths`, where its profile has them), the arms, the head
+    in the shape of the drawn ones (`drawn_head`, where the body has its eye globes), then the build of the kit and the girth of the
+    forearm (`parle_limbs.natural_forearms`). The cast and the loop that finds the build (`body_match`, through
     `body_dump`) both call this and nothing else, so the body under the clothes is the body that was matched to the reference. A shoulder polish
     once ran before these steps in the cast alone: dressed, a man's shoulders came out 6 to 8 cm narrower on each side, at the levels above the
     armpit, than the body the loop had measured (owner, 2026-11-10: the dressed character was not the silhouette that had been shown). Last,
@@ -1575,12 +1575,13 @@ def natural_body(meshes, rig, height, sex, kit):
         print("COMPRIMENTO das pernas pelo perfil: o quadril desceu", round(lengths[0] * 100, 1), "cm e o tronco tomou a diferença; o quadril de", lengths[1],
               "clipes foi posto de novo sobre as solas")
     natural_arms(meshes, rig, height, sex)
-    for side, forearm in parle_limbs.natural_forearms(meshes, rig, height, sex, warp, rest_points).items():
-        print("ANTEBRAÇO", side, "volta de", forearm["girth_cm"], "cm, cresceu", forearm["grow"])
     drawn = drawn_head(meshes, rig, kit)
     if drawn:
         print("CABEÇA de desenho:", drawn, "pontos foram com o mapa do rosto")
     built = natural_build(meshes, rig, height, kit)
+    # The girth of the forearm after the build, which thins a man's arm.
+    for side, forearm in parle_limbs.natural_forearms(meshes, rig, height, sex, warp, rest_points).items():
+        print("ANTEBRAÇO", side, "volta de", forearm["girth_cm"], "cm, cresceu", forearm["grow"])
     over = top_over_bottom(*([obj for obj in meshes if obj.name.startswith(prefix)] for prefix in ("Outfit_Top", "Outfit_Bottom")))
     if over:
         print("BARRA", over, "pontos da peça de cima voltaram para fora da de baixo")
