@@ -45,6 +45,7 @@ def toon_move(rest, jaw, edges, mix, base=None, base_edges=None):
     if base is None:
         base, base_edges = arkit.read_base()
     ids, scale = arkit.base_ids(rest + jaw, base + arkit.dense(arkit.PACK / "jawOpen.target"), base_edges)
+    arkit.IDS_CACHE = (ids, scale)
     total = sum(share * arkit.dense(FOLDER / f"{name}.target") for name, share in mix.items())
     arkit.BASE_SHIFT = total
     return arkit.clean(arkit.on_body(total, ids, scale), rest, edges)
