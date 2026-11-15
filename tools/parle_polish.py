@@ -1698,7 +1698,7 @@ def loose_skin_under_cloth(body, cloth, reach=LOOSE_COVER_M):
 
 
 def arm_helpers(rig, meshes):
-    """The helper bones of the elbows and wrists (`parle_limbs.helpers`), keyed in every clip the skeleton carries, and
+    """The helper bones of the shoulders, elbows and wrists (`parle_limbs.helpers`), keyed in every clip the skeleton carries, and
     then the seams of the clothes held together (`seams_together`), which the helpers' evening of the weights, piece by piece, parts
     again. Run after the clips are final, the last thing before the export."""
     made = parle_limbs.helpers(rig, meshes, clip_actions(rig))

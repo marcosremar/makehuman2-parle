@@ -42,10 +42,13 @@ ELBOW_FADE_M = 0.04
 WRIST_FADE_M = 0.035
 SECTION_REACH_M = 0.09
 ARM_BONES = ("Arm", "ForeArm", "Hand")
-# Upper bone, lower bone, helper: the helper turns HELPER_SHARE of the lower bone's local turn. A helper at the shoulder was tried
-# (2026-11-15): the armpit kept more of its girth (Dona Rosa pointing lost 11.7% where she lost 19.6%), but the skin of the upper chest
-# came out through the florist's dress at the strap whenever she pointed, which it never did without it. The shoulder has none.
-HELPERS = (("Arm", "ForeArm", "ElbowHelper"), ("ForeArm", "Hand", "WristHelper"))
+# Upper bone, lower bone, helper: the helper turns HELPER_SHARE of the lower bone's local turn. The shoulder has one too (2026-11-15):
+# with the arm raised or forward the armpit lost 13 to 20% of its girth and showed a crease behind it. Given every point on the
+# collarbone and the arm, it kept the armpit fuller but the skin of the upper chest came out through the florist's dress at the strap
+# whenever she pointed; given only the points within SPLIT_REACH_M of the joint, the strap stays shut, the slit at the front of her
+# armhole closes and the back of a raised arm is fuller (seen on the florist, the pharmacist and the gym man, side by side).
+HELPERS = (("Shoulder", "Arm", "ShoulderHelper"), ("Arm", "ForeArm", "ElbowHelper"), ("ForeArm", "Hand", "WristHelper"))
+SPLIT_REACH_M = {"ShoulderHelper": 0.06}
 HELPER_SHARE = 0.5
 # After the split, the weights near each joint are evened out over the mesh (`even_joint`): this many rounds, within this far of the
 # joint. Sharp steps of weight between neighbours folded faces outwards in a deep bend: on the strong man of the gym, bits of the
@@ -53,7 +56,7 @@ HELPER_SHARE = 0.5
 # and 337, and nothing stands out. Points at the same place (the seam of the hand) are one point: evened apart, they parted, and the
 # wrist showed a ring like a bracelet.
 EVEN_ROUNDS = 12
-EVEN_REACH_M = {"ElbowHelper": 0.10, "WristHelper": 0.07}
+EVEN_REACH_M = {"ShoulderHelper": 0.05, "ElbowHelper": 0.10, "WristHelper": 0.07}
 SAME_PLACE_M = 1e-4
 
 
@@ -280,7 +283,11 @@ def helpers(rig, meshes, actions):
                 continue
             gu, gl = obj.vertex_groups[upper], obj.vertex_groups[lower]
             gh = obj.vertex_groups.get(helper) or obj.vertex_groups.new(name=helper)
+            joint = rig.matrix_world @ rig.data.bones[lower].head_local
+            limit = SPLIT_REACH_M.get(helper.removeprefix("Left").removeprefix("Right"))
             for vertex in obj.data.vertices:
+                if limit is not None and (obj.matrix_world @ vertex.co - joint).length > limit:
+                    continue
                 own = {item.group: item.weight for item in vertex.groups}
                 a, b = own.get(gu.index, 0.0), own.get(gl.index, 0.0)
                 if a <= 0 or b <= 0:
