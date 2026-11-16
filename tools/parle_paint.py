@@ -17,8 +17,9 @@ BROW_EDGE = (0.42, 0.62)
 # old man has white-grey brows with a clean outline).
 # Round 21 (4.0): the young's still read as a grey smudge at 0.45 of their own colour, the old's dark grey: both now go most of the
 # way to a colour of their own.
-BROW_DARK = (0.09, 0.06, 0.045)
-BROW_DARK_SHARE = 0.8
+# Round 57, both judges: the young woman's eyebrows "castanha como o cabelo (hoje quase preta)": a young person's eyebrow is its
+# own colour (the cast dyes it in the hair's) made darker, no longer one near-black for all.
+BROW_YOUNG_DARKEN = 0.5
 # Rounds 49 to 52: both judges asked the old's eyebrows "cinza médio em vez de branco".
 # Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey. Round 55: still "cinza-claro, some na pele": darker.
 BROW_OLD_GREY = (0.46, 0.43, 0.4)
@@ -32,10 +33,12 @@ BLUSH = (0.86, 0.38, 0.28)
 # Round 48: both judges asked the old woman's and the old man's nose tip and cheeks a quarter redder, as the series' old man.
 # Round 52: both judges asked the nose tip and the cheeks of all four "25 a 30 % mais vermelhos": a seventh more.
 # Round 56: the old's nose tip and cheeks "+25 a 30 % de saturação, como o idoso da série" (judge B).
-BLUSH_SHARE = {"female": 0.46, "female-old": 0.74, "male": 0.52, "male-old": 0.82}
+BLUSH_SHARE = {"female": 0.4, "female-old": 0.74, "male": 0.52, "male-old": 0.82}
 # Round 56: the young woman's blush reached the mouth and the chin ("tirar as manchas rosadas em volta da boca", judge B): the spot
 # a little higher on the cheek.
-CHEEK_SPOT = (0.12, -0.25, -0.62)
+# Round 57: the young woman's blush "na lateral, até a borda do rosto" (judge B), "40 % mais fraco, sem as duas manchas" (judge A):
+# on the round of the cheek under the eye, and softer and narrower on her.
+CHEEK_SPOT = (0.04, -0.25, -0.56)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
 # Round 54: both judges, the tip of the nose "15 a 25 % mais vermelha" on all four.
@@ -43,7 +46,7 @@ NOSE_SHARE = 1.0
 # The old: on the old man "dois discos vermelhos" on the cheeks, where the series' old man has a wide soft flush and the tip of his
 # nose is the reddest of his face (both judges, round 51). By kind: the width of the cheek's spot, how much of the blush the cheek
 # takes and how much the nose's tip takes.
-CHEEK_WIDE_BY_KIND = {"male-old": 0.52, "female-old": 0.46}
+CHEEK_WIDE_BY_KIND = {"male-old": 0.52, "female-old": 0.46, "female": 0.3}
 # Round 52: with the cheek's part weaker one judge read the old paler; round 53, both judges: "trocar os dois discos vermelhos por um
 # avermelhado difuso 40 % mais fraco" on the old man, "blush 30 % mais fraco e espalhado" on the old woman.
 CHEEK_PART_BY_KIND = {"male-old": 0.6, "female-old": 0.7}
@@ -87,7 +90,7 @@ def drawn_brow(pixels, old):
     if old:
         out[:, :, :3] = out[:, :, :3] * (1 - BROW_OLD_SHARE) + np.asarray(BROW_OLD_GREY, np.float32) * BROW_OLD_SHARE
     else:
-        out[:, :, :3] = out[:, :, :3] * (1 - BROW_DARK_SHARE) + np.asarray(BROW_DARK, np.float32) * BROW_DARK_SHARE
+        out[:, :, :3] = out[:, :, :3] * BROW_YOUNG_DARKEN
     return out
 
 

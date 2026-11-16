@@ -29,7 +29,7 @@ assert abs(smoothed.mean() - skin.mean()) < 0.01, "the blur changes the skin's c
 
 eyes = [(np.array([0.032, -0.06, 1.66]), 0.012), (np.array([-0.032, -0.06, 1.66]), 0.012)]
 tip = np.array([0.0, -0.1, 1.62])
-cheek = eyes[0][0] + np.array([0.12, -0.25, -0.72]) * 0.064
+cheek = eyes[0][0] + np.array(parle_paint.CHEEK_SPOT) * 0.064
 forehead, back = np.array([0.0, -0.08, 1.75]), np.array([0.0, 0.08, 1.66])
 share = parle_paint.blush_share(np.array([cheek, tip, forehead, back]), tip, eyes, "male")
 assert share[0] > 0.8 * parle_paint.BLUSH_SHARE["male"] and share[1] > 0.6 * parle_paint.BLUSH_SHARE["male"], "no blush on the cheek or the nose"
