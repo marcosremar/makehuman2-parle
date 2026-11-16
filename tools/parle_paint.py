@@ -27,7 +27,8 @@ SKIN_BLUR_PX = 9
 # gaussian of the given width in distances between the eyes. The old take more, as the series' old man.
 BLUSH = (0.86, 0.38, 0.28)
 # Round 30: at a half the blush read as red patches and the skin orange: back to round 29's.
-BLUSH_SHARE = {"female": 0.4, "female-old": 0.45, "male": 0.45, "male-old": 0.55}
+# Round 48: both judges asked the old woman's and the old man's nose tip and cheeks a quarter redder, as the series' old man.
+BLUSH_SHARE = {"female": 0.4, "female-old": 0.56, "male": 0.45, "male-old": 0.68}
 CHEEK_SPOT = (0.12, -0.25, -0.72)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22

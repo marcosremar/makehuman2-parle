@@ -20,8 +20,10 @@ STYLE = {
     "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25, "skin": 1.55},
     # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
     "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.0, "eye": 1.25, "skin": 1.55},
-    "female": {"forward": 0.8, "nose": 1.45, "tip": 1.3, "brow": 1.2, "eye": 1.12, "skin": 1.55},
-    "female-old": {"forward": 0.85, "nose": 1.65, "tip": 1.4, "brow": 1.9, "eye": 1.12, "skin": 1.55},
+    # Round 48 (5.7): both judges, three rounds running, asked the young woman's nose a third smaller, a button ("hoje é nariz de
+    # homem"), and the old woman's tip shorter.
+    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.2, "eye": 1.12, "skin": 1.55},
+    "female-old": {"forward": 0.85, "nose": 1.45, "tip": 1.3, "brow": 1.9, "eye": 1.12, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
@@ -44,7 +46,9 @@ NOSE_TIP_REACH_M = 0.016
 EYE_TALL_LEAST = 0.6
 # Round 47: with the lid's lift evened out (no fold left over the lid) the old woman and the old man opened white above the iris,
 # "no limite do esbugalhado"; both judges asked their upper lid over a fifth of the top of the iris. By kind.
-EYE_TALL_LEAST_BY_KIND = {"male": EYE_TALL_LEAST, "female": EYE_TALL_LEAST, "male-old": 0.52, "female-old": 0.52}
+# Round 48: the old man still "esbugalhado", both judges asking his upper lid over a fifth to a quarter of the iris: his lids
+# open 0.45 of the width as the kit has them, and are no longer lifted.
+EYE_TALL_LEAST_BY_KIND = {"male": EYE_TALL_LEAST, "female": EYE_TALL_LEAST, "male-old": 0.45, "female-old": 0.52}
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
 # Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.
@@ -135,10 +139,10 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.28, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "shell": 0.3, "chin": 0.45, "lid": -0.16, "ridge": 0.0},
-    "female": {"nose_ball": (0.28, 0.28, 0.24), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.22, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
-    "female-old": {"nose_ball": (0.32, 0.32, 0.28), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.85, "shell": 0.24, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
+    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "chin": 0.45, "lid": -0.16, "ridge": 0.0},
+    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
+    "female-old": {"nose_ball": (0.32, 0.32, 0.28), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.85, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
@@ -151,12 +155,18 @@ REACH = 1.4
 # How much of the way to the chin's ball a point goes (round 25: the young man's chin "recua muito" from the side).
 # Round 26: at 0.8 a crease stood under the lower lip of both men, where the chin's ball ended.
 CHIN_SHARE = 0.6
-# The shell over an eye leaves the rim of the opening alone: from this many radii of the globe out (round 12: thickened over the rim,
-# it closed the eye).
-SHELL_FROM = 1.18
 NOSE_BALL_UP = 0.1
-# How far under the middle of the globe the shell over an eye reaches, in its radii.
-SHELL_LOW = 0.15
+# The hollow between each upper lid and its eyebrow filled (`hollows_filled`): judges by sight asked the orbit "40 a 50 % mais
+# rasa, sem a sombra escura entre o olho e a sobrancelha" from round 38 to 48. The shell over the eye that was to do it moved no
+# point (its radius was never past the skin's: found on 2026-11-16). The skin from ORBIT_IN radii of the globe (the rim of the lid
+# stays) out to ORBIT_OUT, above ORBIT_LOW radii under the globe's middle and within ORBIT_ACROSS radii across, comes forward
+# towards its neighbours where it stands behind them, never back, ORBIT_ROUNDS times by ORBIT_STEP.
+ORBIT_IN = 1.2
+ORBIT_OUT = 2.6
+ORBIT_LOW = -0.2
+ORBIT_ACROSS = 1.9
+ORBIT_ROUNDS = 30
+ORBIT_STEP = 0.5
 # The brow ridge: where it is most, in radii of the globe over its middle, how tall, and how far forward by kind (SCULPT).
 BROW_RIDGE_UP = 1.75
 BROW_RIDGE_TALL = 0.55
@@ -228,6 +238,41 @@ def simple_weight(points, tip, eyes):
     off = (points - mouth) / unit
     weight *= smooth((np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1]) - 1.0) / 0.6)
     return weight
+
+
+def orbit_weight(points, tip, eyes):
+    """How much each point of the skin takes part in filling the hollow between the upper lid and the eyebrow (0..1), the face
+    looking at -y."""
+    points = np.asarray(points, float)
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    front = points[:, 1] < np.asarray(tip, float)[1] + 0.9 * unit
+    weight = np.zeros(len(points))
+    for centre, radius in eyes:
+        off = points - np.asarray(centre, float)
+        far = np.linalg.norm(off, axis=1) / radius
+        share = smooth((far - ORBIT_IN) / 0.25) * smooth((ORBIT_OUT - far) / 0.6) * smooth((off[:, 2] / radius - ORBIT_LOW) / 0.3)
+        share *= smooth((ORBIT_ACROSS - np.abs(off[:, 0]) / radius) / 0.5) * front * (off[:, 1] < 0.3 * radius)
+        weight = np.maximum(weight, share)
+    return weight
+
+
+def hollows_filled(points, edges, weight, rounds=ORBIT_ROUNDS):
+    """The points of a mesh by its `edges` (m x 2) brought forward (-y) towards the mean of their neighbours where they stand
+    behind it, by `weight` of ORBIT_STEP each round: a hollow fills, a ridge stays."""
+    points = np.asarray(points, float).copy()
+    edges = np.asarray(edges, int)
+    count = np.zeros(len(points))
+    np.add.at(count, edges[:, 0], 1)
+    np.add.at(count, edges[:, 1], 1)
+    weight = np.asarray(weight, float)
+    for _ in range(rounds):
+        total = np.zeros(len(points))
+        np.add.at(total, edges[:, 0], points[edges[:, 1], 1])
+        np.add.at(total, edges[:, 1], points[edges[:, 0], 1])
+        ahead = total / np.maximum(count, 1) - points[:, 1]
+        points[:, 1] += ORBIT_STEP * weight * np.minimum(ahead, 0.0)
+    return points
 
 
 def smoothed(points, edges, weight, rounds=None):
@@ -344,18 +389,6 @@ def sculpt_field(tip, eyes, kind):
     def field(points):
         points = np.asarray(points, float).copy()
         front = points[:, 1] < tip[1] + 0.9 * unit
-        # The skin about each eye out onto a thick shell over its globe: a lid with no fold of an anatomy, the orbit shallow.
-        for (centre, radius) in eyes:
-            centre = np.asarray(centre, float)
-            off = points - centre
-            far = np.maximum(np.linalg.norm(off, axis=1), 1e-9)
-            # Above the eye only (round 20, 2026-11-16): thickened under it too, the skin stood as a bag under each eye.
-            ahead = (-off[:, 1] / far > 0.0) & front & (off[:, 2] > SHELL_LOW * radius)
-            # The rim of the opening stays where the lids put it (SHELL_FROM): the shell thickens from there outwards.
-            want = radius * (1.0 + spec["shell"] * smooth((far / radius - SHELL_FROM) / 0.6))
-            near = ahead & (far < want) & (far < 2.4 * radius) & (far > SHELL_FROM * radius)
-            fade = smooth((2.4 * radius - far) / (0.8 * radius))
-            points[near] = centre + off[near] / far[near, None] * (far[near] + (want[near] - far[near]) * fade[near])[:, None]
         # The upper lid lifted off the iris (round 24, 2026-11-16: "olhos pequenos e fundos, sem branco em volta"; the blink run
         # backwards stops at half the width): the skin over each globe goes up by its kind's "lid" of its radius at the rim, fading out.
         for (centre, radius) in eyes:

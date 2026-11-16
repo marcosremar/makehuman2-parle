@@ -1783,6 +1783,13 @@ def natural_body(meshes, rig, height, sex, kit):
         weight[np.unique(edges[sides < 2])] = 0.0
         move = parle_style.smoothed(rest, edges, weight) - rest
         warp(body, lambda points: points + move, kept=lambda name: True)
+        # The hollow between each upper lid and its eyebrow filled (`parle_style.hollows_filled`), every key with it.
+        rest = rest_points(body)
+        orbit = parle_style.orbit_weight(rest, tip, balls)
+        orbit[np.unique(edges[sides < 2])] = 0.0
+        fill = parle_style.hollows_filled(rest, edges, orbit) - rest
+        warp(body, lambda points: points + fill, kept=lambda name: True)
+        print("CABEÇA: órbita preenchida, o ponto que mais veio para a frente,", round(float(-fill[:, 1].min()) * 1000, 1), "mm")
         # The lower face shorter (`parle_style.lower_face_field`), the teeth and the tongue with it.
         short = parle_style.lower_face_field(tip, balls, kind)
         for obj in [body, *(item for item in meshes if item.type == "MESH" and ("teeth" in item.name or "tongue" in item.name))]:

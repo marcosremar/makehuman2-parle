@@ -86,4 +86,14 @@ assert abs(brow[0, 2] - 0.013) < 0.0005, "the eyebrow goes down with the lid und
 # The old open their eyes less than the young (round 47: white above the iris of the old woman and the old man).
 assert parle_style.EYE_TALL_LEAST_BY_KIND["female-old"] < parle_style.EYE_TALL_LEAST_BY_KIND["female"], "the old open as wide as the young"
 assert parle_style.EYE_TALL_LEAST_BY_KIND["male-old"] < parle_style.EYE_TALL_LEAST_BY_KIND["male"], "the old open as wide as the young"
+# The hollow between the lid and the eyebrow fills (rounds 38 to 48: "cavidade 40 a 50 % mais rasa"): along a chain, a point
+# behind its neighbours comes forward (-y), a point in front of them stays.
+row = np.zeros((9, 3))
+row[:, 0] = np.arange(9) * 0.002
+row[4, 1] = 0.003
+row[7, 1] = -0.002
+edges_row = np.array([[i, i + 1] for i in range(8)])
+filled_row = parle_style.hollows_filled(row, edges_row, np.ones(9))
+assert filled_row[4, 1] < 0.5 * row[4, 1], "the hollow keeps its depth"
+assert filled_row[7, 1] == row[7, 1], "a ridge went back"
 print("ok")
