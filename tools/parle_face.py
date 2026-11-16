@@ -77,7 +77,8 @@ CHIN_LONGER = {"female": 0.05, "male": 0.0}
 # 0.2 the test holds (`tests/test_parle_fair_look.py`, far from a smile) it held a smile at rest, and from round 48 the judges saw
 # its crease from the nose to the corner and pinched corners on the young woman and the young man: the men at 0.2, the women at the
 # 0.06 their corners, already above the middle of the lips, hold (the same test, measured against Sofia on 2026-11-12).
-REST_SMILE = {"female": 0.06, "male": 0.2}
+# Round 60: on the men the fold from the nose to the corner of the mouth "fundo" at rest (both judges), which a held smile draws: 0.12.
+REST_SMILE = {"female": 0.06, "male": 0.12}
 # The nose stays at -0.3 in width: at -0.7, with the kit's narrow straight nose on top, the measure did not move (it reads the wings of
 # the nose against the cheekbones, and the cheekbones had done it) and the cheek drawn in beside the wing let the lining of the mouth
 # through (2026-11-12, `parle_polish.lining_behind_skin`).
