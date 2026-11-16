@@ -246,6 +246,41 @@ def smoothed(points, edges, weight, rounds=None):
     return points
 
 
+# How a worn mesh follows the skin (`parle_polish.follow_skin`): the mean move of the FOLLOW_NEAREST nearest points of the skin
+# that moved, whole within FOLLOW_NEAR metres of them and none past FOLLOW_FAR.
+FOLLOW_NEAREST = 4
+FOLLOW_NEAR = 0.025
+FOLLOW_FAR = 0.06
+
+
+def follow_field(before, after):
+    """`field(points)`: each point moved as the skin nearest it moved from `before` to `after` (n x 3, the same points)."""
+    before, after = np.asarray(before, float), np.asarray(after, float)
+    shift = after - before
+    moved = np.linalg.norm(shift, axis=1) > 1e-5
+    source, step = before[moved], shift[moved]
+
+    def field(points):
+        points = np.asarray(points, float)
+        out = points.copy()
+        if not len(source):
+            return out
+        low, high = source.min(axis=0) - FOLLOW_FAR, source.max(axis=0) + FOLLOW_FAR
+        near = np.flatnonzero(np.all((points > low) & (points < high), axis=1))
+        for start in range(0, len(near), 512):
+            chunk = near[start:start + 512]
+            far = np.linalg.norm(points[chunk, None, :] - source[None, :, :], axis=2)
+            count = min(FOLLOW_NEAREST, len(source))
+            nearest = np.argpartition(far, count - 1, axis=1)[:, :count]
+            distance = np.take_along_axis(far, nearest, axis=1)
+            weight = 1.0 / (distance + 1e-4)
+            mean = (step[nearest] * weight[..., None]).sum(axis=1) / weight.sum(axis=1)[:, None]
+            out[chunk] += mean * smooth((FOLLOW_FAR - distance.min(axis=1)) / (FOLLOW_FAR - FOLLOW_NEAR))[:, None]
+        return out
+
+    return field
+
+
 def lower_face_field(tip, eyes, kind):
     """`field(points)`: the face under the nose made shorter by its kind's LOWER_FACE (the chin comes up, the mouth part of the
     way), the neck under the chin following it back to where it was. For the skin and the teeth and tongue alike."""

@@ -326,6 +326,35 @@ def rest_points(obj):
     return to_world(obj, read(obj.data.vertices))
 
 
+# What the moves of the head's skin leave alone: the skin itself, and the parts the steps above or below already place on it.
+FOLLOW_SKIP = ("eyebrow", "teeth", "tongue", "low-poly", "eyelash")
+# Rigid worn things go with the skin under them as a whole, so a frame or an earring is not bent.
+FOLLOW_RIGID = ("glasses", "aviator", "earring", "hoop")
+
+
+def follow_skin(meshes, before, after):
+    """Every mesh worn on the head (hair, clothes at the neck, glasses, earrings) moved as the skin under it moved from `before`
+    to `after` (rounds 36 to 43: the hairline frayed where the skin came out through the hair, the earrings and the glasses hung
+    off a face that had moved, a woman's collar tore where her throat rose). Returns the names moved."""
+    field = parle_style.follow_field(before, after)
+    moved = []
+    for obj in meshes:
+        name = obj.name.lower()
+        if obj.type != "MESH" or obj.name == "Body" or any(word in name for word in FOLLOW_SKIP):
+            continue
+        points = rest_points(obj)
+        shift = field(points) - points
+        if np.abs(shift).max() < 1e-5:
+            continue
+        if any(word in name for word in FOLLOW_RIGID) and "hair" not in name:
+            whole = shift[np.linalg.norm(shift, axis=1) > 1e-5].mean(axis=0)
+            warp(obj, lambda pts: pts + whole)
+        else:
+            warp(obj, field)
+        moved.append(obj.name)
+    return moved
+
+
 def warp(obj, field, kept=None):
     """`field` takes world points; every key is absolute, so a stretched lid still closes all the way. A key whose name `kept` accepts
     keeps its move instead: its points follow the rest, where the field takes it, by the move they had."""
@@ -746,6 +775,19 @@ def drawn_paint(meshes, body, kind, sex):
                     node.image.pixels.foreach_set(parle_paint.drawn_brow(pixels.reshape(height, width, 4), kind.endswith("-old")).ravel())
                     node.image.pack()
                     done.append("sobrancelha")
+    seen = set()
+    for obj in [item for item in meshes if item.type == "MESH" and "hair" in item.name.lower()]:
+        for material in obj.data.materials:
+            for node in (material.node_tree.nodes if material and material.use_nodes else []):
+                if node.type == "TEX_IMAGE" and node.image and node.image.name not in seen and node.image.channels == 4:
+                    seen.add(node.image.name)
+                    width, height = node.image.size
+                    pixels = np.empty(width * height * 4, np.float32)
+                    node.image.pixels.foreach_get(pixels)
+                    radius = max(1, round(parle_paint.HAIR_BLEED_PX * width / 1024))
+                    node.image.pixels.foreach_set(parle_paint.bled(pixels.reshape(height, width, 4), radius).ravel())
+                    node.image.pack()
+                    done.append("borda do cabelo")
     skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None) if body.active_material else None
     if sex == "female" and skin is not None:
         width, height = skin.size
@@ -1676,6 +1718,7 @@ def natural_body(meshes, rig, height, sex, kit):
     if balls:
         kind = str(body.get("parle_kind", sex))
         tip = parle_style.nose_tip(rest_points(body), balls)
+        before = rest_points(body)
         warp(body, parle_style.sculpt_field(tip, balls, kind), kept=keeps_its_move)
         print("CABEÇA esculpida do tipo", kind)
         # Then smoothed into simple volumes; the same move goes to every key, so the lids and the speech move as they did.
@@ -1696,6 +1739,7 @@ def natural_body(meshes, rig, height, sex, kit):
         for obj in [body, *(item for item in meshes if item.type == "MESH" and ("teeth" in item.name or "tongue" in item.name))]:
             warp(obj, short)
         print("CABEÇA em volumes simples: o ponto que mais andou,", round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1), "mm")
+        print("CABEÇA: hair, clothes and worn things followed the skin:", follow_skin(meshes, before, rest_points(body)))
     lined = lining_behind_skin(meshes)
     if lined:
         print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")

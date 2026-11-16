@@ -59,4 +59,11 @@ short = parle_style.lower_face_field(tip, eyes, "male")
 probe = np.array([[0.0, -0.09, tip[2] - 0.083], [0.0, -0.09, tip[2] - 0.04], [0.0, -0.1, tip[2] + 0.01], [0.0, -0.05, 1.4]])
 up = (short(probe) - probe)[:, 2]
 assert up[0] > up[1] > 0.002 and abs(up[2]) < 1e-9 and abs(up[3]) < 1e-9, f"the lower face is not shortened as it should be: {up}"
+# Worn meshes follow the skin (rounds 36 to 43: hairline frayed, earrings and glasses off the face, a torn collar): a point on the
+# skin's moved patch goes with it, one far from it stays.
+skin_before = np.array([[0.0, 0.0, 0.0], [0.01, 0.0, 0.0], [0.0, 0.01, 0.0], [0.5, 0.5, 0.5], [0.51, 0.5, 0.5]])
+skin_after = skin_before + np.array([[0.0, -0.005, 0.0]] * 3 + [[0.0, 0.0, 0.0]] * 2)
+follow = parle_style.follow_field(skin_before, skin_after)(np.array([[0.005, 0.005, 0.01], [0.3, 0.3, 0.3]]))
+assert abs(follow[0, 1] - 0.0) < 1e-4, "the hair over the moved skin stays where it was"
+assert np.allclose(follow[1], [0.3, 0.3, 0.3]), "a point far from the moved skin moves"
 print("ok")
