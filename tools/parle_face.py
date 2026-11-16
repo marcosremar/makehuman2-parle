@@ -73,7 +73,8 @@ CHIN_LONGER = {"female": 0.05, "male": 0.0}
 # rest (2026-11-12, `parle_beauty.mouth_curve` on whole portraits). The men's sit 2% below with 0.12, as Rafa's.
 # Round 26 (2026-11-16): the series' faces rest with the corners of the mouth up a little, kind faces; at 0.05 and 0.12 the
 # old woman read "séria e cansada".
-REST_SMILE = {"female": 0.14, "male": 0.2}
+# Round 42: both judges read the closed mouth as "uma fenda reta", corners down, "emburrada": up again.
+REST_SMILE = {"female": 0.26, "male": 0.3}
 # The nose stays at -0.3 in width: at -0.7, with the kit's narrow straight nose on top, the measure did not move (it reads the wings of
 # the nose against the cheekbones, and the cheekbones had done it) and the cheek drawn in beside the wing let the lining of the mouth
 # through (2026-11-12, `parle_polish.lining_behind_skin`).
