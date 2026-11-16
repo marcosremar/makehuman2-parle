@@ -172,6 +172,24 @@ def mouth_share(points, tip, eyes):
     return np.where(front, LIP_TO_SKIN * smooth(1.3, 0.8, far), 0.0)
 
 
+# The face is painted on a patch of its own, the neck and the body on one flat skin tone about 20 % lighter: the step at the
+# patch's edge under the jaw read as a seam between head and neck on all four (round 46, both judges). From NECK_FROM to
+# NECK_TO distances between the eyes below the nose tip, all round the head, the face's patch goes to the body's tone.
+NECK_FROM = 1.7
+NECK_TO = 2.6
+# The body's tone is read on the skin this far below the nose tip and lower (the chest and the shoulders).
+BODY_TONE_BELOW = 4.0
+
+
+def neck_share(points, tip, eyes):
+    """How far each point's colour goes to the body's skin tone (0..1): none on the face, whole down the neck."""
+    points = np.asarray(points, float)
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    below = (np.asarray(tip, float)[2] - points[:, 2]) / unit
+    return smooth(NECK_FROM, NECK_TO, below)
+
+
 def jaw_share(points, tip, eyes):
     """How much of its colour each point of the lower face gives up to the skin's (0..JAW_TO_SKIN): below the nose, in front."""
     points = np.asarray(points, float)

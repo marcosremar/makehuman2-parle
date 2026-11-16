@@ -67,4 +67,9 @@ scalp[1, :, :3] = (0.32, 0.2, 0.12)
 dyed = parle_paint.toward(scalp[:, :, :3], parle_paint.scalp_share(scalp, (0.3, 0.2, 0.1)), (0.3, 0.2, 0.1))
 assert dyed[0, 0, 0] < 0.4, "the scalp keeps the skin's light colour"
 assert np.allclose(dyed[1], scalp[1, :, :3]), "the strands painted on the scalp lose their grain"
+# The face's patch goes to the body's tone down the neck (round 46: a seam under the jaw on all four): none on the cheek, whole
+# on the neck.
+neck_point = tip + np.array([0.0, 0.03, -2.8 * 0.064])
+shares = parle_paint.neck_share(np.array([cheek, neck_point]), tip, eyes)
+assert shares[0] == 0 and shares[1] == 1, "the face goes to the body's tone, or the neck keeps the face's"
 print("ok")

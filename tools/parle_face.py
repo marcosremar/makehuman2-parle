@@ -997,6 +997,11 @@ def paint_face(body, added, tip, balls, kind):
     cheek_canvas = canvas_of(cheeks.astype(float))
     face_skin = np.median(pixels[:, :, :3][np.nan_to_num(cheek_canvas) > 0.5], axis=0)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.jaw_share(rest, tip, balls)), face_skin)
+    unit = float(np.linalg.norm(np.asarray(balls[0][0]) - np.asarray(balls[1][0])))
+    lowest = rest[:, 2] < np.asarray(tip)[2] - parle_paint.BODY_TONE_BELOW * unit
+    if lowest.any():
+        body_tone = np.median(pixels[:, :, :3][np.nan_to_num(canvas_of(lowest.astype(float))) > 0.5], axis=0)
+        pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.neck_share(rest, tip, balls)), body_tone)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.orbit_share(rest, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.blushed(pixels[:, :, :3], canvas_of(parle_paint.blush_share(rest, tip, balls, kind)))
