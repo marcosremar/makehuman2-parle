@@ -96,4 +96,12 @@ edges_row = np.array([[i, i + 1] for i in range(8)])
 filled_row = parle_style.hollows_filled(row, edges_row, np.ones(9))
 assert filled_row[4, 1] < 0.5 * row[4, 1], "the hollow keeps its depth"
 assert filled_row[7, 1] == row[7, 1], "a ridge went back"
+# The smoothing comes in up to the lips (rounds 48 to 50: an unsmoothed oval 80 mm wide about the mouth stood out as a muzzle with a
+# crease round it): the cheek beside the corner of the mouth is smoothed, the lips are not.
+eyes_m = [(np.array([0.032, -0.06, 1.66]), 0.012), (np.array([-0.032, -0.06, 1.66]), 0.012)]
+tip_m = np.array([0.0, -0.1, 1.62])
+mouth_m = tip_m + np.array(parle_style.SIMPLE_MOUTH) * 0.064
+beside = mouth_m + np.array([0.7 * 0.064, 0.0, 0.0])
+weights = parle_style.simple_weight(np.array([mouth_m, beside]), tip_m, eyes_m)
+assert weights[0] == 0 and weights[1] > 0.18, f"the lips are smoothed, or the cheek beside the mouth is not: {weights}"
 print("ok")

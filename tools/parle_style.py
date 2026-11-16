@@ -205,7 +205,12 @@ SIMPLE_OUT = 2.9
 # Round 40: a bag line under the eye (Carlos, Dona Marta) between 1.25 and 1.9 radii, half smoothed: closer to the rim.
 SIMPLE_EYE = (1.18, 1.55)
 SIMPLE_MOUTH = (0.0, 0.1, -0.62)
-SIMPLE_MOUTH_WIDE = (0.62, 0.3)
+# The lips keep their own shape; from rounds 24 to 50 an oval some 80 mm wide about the mouth did, the cheeks round it smoothed and
+# not it: the block stood out as a muzzle with a crease round it, from the wing of the nose to under the corner of the mouth ("um
+# vinco que vai da asa do nariz até abaixo do canto da boca", both judges, rounds 48 to 50). The lips only, and the smoothing
+# coming in over SIMPLE_MOUTH_RAMP times their size.
+SIMPLE_MOUTH_WIDE = (0.48, 0.17)
+SIMPLE_MOUTH_RAMP = 1.5
 # Round 35 (5.4) read "um balão liso" at 25; 12 in round 36 did not help (above).
 SIMPLE_ROUNDS = 25
 SIMPLE_IN_STEP = 0.5
@@ -239,7 +244,7 @@ def simple_weight(points, tip, eyes):
         weight *= smooth((far - SIMPLE_EYE[0]) / (SIMPLE_EYE[1] - SIMPLE_EYE[0]))
     mouth = tip + np.array(SIMPLE_MOUTH) * unit
     off = (points - mouth) / unit
-    weight *= smooth((np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1]) - 1.0) / 0.6)
+    weight *= smooth((np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1]) - 1.0) / SIMPLE_MOUTH_RAMP)
     return weight
 
 
