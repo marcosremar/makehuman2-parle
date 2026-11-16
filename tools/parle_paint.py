@@ -20,8 +20,8 @@ BROW_EDGE = (0.42, 0.62)
 BROW_DARK = (0.09, 0.06, 0.045)
 BROW_DARK_SHARE = 0.8
 # Rounds 49 to 52: both judges asked the old's eyebrows "cinza médio em vez de branco".
-# Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey.
-BROW_OLD_GREY = (0.54, 0.51, 0.47)
+# Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey. Round 55: still "cinza-claro, some na pele": darker.
+BROW_OLD_GREY = (0.46, 0.43, 0.4)
 BROW_OLD_SHARE = 0.85
 # Box blur of the skin map, in pixels of a 1024 map (scaled to the map), three passes: the pores and grain of the kit's photograph go.
 SKIN_BLUR_PX = 9
@@ -53,8 +53,9 @@ MOUTH_WIDE = (0.42, 0.16)
 LIP_TO_SKIN = 0.45
 # A woman's lips are drawn on a patch of their own (`parle_lips`): it goes this share of the way to the skin at their corners.
 # Round 38: at 0.35 a woman's lip read "mancha rosa borrada fora da boca" to both judges.
-# Round 52: the women's lips "com cor mais perto da pele" (judge B, the young and the old woman).
-LIP_PATCH_TO_SKIN = 0.72
+# Round 52: the women's lips "com cor mais perto da pele" (judge B, the young and the old woman): 0.72. Round 55, both judges: "a
+# boca é um risco fino", "15 % mais rosada": 0.55.
+LIP_PATCH_TO_SKIN = 0.55
 # The kit's photograph darkens the skin about each eye (round 29: "anel cinza-escuro da órbita, que lê como olheira"): from
 # the rim out to ORBIT_OUT radii of the globe it goes ORBIT_TO_SKIN of the way to the face's skin.
 # Round 40 (two judges): "anel escuro em volta do olho", the eye sunk with dark circles: the dark line the photograph paints at
