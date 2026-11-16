@@ -17,8 +17,8 @@ import numpy as np
 # own default, which this replaces). The series' young men have noses 0.31 to 0.37 of the face long against 0.29 to 0.31 on the cast,
 # and much further out; its old man's is the biggest thing on his face.
 STYLE = {
-    "male": {"forward": 0.95, "nose": 1.9, "tip": 1.6, "brow": 1.8, "eye": 1.25, "skin": 1.3},
-    "male-old": {"forward": 1.0, "nose": 2.4, "tip": 1.75, "brow": 2.2, "eye": 1.25, "skin": 1.3},
+    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.8, "eye": 1.25, "skin": 1.3},
+    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.2, "eye": 1.25, "skin": 1.3},
     "female": {"forward": 0.8, "nose": 1.45, "tip": 1.3, "brow": 1.2, "eye": 1.12, "skin": 1.3},
     "female-old": {"forward": 0.85, "nose": 1.65, "tip": 1.4, "brow": 1.3, "eye": 1.12, "skin": 1.3},
 }
@@ -26,6 +26,9 @@ STYLE = {
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
 # Round 7 (4.0): the nose too long and pointed from the side; it is to grow across and round, and come out less ("forward" is how
 # much it grows to the front, against "nose" across and up).
+# The owner, 2026-11-16, on the sculpted Carlos: "corrige o nariz dele que está amassado". Grown across 1.9 and to the front only
+# 0.95, the men's nose came out wide and pressed flat, and the ball of the sculpture then pulled its bridge in: it now grows to the
+# front more than across, and the ball only fills out (SCULPT, `sculpt_field`).
 # Round 6 (3.4) asked for skin smooth and matte, with no relief of pores; a wider mouth; fuller cheeks; thicker, higher eyebrows.
 # Round 4 (3.25) asked first for eyes 40% more open with the white showing, then a bigger nose and fuller cheeks.
 # "eye" multiplies the size the eyes of the kit's sex already take (`parle_polish.eye_scale`); "tip" grows the tip of the nose alone
@@ -122,8 +125,8 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.32, 0.27, 0.25), "nose_share": 0.95, "cheek": 0.52, "cheek_share": 0.45, "shell": 0.28, "chin": 0.42},
-    "male-old": {"nose_ball": (0.38, 0.31, 0.3), "nose_share": 0.95, "cheek": 0.56, "cheek_share": 0.5, "shell": 0.3, "chin": 0.45},
+    "male": {"nose_ball": (0.27, 0.29, 0.25), "nose_share": 0.95, "cheek": 0.52, "cheek_share": 0.45, "shell": 0.28, "chin": 0.42},
+    "male-old": {"nose_ball": (0.32, 0.34, 0.3), "nose_share": 0.95, "cheek": 0.56, "cheek_share": 0.5, "shell": 0.3, "chin": 0.45},
     "female": {"nose_ball": (0.21, 0.18, 0.17), "nose_share": 0.9, "cheek": 0.5, "cheek_share": 0.45, "shell": 0.22, "chin": 0.36},
     "female-old": {"nose_ball": (0.25, 0.21, 0.2), "nose_share": 0.9, "cheek": 0.53, "cheek_share": 0.5, "shell": 0.24, "chin": 0.38},
 }
@@ -137,6 +140,8 @@ REACH = 1.4
 # it closed the eye).
 SHELL_FROM = 1.18
 NOSE_BALL_UP = 0.1
+# The ball stands this share of its depth behind the tip, so the tip comes out a little into a round bulb and nothing is pulled in.
+NOSE_BALL_BACK = 0.78
 NOSE_ZONE = 0.55
 
 
@@ -187,10 +192,11 @@ def sculpt_field(tip, eyes, kind):
         # The nose onto a ball behind its tip, in the zone of the nose only.
         radii = np.array(spec["nose_ball"]) * unit
         # The ball stands a little above the tip, so the tip comes up into it: a nose shorter and round, not hanging (round 13).
-        ball = tip + np.array([0.0, radii[1], NOSE_BALL_UP * unit])
+        ball = tip + np.array([0.0, NOSE_BALL_BACK * radii[1], NOSE_BALL_UP * unit])
         zone = np.linalg.norm((points - tip) * np.array([1.0, 1.0, 1.4]), axis=1) < NOSE_ZONE * unit
         zone &= points[:, 1] < tip[1] + 2 * radii[1]
-        points[zone] = onto_ball(points[zone], ball, radii, spec["nose_share"], False)
+        # Only outwards (2026-11-16): pulled onto the ball from outside too, the bridge and the wings were pressed into it.
+        points[zone] = onto_ball(points[zone], ball, radii, spec["nose_share"], True)
         return points
 
     return field

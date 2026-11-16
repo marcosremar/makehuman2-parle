@@ -30,4 +30,15 @@ lip, cheek = np.array([[0.0, -0.095, 1.6 - 0.02]]), np.array([[0.045, -0.07, 1.6
 assert np.allclose(field(lip), lip, atol=2e-4) and np.allclose(field(cheek), cheek), "the upper lip or the cheek moves with the nose"
 grey = np.array([[0.6, 0.5, 0.45]])
 assert np.ptp(parle_style.warmer(grey, 1.3)) > np.ptp(grey), "the skin is not more saturated"
+# The men's nose was pressed flat (owner, 2026-11-16, "o nariz dele está amassado"): it grows to the front more than across, and the
+# ball of the sculpture only fills out, leaving the bridge above it where it was and bringing the tip forward.
+for kind in ("male", "male-old"):
+    assert parle_style.STYLE[kind]["forward"] > 1.0, f"the nose of {kind} is pushed back into the face"
+    across, back, _ = parle_style.SCULPT[kind]["nose_ball"]
+    assert back >= across, f"the nose ball of {kind} is wider than it is deep: a flat nose"
+eyes = [(np.array([0.032, -0.06, 1.66]), 0.012), (np.array([-0.032, -0.06, 1.66]), 0.012)]
+sculpt = parle_style.sculpt_field(tip, eyes, "male")
+bridge = np.array([[0.0, -0.085, 1.628]])
+assert sculpt(tip[None])[0, 1] < tip[1] - 0.001, "the tip of the nose does not come out into its ball"
+assert np.allclose(sculpt(bridge), bridge), "the ball of the nose pulls the bridge in"
 print("ok")
