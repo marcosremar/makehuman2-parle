@@ -29,7 +29,8 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # Round 25: with the lid lifted, an iris filling more of the width (about 55 to 60 % of it in the series).
 # Round 31: the iris still "pequena, com branco dos dois lados" on all four.
 # Round 40 (two judges): the iris fills the opening lid to lid and the eye reads as a dark disc; one judge asked it 30 % smaller.
-IRIS_RADIUS = 0.135
+# Round 41 (5.0): both judges asked the iris 10 to 15 % bigger within the same eye: between.
+IRIS_RADIUS = 0.142
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 # Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
 # it: at 0.2 the upper lid still lay across the top of the pupil. With the lids as they are now (`parle_face.FAIR_LOOK`), at 0.3

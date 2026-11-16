@@ -18,7 +18,8 @@ import numpy as np
 # and much further out; its old man's is the biggest thing on his face.
 STYLE = {
     "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25, "skin": 1.55},
-    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.8, "eye": 1.25, "skin": 1.55},
+    # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
+    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.0, "eye": 1.25, "skin": 1.55},
     "female": {"forward": 0.8, "nose": 1.45, "tip": 1.3, "brow": 1.2, "eye": 1.12, "skin": 1.55},
     "female-old": {"forward": 0.85, "nose": 1.65, "tip": 1.4, "brow": 1.9, "eye": 1.12, "skin": 1.55},
 }
@@ -132,7 +133,7 @@ def warmer(rgb, amount):
 # to its form a point goes.
 SCULPT = {
     "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.28, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "shell": 0.3, "chin": 0.45, "lid": -0.06, "ridge": 0.0},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "shell": 0.3, "chin": 0.45, "lid": -0.16, "ridge": 0.0},
     "female": {"nose_ball": (0.28, 0.28, 0.24), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.22, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
     "female-old": {"nose_ball": (0.32, 0.32, 0.28), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.85, "shell": 0.24, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
