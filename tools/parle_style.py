@@ -130,14 +130,15 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.37, 0.38, 0.3), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.28, "chin": 0.5, "lid": 0.1},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.7, "shell": 0.3, "chin": 0.45, "lid": -0.06},
-    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.22, "chin": 0.36, "lid": -0.02},
-    "female-old": {"nose_ball": (0.28, 0.28, 0.25), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.75, "shell": 0.24, "chin": 0.38, "lid": -0.08},
+    "male": {"nose_ball": (0.37, 0.38, 0.3), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.18, "chin": 0.5, "lid": 0.1, "ridge": 0.28},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.7, "shell": 0.2, "chin": 0.45, "lid": -0.06, "ridge": 0.3},
+    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.14, "chin": 0.36, "lid": -0.02, "ridge": 0.18},
+    "female-old": {"nose_ball": (0.28, 0.28, 0.25), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.75, "shell": 0.16, "chin": 0.38, "lid": -0.08, "ridge": 0.2},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
-CHEEK_AT = (0.12, 0.62, -0.62)
+# Round 35: the cheek a high round mass ("maçã alta"), not a flat plane: its ball stands higher, under the eye.
+CHEEK_AT = (0.14, 0.58, -0.48)
 CHIN_AT = (0.0, 0.55, -1.25)
 # How far about each form its pull reaches, in its own radii, and the zone of the nose about the tip, in distances between the eyes.
 REACH = 1.4
@@ -150,6 +151,9 @@ SHELL_FROM = 1.18
 NOSE_BALL_UP = 0.1
 # How far under the middle of the globe the shell over an eye reaches, in its radii.
 SHELL_LOW = 0.15
+# The brow ridge: where it is most, in radii of the globe over its middle, how tall, and how far forward by kind (SCULPT).
+BROW_RIDGE_UP = 1.75
+BROW_RIDGE_TALL = 0.55
 # How far the upper lid is lifted, in radii of the globe, and how far from the globe's middle the lift reaches.
 # Round 25 (4.75): at 0.22 white showed all about the iris on three of four, the stare the owner calls "esbugalhado"; the
 # series' upper lid always covers a little of the top of the iris.
@@ -179,7 +183,8 @@ SIMPLE_OUT = 2.9
 SIMPLE_EYE = (1.25, 1.9)
 SIMPLE_MOUTH = (0.0, 0.1, -0.62)
 SIMPLE_MOUTH_WIDE = (0.62, 0.3)
-SIMPLE_ROUNDS = 25
+# Round 35 (5.4): at 25 the face read "um balão liso", with the planes of a drawn face gone too.
+SIMPLE_ROUNDS = 12
 SIMPLE_IN_STEP = 0.5
 SIMPLE_OUT_STEP = -0.53
 
@@ -288,6 +293,14 @@ def sculpt_field(tip, eyes, kind):
             share = smooth((LID_REACH - far) / (LID_REACH - 1.15)) * smooth((off[:, 2] / radius - 0.1) / 0.4)
             share *= smooth((1.3 - np.abs(off[:, 0]) / radius) / 0.5) * front * (off[:, 1] < 0.3 * radius)
             points[:, 2] += spec["lid"] * radius * share
+        # The brow ridge over each eye comes forward (round 35: "arco da sobrancelha que avança", the eye set in an orbit and not
+        # laid on the surface): the skin from the top of the globe to above the eyebrow, most at BROW_RIDGE_UP radii over it.
+        for (centre, radius) in eyes:
+            off = points - np.asarray(centre, float)
+            up = off[:, 2] / radius
+            share = np.exp(-((up - BROW_RIDGE_UP) / BROW_RIDGE_TALL) ** 2) * smooth((1.6 - np.abs(off[:, 0]) / radius) / 0.6)
+            share *= front * (off[:, 1] < 0.5 * radius) * (up > 0.9)
+            points[:, 1] -= spec["ridge"] * radius * share
         # The cheeks out onto a ball under each eye.
         for centre, _ in eyes:
             side = np.sign(centre[0] - (centres[0][0] + centres[1][0]) / 2)
