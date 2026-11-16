@@ -235,10 +235,11 @@ LIP_FADE_M = 0.004
 # whole mouth goes 3 mm back: lips and what lies 6 mm around them fully, fading over 20 mm more, teeth and tongue with them. Only the
 # lower lip back opened a gap between the lips; 4 mm flattened the face.
 # Next to photographs in profile, at 3 mm the lips no longer stood out from the face (owner, 2026-11-09): 1.5 mm.
-MOUTH_BACK = {"female": 0.0052, "male": 0.0}
+# Round 29: the young man's mouth stood out of the profile, "lábios inchados".
+MOUTH_BACK = {"female": 0.0052, "male": 0.004}
 # Speaking, the rounded vowels pushed the full lips forward into a big beak, and the player mostly shows her mid-sentence: the
 # forward part (-y) of the rounded visemes keeps 40% on women. The vowel still reads as round.
-POUT_FORWARD = {"female": 0.4, "male": 1.0}
+POUT_FORWARD = {"female": 0.4, "male": 0.5}
 POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
 # How far the mouth opens in speech, of what the kit's shapes open. The player drives every face with the same weights (the game's
 # `LipSync.cs`: at the peak of an "a", 0.55 of viseme_aa and 0.2 of jawOpen), and with them the cast's mouth opened two to three
@@ -976,7 +977,6 @@ def paint_face(body, added, tip, balls, kind):
         return
     pixels = map_pixels(skin)
     height, width = pixels.shape[:2]
-    pixels[:, :, :3] = parle_paint.box_blur(pixels[:, :, :3], max(1, round(parle_paint.SKIN_BLUR_PX * width / 1024)))
     loops = body.data.uv_layers.active.data
     triangles = [(polygon.loop_indices[0], second, third) for polygon in body.data.polygons for second, third in zip(polygon.loop_indices[1:], polygon.loop_indices[2:])]
     rest = key_points(body.data.shape_keys.key_blocks[0]) if body.data.shape_keys else np.array([vertex.co[:] for vertex in body.data.vertices])
@@ -987,11 +987,14 @@ def paint_face(body, added, tip, balls, kind):
         uv = np.array([[loops[index].uv[:] for index in triangle] for triangle in np.asarray(triangles)[hit]], np.float64)
         return parle_mouth.shade_map(width, height, uv, share[points[hit]])
 
+    covered = ~np.isnan(canvas_of(np.ones(len(rest))))
+    pixels[:, :, :3] = parle_paint.masked_blur(pixels[:, :, :3], covered, max(1, round(parle_paint.SKIN_BLUR_PX * width / 1024)))
     # First the painted lip goes to the skin of the face about it (the median of the cheeks), then the blush.
     cheeks = parle_paint.blush_share(rest, tip, balls, kind) > 0.5 * parle_paint.BLUSH_SHARE[kind]
     cheek_canvas = canvas_of(cheeks.astype(float))
     face_skin = np.median(pixels[:, :, :3][np.nan_to_num(cheek_canvas) > 0.5], axis=0)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls)), face_skin)
+    pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.orbit_share(rest, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.blushed(pixels[:, :, :3], canvas_of(parle_paint.blush_share(rest, tip, balls, kind)))
     skin.pixels.foreach_set(pixels.ravel())
     skin.pack()

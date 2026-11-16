@@ -21,11 +21,12 @@ BROW_DARK_SHARE = 0.8
 BROW_OLD_GREY = (0.8, 0.79, 0.76)
 BROW_OLD_SHARE = 0.85
 # Box blur of the skin map, in pixels of a 1024 map (scaled to the map), three passes: the pores and grain of the kit's photograph go.
-SKIN_BLUR_PX = 5
+SKIN_BLUR_PX = 9
 # The blush: a warm red-orange (sRGB) laid over the skin on each cheek and on the nose tip, most at the middle, fading with a
 # gaussian of the given width in distances between the eyes. The old take more, as the series' old man.
 BLUSH = (0.86, 0.38, 0.28)
-BLUSH_SHARE = {"female": 0.4, "female-old": 0.45, "male": 0.45, "male-old": 0.6}
+# Round 30: at a half the blush read as red patches and the skin orange: back to round 29's.
+BLUSH_SHARE = {"female": 0.4, "female-old": 0.45, "male": 0.45, "male-old": 0.55}
 CHEEK_SPOT = (0.12, -0.25, -0.72)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
@@ -38,6 +39,11 @@ MOUTH_WIDE = (0.42, 0.16)
 LIP_TO_SKIN = 0.45
 # A woman's lips are drawn on a patch of their own (`parle_lips`): it goes this share of the way to the skin at their corners.
 LIP_PATCH_TO_SKIN = 0.35
+# The kit's photograph darkens the skin about each eye (round 29: "anel cinza-escuro da órbita, que lê como olheira"): from
+# the rim out to ORBIT_OUT radii of the globe it goes ORBIT_TO_SKIN of the way to the face's skin.
+ORBIT_IN = 1.05
+ORBIT_OUT = 2.1
+ORBIT_TO_SKIN = 0.6
 
 
 def smooth(low, high, value):
@@ -54,6 +60,14 @@ def drawn_brow(pixels, old):
     else:
         out[:, :, :3] = out[:, :, :3] * (1 - BROW_DARK_SHARE) + np.asarray(BROW_DARK, np.float32) * BROW_DARK_SHARE
     return out
+
+
+def masked_blur(image, covered, radius):
+    """`box_blur` of the texels of the map that a face of the mesh covers (`covered`, rows x columns of bool), weighted by the
+    cover so the empty map between islands does not bleed in (round 34: a band with a straight edge on the chin), the rest kept."""
+    weight = covered.astype(np.float32)[:, :, None]
+    blurred = box_blur(np.asarray(image, np.float32) * weight, radius) / np.maximum(box_blur(weight, radius), 1e-6)
+    return np.where(weight > 0, blurred, image)
 
 
 def box_blur(image, radius, passes=3):
@@ -100,6 +114,18 @@ def mouth_share(points, tip, eyes):
     far = np.hypot(off[:, 0] / MOUTH_WIDE[0], off[:, 2] / MOUTH_WIDE[1])
     front = points[:, 1] < np.asarray(tip, float)[1] + 0.6 * unit
     return np.where(front, LIP_TO_SKIN * smooth(1.3, 0.8, far), 0.0)
+
+
+def orbit_share(points, eyes):
+    """How much each point about an eye gives up its colour to the skin's (0..ORBIT_TO_SKIN), in front of the globe."""
+    points = np.asarray(points, float)
+    share = np.zeros(len(points))
+    for centre, radius in eyes:
+        off = points - np.asarray(centre, float)
+        far = np.linalg.norm(off, axis=1) / radius
+        ring = smooth(ORBIT_IN, ORBIT_IN + 0.15, far) * smooth(ORBIT_OUT, ORBIT_OUT - 0.4, far) * (off[:, 1] < 0.4 * radius)
+        share = np.maximum(share, ring)
+    return share * ORBIT_TO_SKIN
 
 
 def toward(pixels, canvas, colour):

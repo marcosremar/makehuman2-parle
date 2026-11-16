@@ -131,8 +131,8 @@ def warmer(rgb, amount):
 # to its form a point goes.
 SCULPT = {
     "male": {"nose_ball": (0.37, 0.38, 0.3), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.28, "chin": 0.5, "lid": 0.1},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.7, "shell": 0.3, "chin": 0.45, "lid": 0.06},
-    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.22, "chin": 0.36, "lid": -0.06},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.7, "shell": 0.3, "chin": 0.45, "lid": -0.06},
+    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.22, "chin": 0.36, "lid": -0.02},
     "female-old": {"nose_ball": (0.28, 0.28, 0.25), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.75, "shell": 0.24, "chin": 0.38, "lid": -0.08},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip

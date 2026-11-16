@@ -36,4 +36,10 @@ assert share[2] < 0.02 and share[3] < 0.001, "the forehead or the back of the he
 assert parle_paint.BLUSH_SHARE["male-old"] > parle_paint.BLUSH_SHARE["male"], "the old blush less than the young"
 red = parle_paint.blushed(np.full((1, 1, 3), 0.6, np.float32), np.ones((1, 1)))
 assert red[0, 0, 0] > red[0, 0, 2], "the blush is not warm"
+# The blur of the skin keeps to the covered map (round 34): the empty map next to an island does not darken its edge.
+island = np.zeros((32, 32, 3), np.float32)
+island[:, 16:] = 0.8
+covered = np.zeros((32, 32), bool)
+covered[:, 16:] = True
+assert np.allclose(parle_paint.masked_blur(island, covered, 4)[:, 16:], 0.8, atol=1e-4), "the empty map bleeds into the skin's edge"
 print("ok")
