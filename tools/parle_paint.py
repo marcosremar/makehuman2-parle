@@ -20,7 +20,8 @@ BROW_EDGE = (0.42, 0.62)
 BROW_DARK = (0.09, 0.06, 0.045)
 BROW_DARK_SHARE = 0.8
 # Rounds 49 to 52: both judges asked the old's eyebrows "cinza médio em vez de branco".
-BROW_OLD_GREY = (0.64, 0.62, 0.59)
+# Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey.
+BROW_OLD_GREY = (0.54, 0.51, 0.47)
 BROW_OLD_SHARE = 0.85
 # Box blur of the skin map, in pixels of a 1024 map (scaled to the map), three passes: the pores and grain of the kit's photograph go.
 SKIN_BLUR_PX = 9
@@ -34,7 +35,8 @@ BLUSH_SHARE = {"female": 0.46, "female-old": 0.64, "male": 0.52, "male-old": 0.7
 CHEEK_SPOT = (0.12, -0.25, -0.72)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
-NOSE_SHARE = 0.8
+# Round 54: both judges, the tip of the nose "15 a 25 % mais vermelha" on all four.
+NOSE_SHARE = 1.0
 # The old: on the old man "dois discos vermelhos" on the cheeks, where the series' old man has a wide soft flush and the tip of his
 # nose is the reddest of his face (both judges, round 51). By kind: the width of the cheek's spot, how much of the blush the cheek
 # takes and how much the nose's tip takes.
@@ -42,7 +44,7 @@ CHEEK_WIDE_BY_KIND = {"male-old": 0.52, "female-old": 0.46}
 # Round 52: with the cheek's part weaker one judge read the old paler; round 53, both judges: "trocar os dois discos vermelhos por um
 # avermelhado difuso 40 % mais fraco" on the old man, "blush 30 % mais fraco e espalhado" on the old woman.
 CHEEK_PART_BY_KIND = {"male-old": 0.6, "female-old": 0.7}
-NOSE_SHARE_BY_KIND = {"male-old": 1.15, "female-old": 1.15}
+NOSE_SHARE_BY_KIND = {"male-old": 1.3, "female-old": 1.25}
 # The lips: the series draws no lip, the mouth is a cut with curled corners (round 21: "a série não desenha lábio"). The skin about
 # the mouth goes this share of the way to the face's own skin colour, so the painted lip of the kit's photograph goes.
 MOUTH_SPOT = (0.0, -0.05, -0.62)

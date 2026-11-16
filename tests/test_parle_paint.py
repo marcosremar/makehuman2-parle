@@ -16,7 +16,8 @@ brow[:, :, :3] = 0.5
 brow[:, :, 3] = np.linspace(0.0, 1.0, 16).reshape(4, 4)
 young, old = parle_paint.drawn_brow(brow, False), parle_paint.drawn_brow(brow, True)
 assert young[..., :3].max() < 0.3, "the young's eyebrow is not dark"
-assert old[..., :3].min() > 0.55, "the old's eyebrow is not light grey"
+# Grey on the old: from round 49 to 54 both judges asked it "cinza médio em vez de branco", neither dark nor white.
+assert 0.4 < old[..., :3].min() and old[..., :3].max() < 0.7, "the old's eyebrow is not a mid grey"
 alpha = young[..., 3].ravel()
 assert ((alpha < 0.02) | (alpha > 0.98)).mean() >= 0.6, "the eyebrow's edge is still a soft smudge"
 

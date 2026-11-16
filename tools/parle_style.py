@@ -270,6 +270,26 @@ def orbit_weight(points, tip, eyes):
     return weight
 
 
+# The folds about the mouth filled as the orbit is (`hollows_filled`): the one from the wing of the nose to the corner of the mouth
+# and the one under the lower lip, which both judges asked 50 to 70 % shallower from round 48 to 54 ("pele lisa como a da série").
+# A ring about the lips (SIMPLE_MOUTH_WIDE), from FOLD_IN to FOLD_OUT times their size, in front.
+FOLD_IN = 1.05
+FOLD_OUT = 3.2
+FOLD_ROUNDS = 40
+
+
+def fold_weight(points, tip, eyes):
+    """How much each point of the skin takes part in filling the folds about the mouth (0..1), the face looking at -y."""
+    points = np.asarray(points, float)
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    tip = np.asarray(tip, float)
+    off = (points - (tip + np.array(SIMPLE_MOUTH) * unit)) / unit
+    far = np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1])
+    front = points[:, 1] < tip[1] + 0.9 * unit
+    return smooth((far - FOLD_IN) / 0.3) * smooth((FOLD_OUT - far) / 0.6) * front * (off[:, 2] < 0.45)
+
+
 def hollows_filled(points, edges, weight, rounds=ORBIT_ROUNDS):
     """The points of a mesh by its `edges` (m x 2) brought forward (-y) towards the mean of their neighbours where they stand
     behind it, by `weight` of ORBIT_STEP each round: a hollow fills, a ridge stays."""

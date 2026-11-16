@@ -161,14 +161,15 @@ BROW_LONG = {"female": 0.85, "male": 1.0}
 BROW_ARCH = {"female": 0.5, "male": 0.6}
 # The men's eyebrows sloped down to the nose, an angry look (Carlos, both judges, rounds 51 and 52: "a ponta de dentro uns 3 mm mais
 # alta", "metade da inclinação para o centro"): their inner end goes up this much more, falling to nothing at the temple.
-BROW_INNER_UP_M = {"female": 0.0, "male": 0.002}
+BROW_INNER_UP_M = {"female": 0.0, "male": 0.003}
 # With half the arch the whole eyebrow sat where its two ends were, 8 mm over the middle of the eye, and pressed on the lid ("the
 # darkest, hardest shape on the face", the judge by sight, 2026-11-12): it goes up by this much. The kit's faceBrowHeight is not the
 # way: its whole reach on the eyebrow is 3 mm.
 # The men's too, once their arch came down (`BROW_ARCH`): flattened where it was, it lay on the eye, a slab, and its height over
 # the eye read 12% of the face where Rafa's reads 15 (`parle_beauty.brow_high`, 2026-11-12).
 # Raised to 6 mm on the men for the series (2026-11-16), past the 5 the test holds (`tests/test_parle_fair_look.py`): 5.
-BROW_LIFT_M = {"female": 0.003, "male": 0.005}
+# Round 54: both judges asked the eyebrows higher, "2 mm", "15 %": the women's to the 5 mm the test holds.
+BROW_LIFT_M = {"female": 0.005, "male": 0.005}
 # The traits of the look that open or close the lids at rest, and the shapes that shut them: a point a blink moves this far or
 # more gives back the whole of what those traits moved it (`blink_still_closes`).
 LID_TRAITS = ("faceEyeOpen", "eyeWideLeft", "eyeWideRight")

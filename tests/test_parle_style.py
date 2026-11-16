@@ -110,4 +110,12 @@ frame_pts = np.array([[x, -0.1, 1.6] for x in np.linspace(-0.08, 0.08, 17)] + [[
 scale_f = parle_style.frame_scale(frame_pts, face_pts, 1.6)
 assert abs(scale_f - (0.065 + parle_style.FRAME_CLEAR_M) / 0.08) < 1e-6, f"the frame is not narrowed to the face: {scale_f}"
 assert parle_style.frame_scale(frame_pts * np.array([0.5, 1, 1]), face_pts, 1.6) == 1.0, "a frame narrower than the face was narrowed"
+# The folds about the mouth fill (rounds 48 to 54): the skin in a ring about the lips takes part, the lips and the cheekbone do not.
+eyes_f = [(np.array([0.032, -0.06, 1.66]), 0.012), (np.array([-0.032, -0.06, 1.66]), 0.012)]
+tip_f = np.array([0.0, -0.1, 1.62])
+mouth_f = tip_f + np.array(parle_style.SIMPLE_MOUTH) * 0.064
+fold_f = mouth_f + np.array([0.6 * 0.064, 0.0, 0.1 * 0.064])
+cheekbone_f = eyes_f[0][0] + np.array([0.0, -0.01, -0.02])
+weights_f = parle_style.fold_weight(np.array([mouth_f, fold_f, cheekbone_f]), tip_f, eyes_f)
+assert weights_f[0] == 0 and weights_f[1] > 0.5 and weights_f[2] == 0, f"the folds about the mouth: {weights_f}"
 print("ok")

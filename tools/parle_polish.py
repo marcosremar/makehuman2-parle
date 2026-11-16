@@ -1808,6 +1808,13 @@ def natural_body(meshes, rig, height, sex, kit):
         fill = parle_style.hollows_filled(rest, edges, orbit) - rest
         warp(body, lambda points: points + fill, kept=lambda name: True)
         print("CABEÇA: órbita preenchida, o ponto que mais veio para a frente,", round(float(-fill[:, 1].min()) * 1000, 1), "mm")
+        # The folds about the mouth filled the same way (`parle_style.fold_weight`).
+        rest = rest_points(body)
+        folds = parle_style.fold_weight(rest, tip, balls)
+        folds[np.unique(edges[sides < 2])] = 0.0
+        fill = parle_style.hollows_filled(rest, edges, folds, parle_style.FOLD_ROUNDS) - rest
+        warp(body, lambda points: points + fill, kept=lambda name: True)
+        print("CABEÇA: dobras da boca preenchidas, o ponto que mais veio para a frente,", round(float(-fill[:, 1].min()) * 1000, 1), "mm")
         # The lower face shorter (`parle_style.lower_face_field`), the teeth and the tongue with it.
         short = parle_style.lower_face_field(tip, balls, kind)
         for obj in [body, *(item for item in meshes if item.type == "MESH" and ("teeth" in item.name or "tongue" in item.name))]:
