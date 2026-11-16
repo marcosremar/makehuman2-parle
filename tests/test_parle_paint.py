@@ -42,4 +42,10 @@ island[:, 16:] = 0.8
 covered = np.zeros((32, 32), bool)
 covered[:, 16:] = True
 assert np.allclose(parle_paint.masked_blur(island, covered, 4)[:, 16:], 0.8, atol=1e-4), "the empty map bleeds into the skin's edge"
+# The shaved beard of the kit's photograph goes to the skin (round 36): the chin and the jaw clear, the forehead and the nape do not.
+chin, jaw = tip + np.array([0.0, 0.0, -0.09]), tip + np.array([0.05, 0.02, -0.08])
+nape = np.array([0.0, 0.1, 1.5])
+share = parle_paint.jaw_share(np.array([chin, jaw, forehead, nape]), tip, eyes)
+assert share[0] > 0.9 * parle_paint.JAW_TO_SKIN and share[1] > 0.5 * parle_paint.JAW_TO_SKIN, "the beard's shade stays on the chin or the jaw"
+assert share[2] == 0 and share[3] < 0.01, "the forehead or the nape go to the face's skin"
 print("ok")

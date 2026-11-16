@@ -38,12 +38,20 @@ MOUTH_WIDE = (0.42, 0.16)
 # Round 25 (4.75): gone almost all the way, the mouth was "um risco apagado": the series' lips have a little colour.
 LIP_TO_SKIN = 0.45
 # A woman's lips are drawn on a patch of their own (`parle_lips`): it goes this share of the way to the skin at their corners.
-LIP_PATCH_TO_SKIN = 0.35
+# Round 38: at 0.35 a woman's lip read "mancha rosa borrada fora da boca" to both judges.
+LIP_PATCH_TO_SKIN = 0.6
 # The kit's photograph darkens the skin about each eye (round 29: "anel cinza-escuro da órbita, que lê como olheira"): from
 # the rim out to ORBIT_OUT radii of the globe it goes ORBIT_TO_SKIN of the way to the face's skin.
 ORBIT_IN = 1.05
 ORBIT_OUT = 2.1
 ORBIT_TO_SKIN = 0.6
+# The kit's photograph shades the jaw and the chin of a man (a shaved beard) and the skin under the chin: the mouth's oval cleared to
+# the face's skin then read as a light band under the lip (round 36, Carlos). The lower face, from under the nose down past the jaw,
+# goes this share of the way to the face's skin, in distances between the eyes below the nose tip and in front of it.
+JAW_TOP = 0.35
+JAW_BOTTOM = 2.3
+JAW_BACK = 0.9
+JAW_TO_SKIN = 0.7
 
 
 def smooth(low, high, value):
@@ -114,6 +122,18 @@ def mouth_share(points, tip, eyes):
     far = np.hypot(off[:, 0] / MOUTH_WIDE[0], off[:, 2] / MOUTH_WIDE[1])
     front = points[:, 1] < np.asarray(tip, float)[1] + 0.6 * unit
     return np.where(front, LIP_TO_SKIN * smooth(1.3, 0.8, far), 0.0)
+
+
+def jaw_share(points, tip, eyes):
+    """How much of its colour each point of the lower face gives up to the skin's (0..JAW_TO_SKIN): below the nose, in front."""
+    points = np.asarray(points, float)
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    tip = np.asarray(tip, float)
+    below = (tip[2] - points[:, 2]) / unit
+    behind = (points[:, 1] - tip[1]) / unit
+    share = smooth(JAW_TOP - 0.2, JAW_TOP + 0.1, below) * smooth(JAW_BOTTOM, JAW_BOTTOM - 0.4, below) * smooth(JAW_BACK + 0.3, JAW_BACK - 0.2, behind)
+    return JAW_TO_SKIN * share
 
 
 def orbit_share(points, eyes):

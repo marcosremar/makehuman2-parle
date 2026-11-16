@@ -17,10 +17,10 @@ import numpy as np
 # own default, which this replaces). The series' young men have noses 0.31 to 0.37 of the face long against 0.29 to 0.31 on the cast,
 # and much further out; its old man's is the biggest thing on his face.
 STYLE = {
-    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25, "skin": 1.42},
-    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.8, "eye": 1.25, "skin": 1.42},
-    "female": {"forward": 0.8, "nose": 1.45, "tip": 1.3, "brow": 1.2, "eye": 1.12, "skin": 1.42},
-    "female-old": {"forward": 0.85, "nose": 1.65, "tip": 1.4, "brow": 1.9, "eye": 1.12, "skin": 1.42},
+    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25, "skin": 1.55},
+    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.8, "eye": 1.25, "skin": 1.55},
+    "female": {"forward": 0.8, "nose": 1.45, "tip": 1.3, "brow": 1.2, "eye": 1.12, "skin": 1.55},
+    "female-old": {"forward": 0.85, "nose": 1.65, "tip": 1.4, "brow": 1.9, "eye": 1.12, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
@@ -43,7 +43,8 @@ NOSE_TIP_REACH_M = 0.016
 EYE_TALL_LEAST = 0.6
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
-EYE_GLOW = 0.15
+# Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.
+EYE_GLOW = 0.3
 SKIN_WARM = 0.012
 # The nose's reach about its tip, in metres; below the tip it is shorter (NOSE_BELOW), so the upper lip stays where it was, and up
 # the bridge longer (NOSE_ABOVE). The middle it grows about stands NOSE_BACK behind the tip, a little above it.
@@ -130,15 +131,16 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.37, 0.38, 0.3), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.18, "chin": 0.5, "lid": 0.1, "ridge": 0.28},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.7, "shell": 0.2, "chin": 0.45, "lid": -0.06, "ridge": 0.3},
-    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.14, "chin": 0.36, "lid": -0.02, "ridge": 0.18},
-    "female-old": {"nose_ball": (0.28, 0.28, 0.25), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.75, "shell": 0.16, "chin": 0.38, "lid": -0.08, "ridge": 0.2},
+    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.28, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "shell": 0.3, "chin": 0.45, "lid": -0.06, "ridge": 0.0},
+    "female": {"nose_ball": (0.28, 0.28, 0.24), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.22, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
+    "female-old": {"nose_ball": (0.32, 0.32, 0.28), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.85, "shell": 0.24, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
-# Round 35: the cheek a high round mass ("maçã alta"), not a flat plane: its ball stands higher, under the eye.
-CHEEK_AT = (0.14, 0.58, -0.48)
+# Round 35: the cheek a high round mass ("maçã alta"), its ball higher under the eye (0.14, 0.58, -0.48), and a brow ridge forward
+# (`ridge` in SCULPT) and lighter smoothing: round 36 fell from 5.5 to 4.5, so back to round 34's.
+CHEEK_AT = (0.12, 0.62, -0.62)
 CHIN_AT = (0.0, 0.55, -1.25)
 # How far about each form its pull reaches, in its own radii, and the zone of the nose about the tip, in distances between the eyes.
 REACH = 1.4
@@ -168,11 +170,14 @@ NOSE_ZONE = 0.55
 # embaixo"; the series' faces are short under the nose. From the nose tip down to the chin (LOWER_CHIN distances between the eyes
 # under the tip) the face is this share as tall; the neck takes the move back over LOWER_NECK, and the whole width of the jaw
 # (LOWER_WIDE either side) goes with it.
-LOWER_FACE = {"male": 0.86, "male-old": 0.9, "female": 0.88, "female-old": 0.9}
+# Round 37 (5.5): with the crease gone, the chin still "quadrado" and long on all four: a little shorter.
+LOWER_FACE = {"male": 0.83, "male-old": 0.87, "female": 0.85, "female-old": 0.87}
 LOWER_CHIN = -1.3
-LOWER_NECK = 0.8
-LOWER_BACK = 1.3
-LOWER_WIDE = 1.8
+# Round 38: at 1.6 the lift reached a woman's collar and the throat came through it.
+LOWER_NECK = 1.1
+LOWER_BACK = 2.4
+LOWER_BACK_FADE = 1.8
+LOWER_WIDE = 2.4
 # Simple volumes (round 27, 2026-11-16, 4.1: "pele cerosa e realista", the folds of the neck and the chin, the lips of a real mouth,
 # "volumes mais simples e redondos"). The face and the neck are smoothed where a real face keeps its small forms: about a middle
 # behind and under the nose (in distances between the eyes), whole within SIMPLE_IN and none past SIMPLE_OUT; the rims of the eyes
@@ -183,8 +188,8 @@ SIMPLE_OUT = 2.9
 SIMPLE_EYE = (1.25, 1.9)
 SIMPLE_MOUTH = (0.0, 0.1, -0.62)
 SIMPLE_MOUTH_WIDE = (0.62, 0.3)
-# Round 35 (5.4): at 25 the face read "um balão liso", with the planes of a drawn face gone too.
-SIMPLE_ROUNDS = 12
+# Round 35 (5.4) read "um balão liso" at 25; 12 in round 36 did not help (above).
+SIMPLE_ROUNDS = 25
 SIMPLE_IN_STEP = 0.5
 SIMPLE_OUT_STEP = -0.53
 
@@ -252,10 +257,12 @@ def lower_face_field(tip, eyes, kind):
         points = np.asarray(points, float).copy()
         z = points[:, 2]
         share = np.where(z > chin, (tip[2] - z) / (tip[2] - chin), 1.0 - (chin - z) / (LOWER_NECK * unit))
-        share = np.clip(share, 0, 1) * (z < tip[2])
-        share *= smooth((LOWER_WIDE - np.abs(points[:, 0] - tip[0]) / unit) / 0.5)
+        # Eased at both ends and wide across (round 36: a crease along the jaw and under the chin where the lift turned at a corner).
+        share = smooth(np.clip(share, 0, 1)) * (z < tip[2])
+        share *= smooth((LOWER_WIDE - np.abs(points[:, 0] - tip[0]) / unit) / 0.9)
         # The front of the face and the throat only (round 32: moved all round, the back of the neck came out through the collar).
-        share *= smooth((tip[1] + LOWER_BACK * unit - points[:, 1]) / (0.5 * unit))
+        # Faded back over LOWER_BACK_FADE (round 37: over half a distance the floor under the chin tilted up and creased along the jaw).
+        share *= smooth((tip[1] + LOWER_BACK * unit - points[:, 1]) / (LOWER_BACK_FADE * unit))
         points[:, 2] += lift * share
         return points
 

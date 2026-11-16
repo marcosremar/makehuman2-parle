@@ -256,9 +256,10 @@ POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
 # them. Found on 2026-11-12 by measuring the shapes of a built body against what they should have been. The body keeps what was
 # judged; the teeth and the tongue now go with it, and no mesh is taken twice (`calm_speech`, `mixed_speech`).
 # Round 23 (2026-11-16): the mouth "hardly opens" in the "a" against the series' wide-open speech: jaw and "a" a third more.
+# Round 38 (two judges): the "a" still asked to open 40 % more with the teeth showing, on all four: jaw and "a" a sixth more.
 SPEECH_OPEN = {
-    "female": {"jawOpen": 0.57, "viseme_aa": 0.49, "viseme_E": 0.36, "viseme_O": 0.81, "viseme_I": 0.64},
-    "male": {"jawOpen": 0.66, "viseme_aa": 0.57, "viseme_E": 0.49, "viseme_I": 0.81},
+    "female": {"jawOpen": 0.66, "viseme_aa": 0.57, "viseme_E": 0.36, "viseme_O": 0.81, "viseme_I": 0.64},
+    "male": {"jawOpen": 0.76, "viseme_aa": 0.66, "viseme_E": 0.49, "viseme_I": 0.81},
 }
 # The rounded shapes of speech. With the weights the player gives them (`LipSync.cs`: about half of each shape), the kit's "o" was
 # "a wide letterbox gape where Sofia makes a small round pucker", its "ch" "the same slack half-open slit as RR, E and TH, where
@@ -293,7 +294,8 @@ SPEECH_MIX = {
 # back (`MOUTH_BACK`), which is what the pout was. +0.1 left it at 38%, to the judge by sight still twice the width of the nose
 # where Sofia's is one and a half: -0.25, about 35%.
 # Round 23 (2026-11-16, 4.5): on all four the mouth "a line", too narrow for the series' wide mouths.
-MOUTH_WIDE = {"female": 1.1, "male": 1.3}
+# Round 37: the mouth still asked 15 % wider on three of four.
+MOUTH_WIDE = {"female": 1.18, "male": 1.4}
 MOUTH_CORE_M = 0.006
 MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035
@@ -993,6 +995,7 @@ def paint_face(body, added, tip, balls, kind):
     cheeks = parle_paint.blush_share(rest, tip, balls, kind) > 0.5 * parle_paint.BLUSH_SHARE[kind]
     cheek_canvas = canvas_of(cheeks.astype(float))
     face_skin = np.median(pixels[:, :, :3][np.nan_to_num(cheek_canvas) > 0.5], axis=0)
+    pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.jaw_share(rest, tip, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.orbit_share(rest, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.blushed(pixels[:, :, :3], canvas_of(parle_paint.blush_share(rest, tip, balls, kind)))
