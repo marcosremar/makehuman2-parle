@@ -11,8 +11,8 @@
 import numpy as np
 
 # An eyebrow's edge: the alpha of its strands drawn as a clean band, from soft to whole between these.
-# Round 40: at 0.18 the faint strands over the brow came out whole, a second arc above it.
-BROW_EDGE = (0.3, 0.55)
+# Round 40: at 0.18 the faint strands over the brow came out whole, a second arc above it; at 0.3 still (round 45).
+BROW_EDGE = (0.42, 0.62)
 # How dark a young person's eyebrow is drawn, of its own colour; an old person's goes this share to a light grey instead (the series'
 # old man has white-grey brows with a clean outline).
 # Round 21 (4.0): the young's still read as a grey smudge at 0.45 of their own colour, the old's dark grey: both now go most of the
@@ -70,6 +70,51 @@ def drawn_brow(pixels, old):
         out[:, :, :3] = out[:, :, :3] * (1 - BROW_OLD_SHARE) + np.asarray(BROW_OLD_GREY, np.float32) * BROW_OLD_SHARE
     else:
         out[:, :, :3] = out[:, :, :3] * (1 - BROW_DARK_SHARE) + np.asarray(BROW_DARK, np.float32) * BROW_DARK_SHARE
+    return out
+
+
+# A hair map's see-through texels keep whatever colour they were saved with, often white: blended at the strands' soft edge they
+# showed as a pale frayed band along the hairline (rounds 36 to 44). They take the colour of the strands about them, out to this
+# many pixels of a 1024 map.
+HAIR_BLEED_PX = 24
+# How far a scalp cap painted with a skin map goes to the colour of the strands over it.
+SCALP_TO_HAIR = 0.9
+
+
+def scalp_share(pixels, strands):
+    """How far each texel of a scalp map goes to the strands' colour: only the skin it shows (lighter than the strands), so the
+    strands painted on it keep their grain (round 45: dyed whole, the cap read as a flat brown helmet)."""
+    light = np.asarray(pixels, np.float32)[:, :, :3].mean(axis=2)
+    above = light - float(np.mean(strands))
+    t = np.clip((above - 0.04) / 0.14, 0, 1)
+    return SCALP_TO_HAIR * t * t * (3 - 2 * t)
+
+
+def solid_mean(pixels):
+    """The mean colour of a map's solid texels (alpha at least a half)."""
+    pixels = np.asarray(pixels, np.float32)
+    solid = pixels[:, :, 3] >= 0.5
+    return pixels[:, :, :3][solid].mean(axis=0) if solid.any() else pixels[:, :, :3].reshape(-1, 3).mean(axis=0)
+
+
+def bled(pixels, radius):
+    """A map (rows x columns x RGBA, 0..1) whose see-through texels (alpha under a half) take the mean colour of the solid ones
+    about them, growing out to `radius` pixels; the solid ones and every alpha kept."""
+    out = np.array(pixels, np.float32, copy=True)
+    solid = (out[:, :, 3] >= 0.5).astype(np.float32)[:, :, None]
+    if solid.all() or not solid.any():
+        return out
+    reach = 1
+    filled = solid.copy()
+    colour = out[:, :, :3] * solid
+    while reach <= radius:
+        weight = box_blur(filled, reach, passes=1)
+        mean = box_blur(colour, reach, passes=1) / np.maximum(weight, 1e-6)
+        new = (filled == 0) & (weight > 1e-6)
+        colour = np.where(new, mean, colour)
+        filled = np.where(new, 1.0, filled)
+        reach *= 2
+    out[:, :, :3] = np.where(solid > 0, out[:, :, :3], np.where(filled > 0, colour, out[:, :, :3]))
     return out
 
 

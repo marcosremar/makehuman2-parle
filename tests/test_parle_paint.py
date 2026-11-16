@@ -51,4 +51,20 @@ assert share[2] == 0 and share[3] < 0.01, "the forehead or the nape go to the fa
 # The lash line at the rim of the lids goes to the skin too (round 40: a dark ring about the eye).
 rim = eyes[0][0] + np.array([0.0, -0.4, 0.95]) * eyes[0][1]
 assert parle_paint.orbit_share(np.array([rim]), eyes)[0] > 0.5 * parle_paint.ORBIT_TO_SKIN, "the rim of the lids keeps its dark line"
+# The see-through texels of a hair map take the strands' colour (round 44: a pale frayed band along the hairline).
+hair = np.zeros((16, 16, 4), np.float32)
+hair[:, :, :3] = 1.0
+hair[:, :8, :3] = (0.3, 0.2, 0.1)
+hair[:, :8, 3] = 1.0
+out = parle_paint.bled(hair, 8)
+assert np.allclose(out[:, 8:12, :3], (0.3, 0.2, 0.1), atol=1e-4), "the hair's edge keeps its white"
+assert np.array_equal(out[:, :, 3], hair[:, :, 3]) and np.allclose(out[:, :8], hair[:, :8]), "the solid strands or the alpha changed"
+# A scalp painted with skin goes to the strands' colour (round 45: a pale band of skin along the hairline).
+assert np.allclose(parle_paint.solid_mean(hair), (0.3, 0.2, 0.1)), "the strands' colour is not their solid texels'"
+scalp = np.full((2, 2, 4), 1.0, np.float32)
+scalp[0, :, :3] = 0.8
+scalp[1, :, :3] = (0.32, 0.2, 0.12)
+dyed = parle_paint.toward(scalp[:, :, :3], parle_paint.scalp_share(scalp, (0.3, 0.2, 0.1)), (0.3, 0.2, 0.1))
+assert dyed[0, 0, 0] < 0.4, "the scalp keeps the skin's light colour"
+assert np.allclose(dyed[1], scalp[1, :, :3]), "the strands painted on the scalp lose their grain"
 print("ok")

@@ -759,6 +759,20 @@ def keeps_its_move(name):
 SKIN_MATTE = {"Roughness": 0.75, "Specular IOR Level": 0.25, "Coat Weight": 0.0, "Subsurface Weight": 0.0}
 
 
+def map_nodes(obj):
+    """The image nodes of a mesh's materials that hold a map."""
+    return [node for material in obj.data.materials if material and material.use_nodes for node in material.node_tree.nodes
+            if node.type == "TEX_IMAGE" and node.image]
+
+
+def image_pixels(image):
+    width, height = image.size
+    pixels = np.empty(width * height * image.channels, np.float32)
+    image.pixels.foreach_get(pixels)
+    pixels = pixels.reshape(height, width, image.channels)
+    return pixels if image.channels == 4 else np.concatenate([pixels[:, :, :3], np.ones((height, width, 1), np.float32)], axis=2)
+
+
 def drawn_paint(meshes, body, kind, sex):
     """The paint of a drawn face that has to come after the cast's own dyes (`parle_paint`): the eyebrows as clean bands (dark on the
     young, light grey on the old; the cast dyes them in the hair's colour after the face is made), and a woman's lips, drawn on
@@ -788,6 +802,22 @@ def drawn_paint(meshes, body, kind, sex):
                     node.image.pixels.foreach_set(parle_paint.bled(pixels.reshape(height, width, 4), radius).ravel())
                     node.image.pack()
                     done.append("borda do cabelo")
+    # A scalp cap painted with a skin map (Lúcia's long hair) showed a pale band of light skin between the strands and the forehead
+    # (rounds 36 to 45): it goes to the strands' colour.
+    strands = [parle_paint.solid_mean(image_pixels(node.image)) for obj in meshes if obj.type == "MESH" and "hair" in obj.name.lower()
+               for node in map_nodes(obj) if "skin" not in node.image.name.lower()]
+    if strands:
+        colour = np.mean(strands, axis=0)
+        dyed = set()
+        for obj in [item for item in meshes if item.type == "MESH" and "scalp" in item.name.lower()]:
+            for node in map_nodes(obj):
+                if "skin" in node.image.name.lower() and node.image.name not in dyed and node.image not in [n.image for n in map_nodes(body)]:
+                    dyed.add(node.image.name)
+                    pixels = image_pixels(node.image)
+                    pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], parle_paint.scalp_share(pixels, colour), colour)
+                    node.image.pixels.foreach_set(pixels.ravel())
+                    node.image.pack()
+                    done.append("couro do cabelo")
     skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None) if body.active_material else None
     if sex == "female" and skin is not None:
         width, height = skin.size
