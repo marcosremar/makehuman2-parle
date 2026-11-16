@@ -57,11 +57,14 @@ MOUTH_SPOT = (0.0, -0.05, -0.62)
 MOUTH_WIDE = (0.42, 0.16)
 # Round 25 (4.75): gone almost all the way, the mouth was "um risco apagado": the series' lips have a little colour.
 LIP_TO_SKIN = 0.45
+# A woman's lips take their colour from a patch of their own (`parle_lips.with_lip_patch`): the lip the kit's photograph paints on
+# her face showed about the patch as "uma mancha rosada de textura em volta da boca e no queixo" (round 59, the young woman).
+LIP_TO_SKIN_WOMAN = 0.9
 # A woman's lips are drawn on a patch of their own (`parle_lips`): it goes this share of the way to the skin at their corners.
 # Round 38: at 0.35 a woman's lip read "mancha rosa borrada fora da boca" to both judges.
 # Round 52: the women's lips "com cor mais perto da pele" (judge B, the young and the old woman): 0.72. Round 55, both judges: "a
-# boca é um risco fino", "15 % mais rosada": 0.55.
-LIP_PATCH_TO_SKIN = 0.55
+# boca é um risco fino", "15 % mais rosada": 0.55. Round 59: "25 % mais saturados que a pele": 0.45.
+LIP_PATCH_TO_SKIN = 0.45
 # The kit's photograph darkens the skin about each eye (round 29: "anel cinza-escuro da órbita, que lê como olheira"): from
 # the rim out to ORBIT_OUT radii of the globe it goes ORBIT_TO_SKIN of the way to the face's skin.
 # Round 40 (two judges): "anel escuro em volta do olho", the eye sunk with dark circles: the dark line the photograph paints at
@@ -182,8 +185,8 @@ def blush_share(points, tip, eyes, kind):
     return share * BLUSH_SHARE[kind]
 
 
-def mouth_share(points, tip, eyes):
-    """How much of its colour each point about the mouth gives up to the skin's (0..LIP_TO_SKIN): an oval across the mouth."""
+def mouth_share(points, tip, eyes, most=LIP_TO_SKIN):
+    """How much of its colour each point about the mouth gives up to the skin's (0..`most`): an oval across the mouth."""
     points = np.asarray(points, float)
     centres = [np.asarray(centre, float) for centre, _ in eyes]
     unit = float(np.linalg.norm(centres[0] - centres[1]))
@@ -191,7 +194,7 @@ def mouth_share(points, tip, eyes):
     off = (points - at) / unit
     far = np.hypot(off[:, 0] / MOUTH_WIDE[0], off[:, 2] / MOUTH_WIDE[1])
     front = points[:, 1] < np.asarray(tip, float)[1] + 0.6 * unit
-    return np.where(front, LIP_TO_SKIN * smooth(1.3, 0.8, far), 0.0)
+    return np.where(front, most * smooth(1.3, 0.8, far), 0.0)
 
 
 # The face is painted on a patch of its own, the neck and the body on one flat skin tone about 20 % lighter: the step at the

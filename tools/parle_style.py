@@ -56,7 +56,9 @@ EYE_TALL_LEAST = 0.6
 # open 0.45 of the width as the kit has them, and are no longer lifted.
 # Round 53 (with the iris a tenth bigger since round 51): both judges asked the upper lid over 10 to 20 % of the top of the iris,
 # most on the old, "tira o ar arregalado".
-EYE_TALL_LEAST_BY_KIND = {"male": 0.56, "female": 0.56, "male-old": 0.41, "female-old": 0.48}
+# 2026-11-16, after round 59: under the owner's most (`parle_polish.EYE_TALL_MOST_BY_SEX`, 0.50 for a woman and 0.43 for a man), a
+# little more open than the lids the owner approved on 2026-11-12 (0.41 to 0.425), so the lid lies over the top of the iris.
+EYE_TALL_LEAST_BY_KIND = {"male": 0.40, "female": 0.46, "male-old": 0.37, "female-old": 0.43}
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
 # Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.

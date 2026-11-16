@@ -119,4 +119,11 @@ assert share == parle_polish.EYE_TALL_BLINK_MOST and 0.2 * wide < tall < was - 0
 # No globe, or no blink: nothing to do.
 bpy.data.objects.remove(eye)
 assert parle_polish.eyes_no_rounder([body]) == {}, "a body with no globe was looked at"
+# The owner's openings (2026-11-12 and 14): no woman's eye rounder than Sofia's 0.50, no man's than 0.43; the least an eye is
+# opened to stays under them (the loop of 2026-11-16 had let them to 0.72 and lifted them to 0.6: "esbugalhado").
+import parle_style  # noqa: E402
+
+assert parle_polish.EYE_TALL_MOST_BY_SEX["female"] <= 0.50 and parle_polish.EYE_TALL_MOST_BY_SEX["male"] <= 0.43, f"the eyes open past the owner's: {parle_polish.EYE_TALL_MOST_BY_SEX}"
+for kind, least in parle_style.EYE_TALL_LEAST_BY_KIND.items():
+    assert least < parle_polish.EYE_TALL_MOST_BY_SEX[kind.split("-")[0]], f"the {kind}'s eyes are lifted past the owner's most: {least}"
 print("ok")

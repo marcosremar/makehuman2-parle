@@ -89,7 +89,7 @@ assert all(0.002 <= parle_face.BROW_LIFT_M[sex] <= 0.005 for sex in ("female", "
 raised = brow + parle_face.brow_line_move(brow, 1.0, 1.0, 1.0, 1.0, 0.0, 0.002)
 inner_end = np.abs(brow[:, 0] - brow[:, 0].mean())
 assert np.isclose((raised[:, 2] - brow[:, 2])[inner_end.argmin()], 0.002, atol=1e-6) and np.isclose((raised[:, 2] - brow[:, 2])[inner_end.argmax()], 0.0, atol=1e-6), "the inner end of the eyebrow is not lifted, or the outer end is"
-assert 0 < parle_face.BROW_INNER_UP_M["male"] <= 0.003 and parle_face.BROW_INNER_UP_M["female"] == 0, f"the inner lift of the eyebrows: {parle_face.BROW_INNER_UP_M}"
+assert 0 < parle_face.BROW_INNER_UP_M["male"] <= 0.005 and parle_face.BROW_INNER_UP_M["female"] == 0, f"the inner lift of the eyebrows: {parle_face.BROW_INNER_UP_M}"
 
 # The jaw rests closed just as far as the lips need to meet. A quarter of `jawOpen` carried the lower lip 7 mm up over the upper one and
 # 5 mm out in front of it, a mouth with one lip (2026-11-11, `parle_profile`); with none the lips stand apart and the teeth show (2026-11-07).

@@ -224,8 +224,11 @@ EYE_TALL_MOST = 0.43
 # apartment's neighbour, 0.41). The men keep 0.43: Rafa's reads no rounder than the café's owner's. On the size and the opening of
 # the eye the owner's eye decides: shown the pharmacy's attendant and the pet shop's on the drawn head, each with the opening held
 # to 0.43 and let go to 0.50, he took the rounder one the same day ("A mais aberta").
-# The series the owner chose on 2026-11-15 has round eyes, 0.6 to 0.7 as tall as wide.
-EYE_TALL_MOST_BY_SEX = {"female": 0.72, "male": 0.72}
+# The series the owner chose on 2026-11-15 has round eyes, 0.6 to 0.7 as tall as wide: they were let open to 0.72 (and lifted to at
+# least 0.56 to 0.6, `parle_style.EYE_TALL_LEAST_BY_KIND`) from round 20 of the loop of 2026-11-16, past what the owner had chosen
+# the day before; the judges by sight then read the old woman's and the old man's eyes "esbugalhado" round after round. Back to the
+# owner's: Sofia's 0.50 for a woman, 0.43 for a man (`tests/test_parle_eye_round.py`).
+EYE_TALL_MOST_BY_SEX = {"female": 0.50, "male": 0.43}
 # How much of a point's weight on the head makes it the head's own for the drawn head (`drawn_head`).
 HEAD_WHOLE = 0.4
 # A trial of another limit without touching this file (`eye_round_most`): a QA door, not a mode of the cast.

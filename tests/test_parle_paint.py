@@ -78,4 +78,7 @@ old = parle_paint.blush_share(np.array([cheek, tip]), tip, eyes, "male-old")
 assert old[1] > old[0], "the old man's cheek is redder than the tip of his nose"
 wide_point = cheek + np.array([0.0, 0.0, -0.4 * 0.064])
 assert parle_paint.blush_share(np.array([wide_point]), tip, eyes, "male-old")[0] / parle_paint.BLUSH_SHARE["male-old"] > parle_paint.blush_share(np.array([wide_point]), tip, eyes, "male")[0] / parle_paint.BLUSH_SHARE["male"], "the old man's flush is no wider than the young man's"
+# A woman's photographed lip goes almost all the way to the skin about her lip patch (round 59: a pink stain about the mouth).
+mouth_point = tip + np.array(parle_paint.MOUTH_SPOT) * 0.064
+assert parle_paint.mouth_share(np.array([mouth_point]), tip, eyes, parle_paint.LIP_TO_SKIN_WOMAN)[0] > 0.85, "a woman's photographed lip stays about her lips"
 print("ok")

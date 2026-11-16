@@ -161,7 +161,8 @@ BROW_LONG = {"female": 0.85, "male": 1.0}
 BROW_ARCH = {"female": 0.5, "male": 0.6}
 # The men's eyebrows sloped down to the nose, an angry look (Carlos, both judges, rounds 51 and 52: "a ponta de dentro uns 3 mm mais
 # alta", "metade da inclinação para o centro"): their inner end goes up this much more, falling to nothing at the temple.
-BROW_INNER_UP_M = {"female": 0.0, "male": 0.003}
+# Round 59: both judges still "a ponta de dentro cerca de 10° menos baixa" on the young man: 4 mm.
+BROW_INNER_UP_M = {"female": 0.0, "male": 0.004}
 # With half the arch the whole eyebrow sat where its two ends were, 8 mm over the middle of the eye, and pressed on the lid ("the
 # darkest, hardest shape on the face", the judge by sight, 2026-11-12): it goes up by this much. The kit's faceBrowHeight is not the
 # way: its whole reach on the eyebrow is 3 mm.
@@ -299,6 +300,12 @@ SPEECH_OPEN = {
 # gasp", and the "a" with the corners of the mouth lifted (0.22 of the smile) "a grimace": the two as they are above.
 # The open jaw itself is left alone: with the pucker in it, the lips of both jaws would move with it, and the jaw is how the lower
 # lip is told from the upper one (`parle_polish.fair_face`).
+# The smile lifts the cheeks: "no sorriso as maçãs sobem ... hoje o sorriso quase não se distingue do repouso" (both judges, round
+# 59); the kit's own cheekSquint, half of it, goes into each side's smile. The resting smile is laid on before (`calm_look`).
+SMILE_MIX = {
+    "mouthSmileLeft": {"mouthSmileLeft": 1.0, "cheekSquintLeft": 0.5},
+    "mouthSmileRight": {"mouthSmileRight": 1.0, "cheekSquintRight": 0.5},
+}
 SPEECH_MIX = {
     # Rounds 44 to 56, both judges: the "o" "fica numa fenda reta com os dentes à mostra, lê-se como e", where it should be a ring
     # with the lips forward, "sem abrir mais": more of the pucker, the same opening (Rafa's limit, owner 2026-11-16).
@@ -1025,7 +1032,7 @@ def paint_face(body, added, tip, balls, kind):
     if lowest.any():
         body_tone = np.median(pixels[:, :, :3][np.nan_to_num(canvas_of(lowest.astype(float))) > 0.5], axis=0)
         pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.neck_share(rest, tip, balls)), body_tone)
-    pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls)), face_skin)
+    pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls, parle_paint.LIP_TO_SKIN_WOMAN if kind.startswith("female") else parle_paint.LIP_TO_SKIN)), face_skin)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.orbit_share(rest, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.blushed(pixels[:, :, :3], canvas_of(parle_paint.blush_share(rest, tip, balls, kind)))
     skin.pixels.foreach_set(pixels.ravel())
@@ -1109,6 +1116,7 @@ def clean_face(body, added, job, env):
     speaking = list(dict.fromkeys([body, *(obj for obj in added if obj.type == "MESH" and obj.data.shape_keys)]))
     calm_speech(speaking, SPEECH_OPEN[sex])
     mixed_speech(speaking, SPEECH_MIX)
+    mixed_speech(speaking, SMILE_MIX)
     # After the jaw is calmed: `mouthClose` is the final `jawOpen` backwards. Read before `calm_speech`, it took back the whole kit's
     # jaw while the body kept 0.6 to 0.9 of it, and pushed the lower lip 17 to 26 mm past the rest (2026-11-12). The lips close over
     # the open jaw in /p b m/, not the jaw (2026-11-11, thread of tooth in /m/).
