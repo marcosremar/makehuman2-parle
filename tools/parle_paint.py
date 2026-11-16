@@ -39,8 +39,9 @@ NOSE_SHARE = 0.8
 # nose is the reddest of his face (both judges, round 51). By kind: the width of the cheek's spot, how much of the blush the cheek
 # takes and how much the nose's tip takes.
 CHEEK_WIDE_BY_KIND = {"male-old": 0.52, "female-old": 0.46}
-# Round 52: with the cheek's part weaker the old read paler, "30 % mais vermelhos" (both judges): the wide spot at its whole.
-CHEEK_PART_BY_KIND = {}
+# Round 52: with the cheek's part weaker one judge read the old paler; round 53, both judges: "trocar os dois discos vermelhos por um
+# avermelhado difuso 40 % mais fraco" on the old man, "blush 30 % mais fraco e espalhado" on the old woman.
+CHEEK_PART_BY_KIND = {"male-old": 0.6, "female-old": 0.7}
 NOSE_SHARE_BY_KIND = {"male-old": 1.15, "female-old": 1.15}
 # The lips: the series draws no lip, the mouth is a cut with curled corners (round 21: "a série não desenha lábio"). The skin about
 # the mouth goes this share of the way to the face's own skin colour, so the painted lip of the kit's photograph goes.

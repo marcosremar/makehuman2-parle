@@ -20,7 +20,8 @@ MOUTH_KEYS = ("viseme_", "jawOpen")
 # rows showed, "dente cerrado" where the series the owner chose shows the upper row over a dark mouth (both judges by sight, rounds
 # 44 to 51 of 2026-11-16). The upper row stays where the owner had it shown (`parle_face.TEETH_DOWN_M`, 2026-11-08), and the mouth
 # opens no wider (the owner kept Rafa's limit on 2026-11-16).
-LOWER_TEETH_TUCK = (0.0, 0.0008, -0.0015)
+# Round 53: at 1.5 mm both rows still showed ("dentadura"): 3 mm.
+LOWER_TEETH_TUCK = (0.0, 0.0012, -0.003)
 
 
 def tongue_share(rest):

@@ -22,11 +22,13 @@ STYLE = {
     # the owner's test holds, `tests/test_parle_eyes.py`). The women's eyes back to 1.3 of the kit's, the men's to 1.25.
     "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
-    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.0, "eye": 1.25 / 1.1, "skin": 1.55},
+    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.5, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 48 (5.7): both judges, three rounds running, asked the young woman's nose a third smaller, a button ("hoje é nariz de
     # homem"), and the old woman's tip shorter.
-    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.2, "eye": 1.0, "skin": 1.55},
-    "female-old": {"forward": 0.85, "nose": 1.45, "tip": 1.3, "brow": 1.9, "eye": 1.0, "skin": 1.55},
+    # Round 53: both judges asked the women's and the old man's eyebrows a half to twice as thick; the young woman's stays under
+    # the young man's (the series' order, `tests/test_parle_style.py`).
+    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "eye": 1.0, "skin": 1.55},
+    "female-old": {"forward": 0.85, "nose": 1.45, "tip": 1.3, "brow": 2.4, "eye": 1.0, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
@@ -51,7 +53,9 @@ EYE_TALL_LEAST = 0.6
 # "no limite do esbugalhado"; both judges asked their upper lid over a fifth of the top of the iris. By kind.
 # Round 48: the old man still "esbugalhado", both judges asking his upper lid over a fifth to a quarter of the iris: his lids
 # open 0.45 of the width as the kit has them, and are no longer lifted.
-EYE_TALL_LEAST_BY_KIND = {"male": EYE_TALL_LEAST, "female": EYE_TALL_LEAST, "male-old": 0.45, "female-old": 0.52}
+# Round 53 (with the iris a tenth bigger since round 51): both judges asked the upper lid over 10 to 20 % of the top of the iris,
+# most on the old, "tira o ar arregalado".
+EYE_TALL_LEAST_BY_KIND = {"male": 0.56, "female": 0.56, "male-old": 0.41, "female-old": 0.48}
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
 # Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.
