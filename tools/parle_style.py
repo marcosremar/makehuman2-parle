@@ -168,7 +168,8 @@ ORBIT_IN = 1.2
 ORBIT_OUT = 2.6
 ORBIT_LOW = -0.2
 ORBIT_ACROSS = 1.9
-ORBIT_ROUNDS = 30
+# Round 50: at 30 the eye still "fundo na órbita, com sombra em volta" on all four (judge B).
+ORBIT_ROUNDS = 60
 ORBIT_STEP = 0.5
 # The brow ridge: where it is most, in radii of the globe over its middle, how tall, and how far forward by kind (SCULPT).
 BROW_RIDGE_UP = 1.75
