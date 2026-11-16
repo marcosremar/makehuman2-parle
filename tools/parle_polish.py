@@ -1801,7 +1801,7 @@ def natural_body(meshes, rig, height, sex, kit):
     for name, (was, left) in blinks_shut(meshes).items():
         print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
     opened = rest_points(body) if body is not None else None
-    for name, (wide, was, tall, share) in eyes_no_rounder(meshes, eye_round_most(sex), parle_style.EYE_TALL_LEAST).items():
+    for name, (wide, was, tall, share) in eyes_no_rounder(meshes, eye_round_most(sex), parle_style.EYE_TALL_LEAST_BY_KIND.get(str(body.get("parle_kind", sex)) if body is not None else sex, parle_style.EYE_TALL_LEAST)).items():
         print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
     if opened is not None:
         # The skin under the eyebrows went up with the lid's lift, evened out (LIFT_SPREAD_REACH): the eyebrows go with it.

@@ -42,6 +42,9 @@ NOSE_TIP_REACH_M = 0.016
 # Round 20 (2026-11-16): at 0.58 the upper lid still covered the top third of the iris, a sleepy look, on all four.
 # Round 29 (5.0): at 0.66 the women and the old man stared (white all about the iris): the series' lid covers 15 to 20 % of it.
 EYE_TALL_LEAST = 0.6
+# Round 47: with the lid's lift evened out (no fold left over the lid) the old woman and the old man opened white above the iris,
+# "no limite do esbugalhado"; both judges asked their upper lid over a fifth of the top of the iris. By kind.
+EYE_TALL_LEAST_BY_KIND = {"male": EYE_TALL_LEAST, "female": EYE_TALL_LEAST, "male-old": 0.52, "female-old": 0.52}
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
 # Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.
@@ -272,22 +275,29 @@ def spread(step, edges, pinned, free, rounds):
 
 
 def follow_field(before, after):
-    """`field(points)`: each point moved as the skin nearest it moved from `before` to `after` (n x 3, the same points)."""
+    """`field(points)`: each point moved as the skin nearest it moved from `before` to `after` (n x 3, the same points), the skin
+    that stayed included: an eyebrow over a lid that came down stays with the skin under it (round 47: Dona Marta's eyebrow went
+    down onto her lid, the nearest skin that had moved)."""
     before, after = np.asarray(before, float), np.asarray(after, float)
     shift = after - before
     moved = np.linalg.norm(shift, axis=1) > 1e-5
-    source, step = before[moved], shift[moved]
+    if moved.any():
+        low, high = before[moved].min(axis=0) - FOLLOW_FAR, before[moved].max(axis=0) + FOLLOW_FAR
+        about = np.all((before > low) & (before < high), axis=1)
+    else:
+        low = high = None
+        about = moved
+    source, step = before[about].astype(np.float32), shift[about]
 
     def field(points):
         points = np.asarray(points, float)
         out = points.copy()
-        if not len(source):
+        if low is None:
             return out
-        low, high = source.min(axis=0) - FOLLOW_FAR, source.max(axis=0) + FOLLOW_FAR
         near = np.flatnonzero(np.all((points > low) & (points < high), axis=1))
-        for start in range(0, len(near), 512):
-            chunk = near[start:start + 512]
-            far = np.linalg.norm(points[chunk, None, :] - source[None, :, :], axis=2)
+        for start in range(0, len(near), 128):
+            chunk = near[start:start + 128]
+            far = np.linalg.norm(points[chunk, None, :].astype(np.float32) - source[None, :, :], axis=2)
             count = min(FOLLOW_NEAREST, len(source))
             nearest = np.argpartition(far, count - 1, axis=1)[:, :count]
             distance = np.take_along_axis(far, nearest, axis=1)

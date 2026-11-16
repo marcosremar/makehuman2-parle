@@ -74,6 +74,11 @@ BOW_DIP_WIDE_M = 0.0035
 LINE_M = 0.0024
 LINE_BELOW_M = 0.0013
 SLIT_BIN_M = 0.003
+# In each strip across the mouth the slit is read on its front only, the points no further back than this from the most forward
+# one: the open edge between the lips takes in the far end of the mouth's lining too, some 25 mm inside, and the median of the
+# two zigzagged by 5 mm in height and 8 in depth from one strip to the next (round 47, Dona Marta): the border of her lips
+# followed it and hung two faces of skin under her lower lip as lip, two pink drips.
+SLIT_FRONT_M = 0.002
 SLIT_DEGREE = 4
 LINE_ENDS = 4.0
 # Darkens less, and blue and green more than red (BGR): with the mouth open the line's texels stretch over the inner lip, and at 0.68 neutral
@@ -136,6 +141,11 @@ def lip_points(data, points, low=LIP_LOW_M):
     return front & (np.abs(points[:, 0] - middle) < half) & (height < LIP_UP_M * across) & (height > -low * across)
 
 
+def front_median(points):
+    """The median of the points of a strip of the slit that stand at its front (SLIT_FRONT_M), the face looking at -y."""
+    return np.median(points[points[:, 1] <= points[:, 1].min() + SLIT_FRONT_M], axis=0)
+
+
 def mouth_line(data, points):
     """Where the mouth of a mesh is: the middle of the face, half the width of the lips, and the line where the lips meet, as the
     places it is read at across the face (`centres`), its point at each (`medians`) and its height as a curve of the way from the
@@ -148,7 +158,7 @@ def mouth_line(data, points):
     # The slit's edge zigzags between the two lips: read point by point, the line came out as dark blots along the mouth.
     bins = np.arange(slit[:, 0].min(), slit[:, 0].max() + SLIT_BIN_M, SLIT_BIN_M)
     centres = np.array([bin_start + SLIT_BIN_M / 2 for bin_start in bins if ((slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)).any()])
-    medians = np.array([np.median(slit[(slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)], axis=0) for bin_start in bins if ((slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)).any()])
+    medians = np.array([front_median(slit[(slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)]) for bin_start in bins if ((slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)).any()])
     curve = np.polyfit(centres - middle, medians[:, 2], SLIT_DEGREE)
     return {"middle": middle, "half": half, "centres": centres, "medians": medians, "curve": curve}
 

@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
-from parle_lips import painted  # noqa: E402
+from parle_lips import front_median, painted  # noqa: E402
 
 skin = np.full((64, 64, 3), (120, 150, 200), np.uint8)
 # The game's wine lipstick: very dark, very red.
@@ -43,4 +43,9 @@ plain_lab = cv2.cvtColor(plain, cv2.COLOR_BGR2LAB).astype(int)
 assert lined_lab[32, 32, 0] < plain_lab[32, 32, 0], "the line is still a line"
 assert lined_lab[32, 32, 0] > 0.6 * plain_lab[32, 32, 0], f"the line must not go near black: {lined_lab[32, 32]} against {plain_lab[32, 32]}"
 assert lined_lab[32, 32, 1] >= plain_lab[32, 32, 1], f"the line leans red, like wet mucosa: {lined_lab[32, 32]} against {plain_lab[32, 32]}"
+# The slit is read at its front in each strip (round 47: with the far end of the mouth's lining mixed in, the line zigzagged and
+# two faces of skin hung under Dona Marta's lower lip as lip).
+strip = np.array([[0.0, -0.10, 1.50], [0.001, -0.1005, 1.501], [0.0005, -0.075, 1.495], [0.0008, -0.076, 1.494], [0.0002, -0.074, 1.496]])
+front_point = front_median(strip)
+assert abs(front_point[1] + 0.10025) < 0.001 and abs(front_point[2] - 1.5005) < 0.001, "the lining behind the lips pulls the slit's line"
 print("ok")

@@ -77,4 +77,13 @@ evened = parle_style.spread(chain, edges_chain, pin, np.arange(12) < 10, 200)
 assert evened[0, 2] == 0.004, "the lid's rim moved"
 assert np.abs(np.diff(evened[:, 2])).max() < 0.5 * np.abs(np.diff(chain[:, 2])).max(), "the edge of the lift stays a fold"
 assert evened[11, 2] == 0.0, "a point past the reach moved"
+# The skin that stayed counts too (round 47: an eyebrow went down with the lid under it): a point next to skin that did not move
+# stays, even with moved skin a centimetre off.
+lid_before = np.array([[0.0, 0.0, 0.0], [0.002, 0.0, 0.0], [0.0, 0.0, 0.012], [0.002, 0.0, 0.012]])
+lid_after = lid_before + np.array([[0.0, 0.0, -0.003]] * 2 + [[0.0, 0.0, 0.0]] * 2)
+brow = parle_style.follow_field(lid_before, lid_after)(np.array([[0.001, -0.002, 0.013]]))
+assert abs(brow[0, 2] - 0.013) < 0.0005, "the eyebrow goes down with the lid under the skin it sits on"
+# The old open their eyes less than the young (round 47: white above the iris of the old woman and the old man).
+assert parle_style.EYE_TALL_LEAST_BY_KIND["female-old"] < parle_style.EYE_TALL_LEAST_BY_KIND["female"], "the old open as wide as the young"
+assert parle_style.EYE_TALL_LEAST_BY_KIND["male-old"] < parle_style.EYE_TALL_LEAST_BY_KIND["male"], "the old open as wide as the young"
 print("ok")
