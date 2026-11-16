@@ -328,6 +328,30 @@ def spread(step, edges, pinned, free, rounds):
     return step
 
 
+# A frame on the eyes is no wider than the face at the temples (round 51: the old man's glasses stood out past his face in 3/4,
+# fitted to the kit's head before the drawn one narrowed it): the front of the frame comes in to the face's width there and this
+# much more, the frame narrowed across as a whole.
+FRAME_CLEAR_M = 0.003
+# The face at the temples: the skin within this height of the eyes and this far behind the front of the frame.
+FRAME_TEMPLE_TALL_M = 0.01
+FRAME_TEMPLE_BEHIND_M = 0.03
+
+
+def frame_scale(frame, skin, eye_z):
+    """How much a frame of glasses on the eyes (`frame`, its points) is narrowed across to sit on the face (`skin`, its points): 1
+    when it is no wider than the face at the temples with FRAME_CLEAR_M to spare. The face looks at -y."""
+    frame, skin = np.asarray(frame, float), np.asarray(skin, float)
+    middle = float(np.median(skin[:, 0]))
+    front_y = float(frame[:, 1].min())
+    front = frame[frame[:, 1] < front_y + 0.01]
+    half = float(np.abs(front[:, 0] - middle).max())
+    side = skin[(np.abs(skin[:, 2] - eye_z) < FRAME_TEMPLE_TALL_M) & (skin[:, 1] > front_y) & (skin[:, 1] < front_y + FRAME_TEMPLE_BEHIND_M)]
+    if not len(side) or half <= 0:
+        return 1.0
+    face = float(np.abs(side[:, 0] - middle).max())
+    return min(1.0, (face + FRAME_CLEAR_M) / half)
+
+
 def follow_field(before, after):
     """`field(points)`: each point moved as the skin nearest it moved from `before` to `after` (n x 3, the same points), the skin
     that stayed included: an eyebrow over a lid that came down stays with the skin under it (round 47: Dona Marta's eyebrow went

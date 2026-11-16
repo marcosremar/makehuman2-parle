@@ -72,4 +72,9 @@ assert np.allclose(dyed[1], scalp[1, :, :3]), "the strands painted on the scalp 
 neck_point = tip + np.array([0.0, 0.03, -2.8 * 0.064])
 shares = parle_paint.neck_share(np.array([cheek, neck_point]), tip, eyes)
 assert shares[0] == 0 and shares[1] == 1, "the face goes to the body's tone, or the neck keeps the face's"
+# The old blush wide and soft on the cheeks with the tip of the nose the reddest (round 51: "dois discos vermelhos" on the old man).
+old = parle_paint.blush_share(np.array([cheek, tip]), tip, eyes, "male-old")
+assert old[1] > old[0], "the old man's cheek is redder than the tip of his nose"
+wide_point = cheek + np.array([0.0, 0.0, -0.4 * 0.064])
+assert parle_paint.blush_share(np.array([wide_point]), tip, eyes, "male-old")[0] / parle_paint.BLUSH_SHARE["male-old"] > parle_paint.blush_share(np.array([wide_point]), tip, eyes, "male")[0] / parle_paint.BLUSH_SHARE["male"], "the old man's flush is no wider than the young man's"
 print("ok")

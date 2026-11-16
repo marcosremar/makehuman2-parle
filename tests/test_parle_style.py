@@ -104,4 +104,10 @@ mouth_m = tip_m + np.array(parle_style.SIMPLE_MOUTH) * 0.064
 beside = mouth_m + np.array([0.7 * 0.064, 0.0, 0.0])
 weights = parle_style.simple_weight(np.array([mouth_m, beside]), tip_m, eyes_m)
 assert weights[0] == 0 and weights[1] > 0.18, f"the lips are smoothed, or the cheek beside the mouth is not: {weights}"
+# A frame on the eyes comes in to the face at the temples (round 51: the old man's glasses stood out past his face in 3/4).
+face_pts = np.array([[x, y, 1.60] for x in np.linspace(-0.065, 0.065, 27) for y in (-0.09, -0.07, -0.05)])
+frame_pts = np.array([[x, -0.1, 1.6] for x in np.linspace(-0.08, 0.08, 17)] + [[0.08, -0.1 + d, 1.6] for d in (0.02, 0.05)])
+scale_f = parle_style.frame_scale(frame_pts, face_pts, 1.6)
+assert abs(scale_f - (0.065 + parle_style.FRAME_CLEAR_M) / 0.08) < 1e-6, f"the frame is not narrowed to the face: {scale_f}"
+assert parle_style.frame_scale(frame_pts * np.array([0.5, 1, 1]), face_pts, 1.6) == 1.0, "a frame narrower than the face was narrowed"
 print("ok")

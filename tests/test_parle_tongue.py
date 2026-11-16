@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
-from parle_tongue import ROOT_SHARE, TIP_SHARE, carried, is_mouth_key, lower_teeth, tongue_share  # noqa: E402
+from parle_tongue import LOWER_TEETH_TUCK, ROOT_SHARE, TIP_SHARE, carried, is_mouth_key, lower_teeth, tongue_share, tucked  # noqa: E402
 
 tongue = np.array([[0, -0.05, 0], [0, -0.03, 0], [0, 0.0, 0]], dtype=float)
 share = tongue_share(tongue)
@@ -21,4 +21,8 @@ assert move is not None and move[0, 2] < -0.012, "the tip stayed up while the ja
 assert abs(move[2, 2]) < abs(move[0, 2]) / 2, "the root moved as much as the tip"
 assert carried(tongue, np.zeros_like(jaw), lower) is None, "a shape that does not move the jaw must not move the tongue"
 assert is_mouth_key("viseme_aa") and is_mouth_key("jawOpen") and not is_mouth_key("faceChin")
+# The lower row tucks behind the lower lip, the upper row stays (2026-11-16: both rows showed in every open "a", "dente cerrado").
+tuck = tucked(jaw)
+assert np.allclose(tuck[:2], LOWER_TEETH_TUCK) and np.allclose(tuck[2:], 0.0), f"the upper teeth moved, or the lower did not: {tuck}"
+assert LOWER_TEETH_TUCK[2] < 0 and LOWER_TEETH_TUCK[1] > 0, "the lower teeth go down and back"
 print("ok")

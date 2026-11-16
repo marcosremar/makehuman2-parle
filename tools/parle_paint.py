@@ -33,6 +33,12 @@ CHEEK_SPOT = (0.12, -0.25, -0.72)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
 NOSE_SHARE = 0.8
+# The old: on the old man "dois discos vermelhos" on the cheeks, where the series' old man has a wide soft flush and the tip of his
+# nose is the reddest of his face (both judges, round 51). By kind: the width of the cheek's spot, how much of the blush the cheek
+# takes and how much the nose's tip takes.
+CHEEK_WIDE_BY_KIND = {"male-old": 0.52, "female-old": 0.46}
+CHEEK_PART_BY_KIND = {"male-old": 0.6, "female-old": 0.75}
+NOSE_SHARE_BY_KIND = {"male-old": 1.0, "female-old": 1.0}
 # The lips: the series draws no lip, the mouth is a cut with curled corners (round 21: "a série não desenha lábio"). The skin about
 # the mouth goes this share of the way to the face's own skin colour, so the painted lip of the kit's photograph goes.
 MOUTH_SPOT = (0.0, -0.05, -0.62)
@@ -149,13 +155,14 @@ def blush_share(points, tip, eyes, kind):
     unit = float(np.linalg.norm(centres[0] - centres[1]))
     middle_x = (centres[0][0] + centres[1][0]) / 2
     share = np.zeros(len(points))
+    wide, part = CHEEK_WIDE_BY_KIND.get(kind, CHEEK_WIDE), CHEEK_PART_BY_KIND.get(kind, 1.0)
     for centre in centres:
         side = np.sign(centre[0] - middle_x)
         at = centre + np.array([side * CHEEK_SPOT[0], CHEEK_SPOT[1], CHEEK_SPOT[2]]) * unit
-        far = np.linalg.norm(points - at, axis=1) / (CHEEK_WIDE * unit)
-        share = np.maximum(share, np.exp(-far * far))
+        far = np.linalg.norm(points - at, axis=1) / (wide * unit)
+        share = np.maximum(share, part * np.exp(-far * far))
     far = np.linalg.norm(points - np.asarray(tip, float), axis=1) / (NOSE_SPOT_WIDE * unit)
-    share = np.maximum(share, NOSE_SHARE * np.exp(-far * far))
+    share = np.maximum(share, NOSE_SHARE_BY_KIND.get(kind, NOSE_SHARE) * np.exp(-far * far))
     # Only the front of the face.
     share *= smooth(-0.2, 0.2, (np.asarray(tip, float)[1] + 1.2 * unit - points[:, 1]) / unit)
     return share * BLUSH_SHARE[kind]

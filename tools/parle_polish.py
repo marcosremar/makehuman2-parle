@@ -355,6 +355,24 @@ def follow_skin(meshes, before, after):
     return moved
 
 
+def frames_on_face(meshes, body, balls):
+    """Each frame of glasses on the eyes narrowed across to the face at the temples (`parle_style.frame_scale`); glasses worn on
+    top of the head are left. What was narrowed, by how much."""
+    eye_z = float(np.mean([centre[2] for centre, _ in balls]))
+    skin = rest_points(body)
+    done = {}
+    for obj in [item for item in meshes if item.type == "MESH" and any(word in item.name.lower() for word in ("glasses", "aviator"))]:
+        points = rest_points(obj)
+        if abs(float(np.median(points[:, 2])) - eye_z) > 0.03:
+            continue
+        scale = parle_style.frame_scale(points, skin, eye_z)
+        if scale < 1.0:
+            middle = float(np.median(skin[:, 0]))
+            warp(obj, lambda pts, scale=scale, middle=middle: np.column_stack([middle + (pts[:, 0] - middle) * scale, pts[:, 1], pts[:, 2]]))
+            done[obj.name] = round(scale, 3)
+    return done
+
+
 def warp(obj, field, kept=None):
     """`field` takes world points; every key is absolute, so a stretched lid still closes all the way. A key whose name `kept` accepts
     keeps its move instead: its points follow the rest, where the field takes it, by the move they had."""
@@ -1796,6 +1814,7 @@ def natural_body(meshes, rig, height, sex, kit):
             warp(obj, short)
         print("CABEÇA em volumes simples: o ponto que mais andou,", round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1), "mm")
         print("CABEÇA: hair, clothes and worn things followed the skin:", follow_skin(meshes, before, rest_points(body)))
+        print("CABEÇA: óculos na largura do rosto:", frames_on_face(meshes, body, balls))
     lined = lining_behind_skin(meshes)
     if lined:
         print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")

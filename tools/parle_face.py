@@ -792,6 +792,8 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
             move = move + brow_line_move(rest + move, brow, brow_outer, brow_long, brow_arch, brow_lift)
         if "teeth" in obj.name or "tongue" in obj.name:
             move[:, 2] -= TEETH_DOWN_M if "teeth" in obj.name else TONGUE_DOWN_M
+        if "teeth" in obj.name and "jawOpen" in keys:
+            move = move + parle_tongue.tucked(key_points(keys["jawOpen"]) - rest)
         if move.any():
             move_rest(obj, move)
         if obj.name == "Body":

@@ -16,6 +16,11 @@ ROOT_SHARE = 0.25
 LOWER_TEETH = 0.5
 MIN_CARRY_M = 1e-4
 MOUTH_KEYS = ("viseme_", "jawOpen")
+# The lower teeth sit a little lower and further back than the upper ones, behind the lower lip: in every open "a" and "o" both
+# rows showed, "dente cerrado" where the series the owner chose shows the upper row over a dark mouth (both judges by sight, rounds
+# 44 to 51 of 2026-11-16). The upper row stays where the owner had it shown (`parle_face.TEETH_DOWN_M`, 2026-11-08), and the mouth
+# opens no wider (the owner kept Rafa's limit on 2026-11-16).
+LOWER_TEETH_TUCK = (0.0, 0.0008, -0.0015)
 
 
 def tongue_share(rest):
@@ -28,6 +33,11 @@ def lower_teeth(jaw_moves):
     """The teeth the jaw carries are the ones that move at least half as far as the farthest."""
     distance = np.linalg.norm(jaw_moves, axis=1)
     return distance >= LOWER_TEETH * distance.max()
+
+
+def tucked(jaw_moves):
+    """The move of each tooth that tucks the lower row behind the lower lip (LOWER_TEETH_TUCK), none on the upper row."""
+    return np.where(lower_teeth(jaw_moves)[:, None], np.asarray(LOWER_TEETH_TUCK, float)[None, :], 0.0)
 
 
 def carried(tongue_rest, teeth_moves, lower):
