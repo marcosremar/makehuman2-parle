@@ -159,6 +159,9 @@ BROW_LONG = {"female": 0.85, "male": 1.0}
 # "a scowl" to the judge by sight (Carlos, rounds 13 and 14, the lowest face of the five), where Rafa's and the same man's in the
 # game run in one low sweep over the eye. Theirs keep more of it than the women's: a man's brow sits lower and is thicker.
 BROW_ARCH = {"female": 0.5, "male": 0.6}
+# The men's eyebrows sloped down to the nose, an angry look (Carlos, both judges, rounds 51 and 52: "a ponta de dentro uns 3 mm mais
+# alta", "metade da inclinação para o centro"): their inner end goes up this much more, falling to nothing at the temple.
+BROW_INNER_UP_M = {"female": 0.0, "male": 0.002}
 # With half the arch the whole eyebrow sat where its two ends were, 8 mm over the middle of the eye, and pressed on the lid ("the
 # darkest, hardest shape on the face", the judge by sight, 2026-11-12): it goes up by this much. The kit's faceBrowHeight is not the
 # way: its whole reach on the eyebrow is 3 mm.
@@ -422,10 +425,11 @@ def move_rest(obj, move):
     obj.data.update()
 
 
-def brow_line_move(points, thin, outer=1.0, long=1.0, arch=1.0, lift=0.0):
+def brow_line_move(points, thin, outer=1.0, long=1.0, arch=1.0, lift=0.0, inner=0.0):
     """Thinner around its middle line, side by side: `thin` of its thickness is left at the inner end, and `outer` of that at the
     outer end, falling evenly along the eyebrow; `long` of its length is left, from the inner end; `arch` of the rise of its
-    middle line over the straight line between its two ends; and the whole of it goes up by `lift`."""
+    middle line over the straight line between its two ends; the whole of it goes up by `lift`, and its inner end by `inner` more,
+    falling evenly to nothing at the outer end."""
     middle = points[:, 0].mean()
     move = np.zeros_like(points)
     for side in (points[:, 0] < middle, points[:, 0] >= middle):
@@ -435,7 +439,7 @@ def brow_line_move(points, thin, outer=1.0, long=1.0, arch=1.0, lift=0.0):
         along = (away - away.min()) / max(np.ptp(away), 1e-9)
         ends = np.polyval(curve, (points[side, 0][away.argmin()], points[side, 0][away.argmax()]))
         level = ends[0] + (ends[1] - ends[0]) * along
-        move[side, 2] = level + (line - level) * arch + (points[side, 2] - line) * thin * (1 - (1 - outer) * along) - points[side, 2] + lift
+        move[side, 2] = level + (line - level) * arch + (points[side, 2] - line) * thin * (1 - (1 - outer) * along) - points[side, 2] + lift + inner * (1 - along)
         move[side, 0] = np.sign(points[side, 0] - middle) * (away - away.min()) * (long - 1)
     return move
 
@@ -764,7 +768,7 @@ def calm_speech(meshes, shares):
         obj.data.update()
 
 
-def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0, brow_lift=0.0, upper_lip=0.0, own=None):
+def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips=None, bow=0.0, longer=0.0, fair=None, brow=BROW_THIN["male"], brow_outer=1.0, brow_long=1.0, brow_arch=1.0, brow_lift=0.0, upper_lip=0.0, own=None, brow_inner=0.0):
     look = {**CALM_LOOK, **({"faceMouthWidth": wide} if wide else {}), **({"faceCupidBow": bow} if bow else {}), **({"faceVChin": longer} if longer else {}), **(fair or {})}
     for obj in meshes:
         keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
@@ -789,7 +793,7 @@ def calm_look(meshes, lip_thin=0.0, back=0.0, wide=0.0, chin=0.0, rounds=0, lips
         if back and ("teeth" in obj.name or "tongue" in obj.name):
             move[:, 1] += back
         if "eyebrow" in obj.name:
-            move = move + brow_line_move(rest + move, brow, brow_outer, brow_long, brow_arch, brow_lift)
+            move = move + brow_line_move(rest + move, brow, brow_outer, brow_long, brow_arch, brow_lift, brow_inner)
         if "teeth" in obj.name or "tongue" in obj.name:
             move[:, 2] -= TEETH_DOWN_M if "teeth" in obj.name else TONGUE_DOWN_M
         if "teeth" in obj.name and "jawOpen" in keys:
@@ -1042,7 +1046,7 @@ def clean_face(body, added, job, env):
         parle_polish.round_globes(obj)
     own = own_traits(job)
     style = parle_style.STYLE[parle_style.kind_of(sex, job)]
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], fair_look(sex, own), style["brow"], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex], own)
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], fair_look(sex, own), style["brow"], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex], own, BROW_INNER_UP_M[sex])
     soften_pout(body, POUT_FORWARD[sex])
     globe = next((obj for obj in added if obj.type == "MESH" and "low-poly" in obj.name), None)
     if globe is None:
