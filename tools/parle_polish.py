@@ -17,6 +17,8 @@ from mathutils.kdtree import KDTree
 import parle_build
 import parle_bust
 import parle_head
+import parle_lips
+import parle_paint
 import parle_style
 import parle_limbs
 import parle_rig
@@ -223,7 +225,7 @@ EYE_TALL_MOST = 0.43
 # the eye the owner's eye decides: shown the pharmacy's attendant and the pet shop's on the drawn head, each with the opening held
 # to 0.43 and let go to 0.50, he took the rounder one the same day ("A mais aberta").
 # The series the owner chose on 2026-11-15 has round eyes, 0.6 to 0.7 as tall as wide.
-EYE_TALL_MOST_BY_SEX = {"female": 0.62, "male": 0.62}
+EYE_TALL_MOST_BY_SEX = {"female": 0.72, "male": 0.72}
 # How much of a point's weight on the head makes it the head's own for the drawn head (`drawn_head`).
 HEAD_WHOLE = 0.4
 # A trial of another limit without touching this file (`eye_round_most`): a QA door, not a mode of the cast.
@@ -722,6 +724,42 @@ MOUTH_MOVES = ("viseme_", "jawOpen", "mouth", "tongue")
 
 def keeps_its_move(name):
     return name.startswith(MOUTH_MOVES)
+
+
+def drawn_paint(meshes, body, kind, sex):
+    """The paint of a drawn face that has to come after the cast's own dyes (`parle_paint`): the eyebrows as clean bands (dark on the
+    young, light grey on the old; the cast dyes them in the hair's colour after the face is made), and a woman's lips, drawn on
+    their own patch of the map (`parle_lips.LIP_PATCH_PX`), most of the way to the skin at their corners: the series draws a mouth
+    as a cut with a little colour. What was painted."""
+    done = []
+    for obj in [item for item in meshes if item.type == "MESH" and "eyebrow" in item.name]:
+        for material in obj.data.materials:
+            for node in material.node_tree.nodes:
+                if node.type == "TEX_IMAGE" and node.image:
+                    width, height = node.image.size
+                    pixels = np.empty(width * height * 4, np.float32)
+                    node.image.pixels.foreach_get(pixels)
+                    node.image.pixels.foreach_set(parle_paint.drawn_brow(pixels.reshape(height, width, 4), kind.endswith("-old")).ravel())
+                    node.image.pack()
+                    done.append("sobrancelha")
+    skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None) if body.active_material else None
+    if sex == "female" and skin is not None:
+        width, height = skin.size
+        pixels = np.empty(width * height * 4, np.float32)
+        skin.pixels.foreach_get(pixels)
+        pixels = pixels.reshape(height, width, 4)
+        scale = width / parle_lips.SIZE
+        left, top, wide, tall = (round(value * scale) for value in parle_lips.LIP_PATCH_PX)
+        edge = round(parle_lips.LIP_PATCH_EDGE_PX * scale)
+        # Rows of the map counted from its top; Blender's start at the bottom.
+        rows = slice(height - (top + tall + edge), height - (top - edge))
+        columns = slice(left - edge, left + wide + edge)
+        corner = pixels[height - (top + tall // 2), left - edge, :3].copy()
+        pixels[rows, columns, :3] = pixels[rows, columns, :3] * (1 - parle_paint.LIP_PATCH_TO_SKIN) + corner * parle_paint.LIP_PATCH_TO_SKIN
+        skin.pixels.foreach_set(pixels.ravel())
+        skin.pack()
+        done.append("lábio")
+    return done
 
 
 def matte_skin(body):
@@ -1645,6 +1683,8 @@ def natural_body(meshes, rig, height, sex, kit):
         print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
     if body is not None:
         print("PELE lisa: relevo tirado de", matte_skin(body), "ligações")
+    if body is not None:
+        print("PINTURA de desenho:", drawn_paint(meshes, body, str(body.get("parle_kind", sex)), sex))
     if sex == "female" and body is not None and globe is not None:
         import parle_lip_cut  # here and not above: it reads this module
 

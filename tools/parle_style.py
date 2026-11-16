@@ -17,7 +17,7 @@ import numpy as np
 # own default, which this replaces). The series' young men have noses 0.31 to 0.37 of the face long against 0.29 to 0.31 on the cast,
 # and much further out; its old man's is the biggest thing on his face.
 STYLE = {
-    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.8, "eye": 1.25, "skin": 1.3},
+    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25, "skin": 1.3},
     "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.2, "eye": 1.25, "skin": 1.3},
     "female": {"forward": 0.8, "nose": 1.45, "tip": 1.3, "brow": 1.2, "eye": 1.12, "skin": 1.3},
     "female-old": {"forward": 0.85, "nose": 1.65, "tip": 1.4, "brow": 1.3, "eye": 1.12, "skin": 1.3},
@@ -29,6 +29,8 @@ STYLE = {
 # The owner, 2026-11-16, on the sculpted Carlos: "corrige o nariz dele que está amassado". Grown across 1.9 and to the front only
 # 0.95, the men's nose came out wide and pressed flat, and the ball of the sculpture then pulled its bridge in: it now grows to the
 # front more than across, and the ball only fills out (SCULPT, `sculpt_field`).
+# Round 21 (2026-11-16, 4.0): on all four the nose small and flat for the style; the young man's eyebrow too wide. The nose balls
+# grew by a fifth to a quarter (SCULPT), the young man's eyebrow down from 1.8.
 # Round 6 (3.4) asked for skin smooth and matte, with no relief of pores; a wider mouth; fuller cheeks; thicker, higher eyebrows.
 # Round 4 (3.25) asked first for eyes 40% more open with the white showing, then a bigger nose and fuller cheeks.
 # "eye" multiplies the size the eyes of the kit's sex already take (`parle_polish.eye_scale`); "tip" grows the tip of the nose alone
@@ -36,7 +38,8 @@ STYLE = {
 NOSE_TIP_REACH_M = 0.016
 # How round an eye opens at least, its height over its width: the series' eyes are 0.6 to 0.7 (read on its portraits); the cast's
 # lids gave 0.42, with the iris filling the opening (round 5).
-EYE_TALL_LEAST = 0.58
+# Round 20 (2026-11-16): at 0.58 the upper lid still covered the top third of the iris, a sleepy look, on all four.
+EYE_TALL_LEAST = 0.68
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 EYE_GLOW = 0.0
 SKIN_WARM = 0.012
@@ -125,10 +128,10 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.27, 0.29, 0.25), "nose_share": 0.95, "cheek": 0.52, "cheek_share": 0.45, "shell": 0.28, "chin": 0.42},
-    "male-old": {"nose_ball": (0.32, 0.34, 0.3), "nose_share": 0.95, "cheek": 0.56, "cheek_share": 0.5, "shell": 0.3, "chin": 0.45},
-    "female": {"nose_ball": (0.21, 0.18, 0.17), "nose_share": 0.9, "cheek": 0.5, "cheek_share": 0.45, "shell": 0.22, "chin": 0.36},
-    "female-old": {"nose_ball": (0.25, 0.21, 0.2), "nose_share": 0.9, "cheek": 0.53, "cheek_share": 0.5, "shell": 0.24, "chin": 0.38},
+    "male": {"nose_ball": (0.33, 0.36, 0.31), "nose_share": 0.95, "cheek": 0.52, "cheek_share": 0.45, "shell": 0.28, "chin": 0.42},
+    "male-old": {"nose_ball": (0.4, 0.43, 0.37), "nose_share": 0.95, "cheek": 0.56, "cheek_share": 0.5, "shell": 0.3, "chin": 0.45},
+    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.5, "cheek_share": 0.45, "shell": 0.22, "chin": 0.36},
+    "female-old": {"nose_ball": (0.28, 0.28, 0.25), "nose_share": 0.9, "cheek": 0.53, "cheek_share": 0.5, "shell": 0.24, "chin": 0.38},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
@@ -140,6 +143,8 @@ REACH = 1.4
 # it closed the eye).
 SHELL_FROM = 1.18
 NOSE_BALL_UP = 0.1
+# How far under the middle of the globe the shell over an eye reaches, in its radii.
+SHELL_LOW = 0.15
 # The ball stands this share of its depth behind the tip, so the tip comes out a little into a round bulb and nothing is pulled in.
 NOSE_BALL_BACK = 0.78
 NOSE_ZONE = 0.55
@@ -173,7 +178,8 @@ def sculpt_field(tip, eyes, kind):
             centre = np.asarray(centre, float)
             off = points - centre
             far = np.maximum(np.linalg.norm(off, axis=1), 1e-9)
-            ahead = (-off[:, 1] / far > 0.0) & front
+            # Above the eye only (round 20, 2026-11-16): thickened under it too, the skin stood as a bag under each eye.
+            ahead = (-off[:, 1] / far > 0.0) & front & (off[:, 2] > SHELL_LOW * radius)
             # The rim of the opening stays where the lids put it (SHELL_FROM): the shell thickens from there outwards.
             want = radius * (1.0 + spec["shell"] * smooth((far / radius - SHELL_FROM) / 0.6))
             near = ahead & (far < want) & (far < 2.4 * radius) & (far > SHELL_FROM * radius)

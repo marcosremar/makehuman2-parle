@@ -24,6 +24,7 @@ import parle_mouth  # noqa: E402
 import parle_mouth_arkit  # noqa: E402
 import parle_mouth_close  # noqa: E402
 import parle_polish  # noqa: E402
+import parle_paint  # noqa: E402
 import parle_style  # noqa: E402
 import parle_toon  # noqa: E402
 import parle_normals  # noqa: E402
@@ -173,7 +174,7 @@ LIP_THIN = {"female": 0.0, "male": -0.5}
 # it left a thread of colour over a bare swelling, since the colour is measured from the slit of the mesh, which lies some 3 mm
 # inside the line where the lips are seen to meet. A point is of the lower lip when the open jaw carries it this share of how far
 # it carries the lip it carries most.
-UPPER_LIP_VOLUME = {"female": 2.0, "male": 0.0}
+UPPER_LIP_VOLUME = {"female": 0.5, "male": 0.0}
 UPPER_LIP_JAW_SHARE = 0.3
 # The lower lip read as two, a crumpled ridge over the hollow under it: three lips with the upper one (owner, 2026-11-09, pharmacy). Thinner
 # only creased it and filling the hollow made a band of its own. The outer skin of its lower half and of the hollow relaxes into one form.
@@ -199,7 +200,10 @@ CHIN_BACK = {"female": 0.0035, "male": 0.0}
 # stood 40% as tall as the mouth is wide where Sofia's stand 34% (`parle_beauty.lips_full`, which reads the relief); with no growth
 # and the hollow at 11.5 the lower lip was a thin band under the upper one, and at 1 mm and 12.5 still thin and flat to the judge by
 # sight. Back to 2 mm and 13.5: a full lower lip is what the judge asks for, not what the measure does.
-LIPS_FULL = {"female": {"upper_forward": 0.001, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028, "corner_up": 0.0042, "corner_from": 0.008, "corner_at": 0.027, "corner_out": 0.02, "corner_tall": 0.014}, "male": None}
+LIPS_FULL_ROUND = {"female": {"upper_forward": 0.001, "upper_at": 0.0045, "upper_wide": 0.0035, "upper_grow": 0.0012, "lower_forward": 0.0, "lower_at": 0.0055, "lower_wide": 0.0042, "lower_grow": 0.002, "hollow_back": 0.003, "hollow_at": 0.0135, "hollow_wide": 0.004, "roll_back": 0.0032, "roll_wide": 0.0028, "corner_up": 0.0042, "corner_from": 0.008, "corner_at": 0.027, "corner_out": 0.02, "corner_tall": 0.014}, "male": None}
+# The series' young women have thin, simple lips, nearly a line of colour (round 20 of the loop, 2026-11-16: "lábios uns 35 % mais
+# finos; o lábio rosado e cheio puxa para o realista"): the full lips above are kept for the record and no kind takes them.
+LIPS_FULL = {"female": None, "male": None}
 LIPS_KEEP_LINE_M = 0.0012
 CORNER_AT_M = 0.027
 CORNER_NEAR_END_M = 0.004
@@ -284,7 +288,7 @@ SPEECH_MIX = {
 # and the same women's in the game 30 to 38%; the lips have since been given a form of their own (`LIPS_FULL`) and the mouth sent
 # back (`MOUTH_BACK`), which is what the pout was. +0.1 left it at 38%, to the judge by sight still twice the width of the nose
 # where Sofia's is one and a half: -0.25, about 35%.
-MOUTH_WIDE = {"female": 0.5, "male": 0.7}
+MOUTH_WIDE = {"female": 0.7, "male": 0.9}
 MOUTH_CORE_M = 0.006
 MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035
@@ -299,7 +303,9 @@ SEAM_LOW_M = 0.4
 BROW_TOWARD_SKIN = 0.15
 BROW_ALPHA = 0.95
 # A matte eye (roughness 0.7) had no catchlight and looked dead; the cornea is wet.
-EYE_ROUGHNESS = 0.15
+# Round 20 (2026-11-16): at 0.15 the studio light lay on the cornea as a wide grey wedge over the iris; the series' eyes have one
+# small clean catchlight, painted on the map (`eye_texture.CATCHLIGHT`).
+EYE_ROUGHNESS = 0.5
 # Earrings: one pair, smaller, and not the same game pair on every woman (owner, 2026-11-07).
 EARRING_SCALE = 0.6
 GAME_EARRINGS_KEPT_EVERY = 3
@@ -951,6 +957,42 @@ def soften_brows(obj, skin):
             node.image.pack()
 
 
+def map_pixels(image):
+    width, height = image.size
+    pixels = np.empty(width * height * 4, np.float32)
+    image.pixels.foreach_get(pixels)
+    return pixels.reshape(height, width, 4)
+
+
+def paint_face(body, added, tip, balls, kind):
+    """The paint of a drawn face (`parle_paint`): the skin map smoothed, the painted lip gone to the skin, blush on the cheeks and the nose."""
+    # The eyebrows are painted last, in `parle_polish.drawn_paint`: the cast dyes them in the hair's colour after this.
+    skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None)
+    if skin is None:
+        return
+    pixels = map_pixels(skin)
+    height, width = pixels.shape[:2]
+    pixels[:, :, :3] = parle_paint.box_blur(pixels[:, :, :3], max(1, round(parle_paint.SKIN_BLUR_PX * width / 1024)))
+    loops = body.data.uv_layers.active.data
+    triangles = [(polygon.loop_indices[0], second, third) for polygon in body.data.polygons for second, third in zip(polygon.loop_indices[1:], polygon.loop_indices[2:])]
+    rest = key_points(body.data.shape_keys.key_blocks[0]) if body.data.shape_keys else np.array([vertex.co[:] for vertex in body.data.vertices])
+    points = np.array([[body.data.loops[index].vertex_index for index in triangle] for triangle in triangles])
+
+    def canvas_of(share):
+        hit = share[points].max(axis=1) > 0.005
+        uv = np.array([[loops[index].uv[:] for index in triangle] for triangle in np.asarray(triangles)[hit]], np.float64)
+        return parle_mouth.shade_map(width, height, uv, share[points[hit]])
+
+    # First the painted lip goes to the skin of the face about it (the median of the cheeks), then the blush.
+    cheeks = parle_paint.blush_share(rest, tip, balls, kind) > 0.5 * parle_paint.BLUSH_SHARE[kind]
+    cheek_canvas = canvas_of(cheeks.astype(float))
+    face_skin = np.median(pixels[:, :, :3][np.nan_to_num(cheek_canvas) > 0.5], axis=0)
+    pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls)), face_skin)
+    pixels[:, :, :3] = parle_paint.blushed(pixels[:, :, :3], canvas_of(parle_paint.blush_share(rest, tip, balls, kind)))
+    skin.pixels.foreach_set(pixels.ravel())
+    skin.pack()
+
+
 def set_map(obj, image):
     for node in obj.active_material.node_tree.nodes:
         if node.type == "TEX_IMAGE":
@@ -986,6 +1028,7 @@ def clean_face(body, added, job, env):
         pixels[:, :3] = parle_style.warmer(pixels[:, :3], style["skin"])
         skin.pixels.foreach_set(pixels.astype(np.float32).ravel())
         skin.pack()
+    paint_face(body, added, tip, parle_polish.eye_balls(globe), body["parle_kind"])
     keep_lining_inside(body)
     tongue_follows_jaw([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys])
     for obj in [item for item in added if item.type == "MESH" and "teeth" in item.name]:

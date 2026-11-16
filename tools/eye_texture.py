@@ -23,7 +23,9 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # and asked for the iris bigger with the opening (2026-11-12, `parle_face.FAIR_LOOK`): on a drawn face the iris fills more of the eye.
 # At 0.13 it filled the opening from lid to lid, with slivers of white: "two dark beads" (the same judge, five rounds on). Against
 # the width of the face it measured 0.109, Sofia's 0.097 and the same woman's in the game 0.101: a little smaller.
-IRIS_RADIUS = 0.12
+# Round 21 (2026-11-16): with the lids opened rounder the white showed all about the iris, a scared look; the series' iris fills
+# most of the eye.
+IRIS_RADIUS = 0.155
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 # Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
 # it: at 0.2 the upper lid still lay across the top of the pupil. With the lids as they are now (`parle_face.FAIR_LOOK`), at 0.3
@@ -63,6 +65,11 @@ IRISES = {name: tuple(min(1.0, value * IRIS_LIGHTER) for value in colour) for na
 LIMBUS = np.array((0.09, 0.07, 0.03))
 PUPIL = np.array((0.0, 0.0, 0.0))
 SCLERA = np.array((0.93, 0.95, 0.99))
+# One small clean catchlight up and to one side of the pupil, as every eye of the series the owner chose has (round 20 of the loop,
+# 2026-11-16): a disc in iris radii, at (across, down) from the iris's middle. The iris drawn flat, with almost none of its fibres.
+CATCHLIGHT = (0.36, -0.4)
+CATCHLIGHT_RADIUS = 0.17
+FIBRES = 0.04
 
 
 def fibres(angle, seed):
@@ -89,13 +96,15 @@ def paint(iris_colour):
         near = radius < 1.2
         # A little lighter near the pupil, as in both references.
         colour = np.array(iris_colour)[None, None] * (1.15 - 0.3 * np.clip((radius - PUPIL_SHARE) / (1 - PUPIL_SHARE), 0, 1))[..., None]
-        colour = colour * (1 + 0.14 * fibres(np.arctan2(dy, dx), index)[..., None])
+        colour = colour * (1 + FIBRES * fibres(np.arctan2(dy, dx), index)[..., None])
         ring = smooth(LIMBUS_SHARE - 0.03, LIMBUS_SHARE + 0.02, radius)[..., None]
         colour = colour * (1 - ring) + LIMBUS * ring
         iris = (1 - smooth(0.98, 1.02, radius))[..., None]
         pupil = (1 - smooth(PUPIL_SHARE - 0.02, PUPIL_SHARE + 0.02, radius))[..., None]
         eye = SCLERA * (1 - iris) + colour * iris
         eye = eye * (1 - pupil) + PUPIL * pupil
+        glint = (1 - smooth(CATCHLIGHT_RADIUS - 0.03, CATCHLIGHT_RADIUS + 0.03, np.hypot(dx - CATCHLIGHT[0], dy - CATCHLIGHT[1])))[..., None]
+        eye = eye * (1 - glint) + glint
         image[near] = eye[near]
     return (np.clip(image, 0, 1) * 255 + 0.5).astype(np.uint8)
 
