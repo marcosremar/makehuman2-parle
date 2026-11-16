@@ -27,6 +27,7 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # most of the eye.
 # Round 23 (4.5): at 0.155 the iris filled the eye and no white showed: between the two.
 # Round 25: with the lid lifted, an iris filling more of the width (about 55 to 60 % of it in the series).
+# Round 31: the iris still "pequena, com branco dos dois lados" on all four.
 IRIS_RADIUS = 0.15
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 # Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
@@ -59,7 +60,8 @@ LIMBUS_SHARE = 0.90
 # The series the owner chose on 2026-11-15 has lighter, clearer brown irises: a judge by sight against it asked for them a quarter
 # lighter (round 8 of the loop), so each colour is IRIS_LIGHTER times the one chosen above.
 # Round 27: the dark brown iris read almost black; the series' are a mid brown.
-IRIS_LIGHTER = 1.3
+# Round 33: at 1.6 the brown washed into the white, an iris "sumida".
+IRIS_LIGHTER = 1.15
 IRISES = {name: tuple(min(1.0, value * IRIS_LIGHTER) for value in colour) for name, colour in {
     "castanho-escuro": (0.16, 0.2, 0.316),
     "castanho": (0.202, 0.251, 0.393),
@@ -67,7 +69,8 @@ IRISES = {name: tuple(min(1.0, value * IRIS_LIGHTER) for value in colour) for na
 }.items()}
 LIMBUS = np.array((0.09, 0.07, 0.03))
 PUPIL = np.array((0.0, 0.0, 0.0))
-SCLERA = np.array((0.93, 0.95, 0.99))
+# Written by cv2 (blue first): the old bluish white came out pink on the eye (round 33: "branco rosado"). A neutral white.
+SCLERA = np.array((0.96, 0.96, 0.96))
 # One small clean catchlight up and to one side of the pupil, as every eye of the series the owner chose has (round 20 of the loop,
 # 2026-11-16): a disc in iris radii, at (across, down) from the iris's middle. The iris drawn flat, with almost none of its fibres.
 CATCHLIGHT = (0.36, -0.4)

@@ -39,9 +39,11 @@ NOSE_TIP_REACH_M = 0.016
 # How round an eye opens at least, its height over its width: the series' eyes are 0.6 to 0.7 (read on its portraits); the cast's
 # lids gave 0.42, with the iris filling the opening (round 5).
 # Round 20 (2026-11-16): at 0.58 the upper lid still covered the top third of the iris, a sleepy look, on all four.
-EYE_TALL_LEAST = 0.66
+# Round 29 (5.0): at 0.66 the women and the old man stared (white all about the iris): the series' lid covers 15 to 20 % of it.
+EYE_TALL_LEAST = 0.6
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
-EYE_GLOW = 0.0
+# Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
+EYE_GLOW = 0.15
 SKIN_WARM = 0.012
 # The nose's reach about its tip, in metres; below the tip it is shorter (NOSE_BELOW), so the upper lip stays where it was, and up
 # the bridge longer (NOSE_ABOVE). The middle it grows about stands NOSE_BACK behind the tip, a little above it.
@@ -128,10 +130,10 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.33, 0.36, 0.31), "nose_share": 0.95, "cheek": 0.52, "cheek_share": 0.45, "shell": 0.28, "chin": 0.5, "lid": 0.1},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.6, "cheek_share": 0.6, "shell": 0.3, "chin": 0.45, "lid": 0.14},
-    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.5, "cheek_share": 0.45, "shell": 0.22, "chin": 0.36, "lid": 0.03},
-    "female-old": {"nose_ball": (0.28, 0.28, 0.25), "nose_share": 0.9, "cheek": 0.58, "cheek_share": 0.65, "shell": 0.24, "chin": 0.38, "lid": 0.0},
+    "male": {"nose_ball": (0.37, 0.38, 0.3), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "shell": 0.28, "chin": 0.5, "lid": 0.1},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.7, "shell": 0.3, "chin": 0.45, "lid": 0.06},
+    "female": {"nose_ball": (0.24, 0.24, 0.21), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "shell": 0.22, "chin": 0.36, "lid": -0.06},
+    "female-old": {"nose_ball": (0.28, 0.28, 0.25), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.75, "shell": 0.24, "chin": 0.38, "lid": -0.08},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
@@ -158,6 +160,15 @@ LID_REACH = 1.9
 # The ball stands this share of its depth behind the tip, so the tip comes out a little into a round bulb and nothing is pulled in.
 NOSE_BALL_BACK = 0.78
 NOSE_ZONE = 0.55
+# The lower face (round 31, 2026-11-16, 5.0): "a estrutura ainda é a de uma cabeça humana realista … rosto comprido e estreito
+# embaixo"; the series' faces are short under the nose. From the nose tip down to the chin (LOWER_CHIN distances between the eyes
+# under the tip) the face is this share as tall; the neck takes the move back over LOWER_NECK, and the whole width of the jaw
+# (LOWER_WIDE either side) goes with it.
+LOWER_FACE = {"male": 0.86, "male-old": 0.9, "female": 0.88, "female-old": 0.9}
+LOWER_CHIN = -1.3
+LOWER_NECK = 0.8
+LOWER_BACK = 1.3
+LOWER_WIDE = 1.8
 # Simple volumes (round 27, 2026-11-16, 4.1: "pele cerosa e realista", the folds of the neck and the chin, the lips of a real mouth,
 # "volumes mais simples e redondos"). The face and the neck are smoothed where a real face keeps its small forms: about a middle
 # behind and under the nose (in distances between the eyes), whole within SIMPLE_IN and none past SIMPLE_OUT; the rims of the eyes
@@ -221,6 +232,29 @@ def smoothed(points, edges, weight, rounds=None):
             np.add.at(total, edges[:, 1], points[edges[:, 0]])
             points = points + step * weight * (total / count - points)
     return points
+
+
+def lower_face_field(tip, eyes, kind):
+    """`field(points)`: the face under the nose made shorter by its kind's LOWER_FACE (the chin comes up, the mouth part of the
+    way), the neck under the chin following it back to where it was. For the skin and the teeth and tongue alike."""
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    tip = np.asarray(tip, float)
+    chin = tip[2] + LOWER_CHIN * unit
+    lift = (1 - LOWER_FACE[kind]) * (tip[2] - chin)
+
+    def field(points):
+        points = np.asarray(points, float).copy()
+        z = points[:, 2]
+        share = np.where(z > chin, (tip[2] - z) / (tip[2] - chin), 1.0 - (chin - z) / (LOWER_NECK * unit))
+        share = np.clip(share, 0, 1) * (z < tip[2])
+        share *= smooth((LOWER_WIDE - np.abs(points[:, 0] - tip[0]) / unit) / 0.5)
+        # The front of the face and the throat only (round 32: moved all round, the back of the neck came out through the collar).
+        share *= smooth((tip[1] + LOWER_BACK * unit - points[:, 1]) / (0.5 * unit))
+        points[:, 2] += lift * share
+        return points
+
+    return field
 
 
 def sculpt_field(tip, eyes, kind):

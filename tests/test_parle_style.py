@@ -53,4 +53,10 @@ lips = tip + np.array([0.0, 0.006, -0.04])
 neck = tip + np.array([0.0, 0.06, -0.12])
 weight = parle_style.simple_weight(np.array([rim, lips, neck]), tip, eyes)
 assert weight[0] < 0.01 and weight[1] < 0.01 and weight[2] > 0.9, f"the smoothing takes the eye or the lips, or leaves the neck: {weight}"
+# The lower face shorter (round 31): the chin comes up most, the mouth part of the way, and nothing above the nose tip nor far down
+# the neck moves.
+short = parle_style.lower_face_field(tip, eyes, "male")
+probe = np.array([[0.0, -0.09, tip[2] - 0.083], [0.0, -0.09, tip[2] - 0.04], [0.0, -0.1, tip[2] + 0.01], [0.0, -0.05, 1.4]])
+up = (short(probe) - probe)[:, 2]
+assert up[0] > up[1] > 0.002 and abs(up[2]) < 1e-9 and abs(up[3]) < 1e-9, f"the lower face is not shortened as it should be: {up}"
 print("ok")

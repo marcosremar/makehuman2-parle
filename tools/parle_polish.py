@@ -1691,6 +1691,10 @@ def natural_body(meshes, rig, height, sex, kit):
         weight[np.unique(edges[sides < 2])] = 0.0
         move = parle_style.smoothed(rest, edges, weight) - rest
         warp(body, lambda points: points + move, kept=lambda name: True)
+        # The lower face shorter (`parle_style.lower_face_field`), the teeth and the tongue with it.
+        short = parle_style.lower_face_field(tip, balls, kind)
+        for obj in [body, *(item for item in meshes if item.type == "MESH" and ("teeth" in item.name or "tongue" in item.name))]:
+            warp(obj, short)
         print("CABEÇA em volumes simples: o ponto que mais andou,", round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1), "mm")
     lined = lining_behind_skin(meshes)
     if lined:
