@@ -66,4 +66,15 @@ skin_after = skin_before + np.array([[0.0, -0.005, 0.0]] * 3 + [[0.0, 0.0, 0.0]]
 follow = parle_style.follow_field(skin_before, skin_after)(np.array([[0.005, 0.005, 0.01], [0.3, 0.3, 0.3]]))
 assert abs(follow[0, 1] - 0.0) < 1e-4, "the hair over the moved skin stays where it was"
 assert np.allclose(follow[1], [0.3, 0.3, 0.3]), "a point far from the moved skin moves"
+# The lid lifted by the blink run backwards no longer folds at the edge of the blink (rounds 24 to 46: a pale arc over each
+# eyebrow): along a chain, the abrupt edge of a move becomes a slope, the pinned rim kept.
+chain = np.zeros((12, 3))
+chain[:4, 2] = 0.004
+edges_chain = np.array([[i, i + 1] for i in range(11)])
+pin = np.zeros(12, bool)
+pin[0] = True
+evened = parle_style.spread(chain, edges_chain, pin, np.arange(12) < 10, 200)
+assert evened[0, 2] == 0.004, "the lid's rim moved"
+assert np.abs(np.diff(evened[:, 2])).max() < 0.5 * np.abs(np.diff(chain[:, 2])).max(), "the edge of the lift stays a fold"
+assert evened[11, 2] == 0.0, "a point past the reach moved"
 print("ok")

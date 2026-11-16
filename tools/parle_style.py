@@ -253,6 +253,24 @@ FOLLOW_NEAR = 0.025
 FOLLOW_FAR = 0.06
 
 
+def spread(step, edges, pinned, free, rounds):
+    """The move `step` (n x 3) of a mesh by its `edges` (m x 2) evened out over the points `free` (n, bool) by `rounds` of taking
+    the mean of their neighbours' move, the `pinned` ones and the rest kept: an abrupt edge of a move becomes a slope."""
+    step = np.asarray(step, float).copy()
+    edges = np.asarray(edges, int)
+    loose = np.asarray(free, bool) & ~np.asarray(pinned, bool)
+    count = np.zeros(len(step))
+    np.add.at(count, edges[:, 0], 1)
+    np.add.at(count, edges[:, 1], 1)
+    for _ in range(rounds):
+        total = np.zeros_like(step)
+        np.add.at(total, edges[:, 0], step[edges[:, 1]])
+        np.add.at(total, edges[:, 1], step[edges[:, 0]])
+        mean = total / np.maximum(count, 1)[:, None]
+        step[loose] = mean[loose]
+    return step
+
+
 def follow_field(before, after):
     """`field(points)`: each point moved as the skin nearest it moved from `before` to `after` (n x 3, the same points)."""
     before, after = np.asarray(before, float), np.asarray(after, float)

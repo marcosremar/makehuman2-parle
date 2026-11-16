@@ -1440,6 +1440,16 @@ def eye_round_most(sex):
     return float(os.environ.get(EYE_ROUND_TRIAL) or EYE_TALL_MOST_BY_SEX.get(sex, EYE_TALL_MOST))
 
 
+# The blink run backwards pushes the upper lid's skin up into the skin under the eyebrow, which the blink does not move: from
+# round 24 (EYE_OPEN_BLINK_MOST from 0.6 to 1.0) it folded there, a pale arc over the inner half of each eyebrow, bigger with a
+# bigger eye (round 40); with no blink run backwards the arc is gone (round 46, Lúcia). The lift is evened out over the skin
+# about each eye, out to LIFT_SPREAD_REACH radii of the globe, the rim of the lid (LIFT_SPREAD_RIM of the blink's most) kept,
+# and the opening is measured with it: evened out after the measure, the eye opened white all round (round 46).
+LIFT_SPREAD_REACH = 2.8
+LIFT_SPREAD_RIM = 0.5
+LIFT_SPREAD_ROUNDS = 60
+
+
 def eyes_no_rounder(meshes, most=EYE_TALL_MOST, least=0.0):
     """The opening of an eye is no taller than `most` of its width. Where one is, the rest shape of both eyes takes the share of
     their blinks that brings it there: the upper lid comes down on the globe the way it shuts, and the blink still ends where it
@@ -1470,6 +1480,13 @@ def eyes_no_rounder(meshes, most=EYE_TALL_MOST, least=0.0):
     if not moves:
         return {}
     whole = sum(move for move, _, _ in moves.values())
+    world_rest = to_world(body, rest)
+    edges = np.array([edge.vertices[:] for edge in body.data.edges])
+    way = np.linalg.norm(whole, axis=1)
+    rim = way > LIFT_SPREAD_RIM * way.max()
+    about = np.zeros(len(rest), bool)
+    for _, centre, radius in moves.values():
+        about |= np.linalg.norm(world_rest - centre, axis=1) < LIFT_SPREAD_REACH * radius
 
     def lowered(share):
         """The rest shape with that share of the blinks, in the world. A lid goes straight from open to shut, across the chord of
@@ -1480,6 +1497,8 @@ def eyes_no_rounder(meshes, most=EYE_TALL_MOST, least=0.0):
             far = np.maximum(np.linalg.norm(away, axis=1), 1e-12)
             lift = (np.linalg.norm(move, axis=1) > 1e-7) & (far > radius - LID_UNDER_BALL_M) & (far < radius + LID_OFF_BALL_M) & (-away[:, 1] / far > LID_RIM_FRONT)
             points[lift] = centre + away[lift] / far[lift, None] * (radius + LID_OFF_BALL_M)
+        if share < 0:
+            points = world_rest + parle_style.spread(points - world_rest, edges, rim, about, LIFT_SPREAD_ROUNDS)
         return points
 
     def shown(share):
@@ -1781,8 +1800,14 @@ def natural_body(meshes, rig, height, sex, kit):
         print("OLHO", tucked, "pontos do globo de volta para trás da pele, depois do corpo pronto")
     for name, (was, left) in blinks_shut(meshes).items():
         print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
+    opened = rest_points(body) if body is not None else None
     for name, (wide, was, tall, share) in eyes_no_rounder(meshes, eye_round_most(sex), parle_style.EYE_TALL_LEAST).items():
         print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
+    if opened is not None:
+        # The skin under the eyebrows went up with the lid's lift, evened out (LIFT_SPREAD_REACH): the eyebrows go with it.
+        lifted = parle_style.follow_field(opened, rest_points(body))
+        for obj in [item for item in meshes if item.type == "MESH" and "eyebrow" in item.name]:
+            warp(obj, lifted)
     if body is not None:
         print("PELE lisa: relevo tirado de", matte_skin(body), "ligações")
     if body is not None:
