@@ -77,9 +77,16 @@ SLIT_BIN_M = 0.003
 # In each strip across the mouth the slit is read on its front only, the points no further back than this from the most forward
 # one: the open edge between the lips takes in the far end of the mouth's lining too, some 25 mm inside, and the median of the
 # two zigzagged by 5 mm in height and 8 in depth from one strip to the next (round 47, Dona Marta): the border of her lips
-# followed it and hung two faces of skin under her lower lip as lip, two pink drips.
-SLIT_FRONT_M = 0.002
-SLIT_DEGREE = 4
+# followed it and hung two faces of skin under her lower lip as lip, two pink drips. Its height is half way between the highest
+# and the lowest of those, the edges of the two lips: at 2 mm the front of a strip was the upper lip in one and the lower in the
+# next, and the line zigzagged by 9 mm (round 52, Lúcia, the same drips).
+SLIT_FRONT_M = 0.008
+# The line where the lips meet, and how deep it lies, as curves of the way from the middle of the face: a gentle arc at rest. The
+# strips of the slit read past the lips' edges too (the far end of the lining): a curve of the 4th degree followed them from strip
+# to strip and the border of the lips with it, hanging faces of skin under the lower lip as lip (rounds 47 and 52, two pink drips
+# under Dona Marta's and Lúcia's). A curve of the 2nd degree, fitted again without the strips SLIT_OFF_M away from the first fit.
+SLIT_DEGREE = 2
+SLIT_OFF_M = 0.0015
 LINE_ENDS = 4.0
 # Darkens less, and blue and green more than red (BGR): with the mouth open the line's texels stretch over the inner lip, and at 0.68 neutral
 # they drew black wedges at the corners and a smeared-lipstick ring (owner, scoreboard of 2026-11-11). Calibrated by eye, no source: to pilot.
@@ -142,8 +149,12 @@ def lip_points(data, points, low=LIP_LOW_M):
 
 
 def front_median(points):
-    """The median of the points of a strip of the slit that stand at its front (SLIT_FRONT_M), the face looking at -y."""
-    return np.median(points[points[:, 1] <= points[:, 1].min() + SLIT_FRONT_M], axis=0)
+    """Where a strip of the slit is: the median of its points that stand at its front (SLIT_FRONT_M), at the height half way between
+    the highest and the lowest of them, the face looking at -y."""
+    front = points[points[:, 1] <= points[:, 1].min() + SLIT_FRONT_M]
+    out = np.median(front, axis=0)
+    out[2] = (front[:, 2].max() + front[:, 2].min()) / 2
+    return out
 
 
 def mouth_line(data, points):
@@ -159,8 +170,15 @@ def mouth_line(data, points):
     bins = np.arange(slit[:, 0].min(), slit[:, 0].max() + SLIT_BIN_M, SLIT_BIN_M)
     centres = np.array([bin_start + SLIT_BIN_M / 2 for bin_start in bins if ((slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)).any()])
     medians = np.array([front_median(slit[(slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)]) for bin_start in bins if ((slit[:, 0] >= bin_start) & (slit[:, 0] < bin_start + SLIT_BIN_M)).any()])
-    curve = np.polyfit(centres - middle, medians[:, 2], SLIT_DEGREE)
-    return {"middle": middle, "half": half, "centres": centres, "medians": medians, "curve": curve}
+    curve, depth = (steady_fit(centres - middle, medians[:, axis]) for axis in (2, 1))
+    return {"middle": middle, "half": half, "centres": centres, "medians": medians, "curve": curve, "depth": depth}
+
+
+def steady_fit(x, y):
+    """A curve of SLIT_DEGREE through the points, fitted again without the ones further than SLIT_OFF_M from the first."""
+    curve = np.polyfit(x, y, SLIT_DEGREE)
+    near = np.abs(np.polyval(curve, x) - y) <= SLIT_OFF_M
+    return np.polyfit(x[near], y[near], SLIT_DEGREE) if near.sum() > SLIT_DEGREE + 2 else curve
 
 
 def lip_reach(x, half, low=LIP_LOW_M):
@@ -179,7 +197,7 @@ def lip_place(line, points, low=LIP_LOW_M):
     x = points[:, 0] - line["middle"]
     centres, medians = line["centres"], line["medians"]
     height = points[:, 2] - np.polyval(line["curve"], np.clip(x, centres[0] - line["middle"], centres[-1] - line["middle"]))
-    in_front = np.interp(points[:, 0], centres, medians[:, 1]) + FRONT_M - points[:, 1]
+    in_front = np.polyval(line["depth"], np.clip(x, centres[0] - line["middle"], centres[-1] - line["middle"])) + FRONT_M - points[:, 1]
     over, under = lip_reach(x, line["half"], low)
     inside = np.minimum(np.minimum(over - height, height + under), in_front)
     up = np.where(height >= 0, 0.5 + 0.5 * np.clip(height / np.maximum(over, 1e-9), 0, 1), 0.5 - 0.5 * np.clip(-height / np.maximum(under, 1e-9), 0, 1))
@@ -208,7 +226,7 @@ def lip_maps(data, points, low=LIP_LOW_M):
     x = (place[:, :, 0] - middle).astype(np.float32)
     across = np.sqrt(np.clip(1 - (x / half) ** 2, 0, 1))
     height = (place[:, :, 2] - np.polyval(curve, np.clip(place[:, :, 0] - middle, centres[0] - middle, centres[-1] - middle))).astype(np.float32)
-    front = place[:, :, 1] < np.interp(place[:, :, 0], centres, medians[:, 1]) + FRONT_M
+    front = place[:, :, 1] < np.polyval(line["depth"], np.clip(place[:, :, 0] - middle, centres[0] - middle, centres[-1] - middle)) + FRONT_M
     inside = known & front & (np.abs(x) < half)
     over, under = lip_reach(x, half, low)
     share = np.clip(np.minimum(over - height, height + under) / LIP_EDGE_M, 0, 1) * inside

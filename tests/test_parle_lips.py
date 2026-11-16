@@ -48,4 +48,7 @@ assert lined_lab[32, 32, 1] >= plain_lab[32, 32, 1], f"the line leans red, like 
 strip = np.array([[0.0, -0.10, 1.50], [0.001, -0.1005, 1.501], [0.0005, -0.075, 1.495], [0.0008, -0.076, 1.494], [0.0002, -0.074, 1.496]])
 front_point = front_median(strip)
 assert abs(front_point[1] + 0.10025) < 0.001 and abs(front_point[2] - 1.5005) < 0.001, "the lining behind the lips pulls the slit's line"
+# Its height is between the two lips' edges, whichever of them stands further forward (round 52: it zigzagged by 9 mm on Lúcia).
+lips_strip = np.array([[0.0, -0.100, 1.504], [0.001, -0.1005, 1.5042], [0.0005, -0.097, 1.496], [0.0007, -0.0965, 1.4958], [0.0, -0.075, 1.50]])
+assert abs(front_median(lips_strip)[2] - 1.5) < 0.0005, f"the slit's height is one lip's edge: {front_median(lips_strip)}"
 print("ok")

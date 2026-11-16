@@ -14,7 +14,7 @@ import parle_lips  # noqa: E402
 
 HALF = 0.025
 # A mouth 50 mm wide whose lips meet on a level line at the front of the face.
-LINE = {"middle": 0.0, "half": HALF, "centres": np.array((-0.02, 0.0, 0.02)), "medians": np.zeros((3, 3)), "curve": np.zeros(parle_lips.SLIT_DEGREE + 1)}
+LINE = {"middle": 0.0, "half": HALF, "centres": np.array((-0.02, 0.0, 0.02)), "medians": np.zeros((3, 3)), "curve": np.zeros(parle_lips.SLIT_DEGREE + 1), "depth": np.zeros(parle_lips.SLIT_DEGREE + 1)}
 over, under = parle_lips.lip_reach(np.array((0.0, parle_lips.BOW_AT_M, -parle_lips.BOW_AT_M, HALF, 2 * HALF)), HALF)
 assert over[1] == over[2] > over[0] > 0 and over[3] == over[4] == 0 and under[0] > 0 == under[3], f"the reach of the lips across the mouth: {over}, {under}"
 
