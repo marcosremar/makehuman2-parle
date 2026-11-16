@@ -25,7 +25,9 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # the width of the face it measured 0.109, Sofia's 0.097 and the same woman's in the game 0.101: a little smaller.
 # Round 21 (2026-11-16): with the lids opened rounder the white showed all about the iris, a scared look; the series' iris fills
 # most of the eye.
-IRIS_RADIUS = 0.155
+# Round 23 (4.5): at 0.155 the iris filled the eye and no white showed: between the two.
+# Round 25: with the lid lifted, an iris filling more of the width (about 55 to 60 % of it in the series).
+IRIS_RADIUS = 0.15
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 # Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
 # it: at 0.2 the upper lid still lay across the top of the pupil. With the lids as they are now (`parle_face.FAIR_LOOK`), at 0.3
@@ -56,7 +58,8 @@ LIMBUS_SHARE = 0.90
 # also a choice by eye, to be judged in the player. Converted to sRGB.
 # The series the owner chose on 2026-11-15 has lighter, clearer brown irises: a judge by sight against it asked for them a quarter
 # lighter (round 8 of the loop), so each colour is IRIS_LIGHTER times the one chosen above.
-IRIS_LIGHTER = 1.0
+# Round 27: the dark brown iris read almost black; the series' are a mid brown.
+IRIS_LIGHTER = 1.3
 IRISES = {name: tuple(min(1.0, value * IRIS_LIGHTER) for value in colour) for name, colour in {
     "castanho-escuro": (0.16, 0.2, 0.316),
     "castanho": (0.202, 0.251, 0.393),

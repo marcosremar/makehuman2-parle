@@ -71,7 +71,9 @@ CHIN_LONGER = {"female": 0.05, "male": 0.0}
 # With the jaw where the lips meet (`CALM_LOOK`), the corners of the women's mouth sit 4% of its width above the middle of the lips
 # with no smile at all, and with 0.12 of it 7%: past Sofia's (level) and those of the women of the game (up to 4%), a smile held at
 # rest (2026-11-12, `parle_beauty.mouth_curve` on whole portraits). The men's sit 2% below with 0.12, as Rafa's.
-REST_SMILE = {"female": 0.05, "male": 0.12}
+# Round 26 (2026-11-16): the series' faces rest with the corners of the mouth up a little, kind faces; at 0.05 and 0.12 the
+# old woman read "séria e cansada".
+REST_SMILE = {"female": 0.14, "male": 0.2}
 # The nose stays at -0.3 in width: at -0.7, with the kit's narrow straight nose on top, the measure did not move (it reads the wings of
 # the nose against the cheekbones, and the cheekbones had done it) and the cheek drawn in beside the wing let the lining of the mouth
 # through (2026-11-12, `parle_polish.lining_behind_skin`).
@@ -252,9 +254,10 @@ POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
 # what the judge by sight called "the same flat slit") while the lower teeth dropped as written, further than the lip that covers
 # them. Found on 2026-11-12 by measuring the shapes of a built body against what they should have been. The body keeps what was
 # judged; the teeth and the tongue now go with it, and no mesh is taken twice (`calm_speech`, `mixed_speech`).
+# Round 23 (2026-11-16): the mouth "hardly opens" in the "a" against the series' wide-open speech: jaw and "a" a third more.
 SPEECH_OPEN = {
-    "female": {"jawOpen": 0.42, "viseme_aa": 0.36, "viseme_E": 0.36, "viseme_O": 0.81, "viseme_I": 0.64},
-    "male": {"jawOpen": 0.49, "viseme_aa": 0.42, "viseme_E": 0.49, "viseme_I": 0.81},
+    "female": {"jawOpen": 0.57, "viseme_aa": 0.49, "viseme_E": 0.36, "viseme_O": 0.81, "viseme_I": 0.64},
+    "male": {"jawOpen": 0.66, "viseme_aa": 0.57, "viseme_E": 0.49, "viseme_I": 0.81},
 }
 # The rounded shapes of speech. With the weights the player gives them (`LipSync.cs`: about half of each shape), the kit's "o" was
 # "a wide letterbox gape where Sofia makes a small round pucker", its "ch" "the same slack half-open slit as RR, E and TH, where
@@ -288,7 +291,8 @@ SPEECH_MIX = {
 # and the same women's in the game 30 to 38%; the lips have since been given a form of their own (`LIPS_FULL`) and the mouth sent
 # back (`MOUTH_BACK`), which is what the pout was. +0.1 left it at 38%, to the judge by sight still twice the width of the nose
 # where Sofia's is one and a half: -0.25, about 35%.
-MOUTH_WIDE = {"female": 0.7, "male": 0.9}
+# Round 23 (2026-11-16, 4.5): on all four the mouth "a line", too narrow for the series' wide mouths.
+MOUTH_WIDE = {"female": 1.1, "male": 1.3}
 MOUTH_CORE_M = 0.006
 MOUTH_FADE_M = 0.02
 TEETH_DOWN_M = 0.0035

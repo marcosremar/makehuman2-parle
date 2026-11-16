@@ -18,14 +18,14 @@ BROW_EDGE = (0.18, 0.5)
 # way to a colour of their own.
 BROW_DARK = (0.09, 0.06, 0.045)
 BROW_DARK_SHARE = 0.8
-BROW_OLD_GREY = (0.9, 0.88, 0.84)
+BROW_OLD_GREY = (0.8, 0.79, 0.76)
 BROW_OLD_SHARE = 0.85
 # Box blur of the skin map, in pixels of a 1024 map (scaled to the map), three passes: the pores and grain of the kit's photograph go.
 SKIN_BLUR_PX = 5
 # The blush: a warm red-orange (sRGB) laid over the skin on each cheek and on the nose tip, most at the middle, fading with a
 # gaussian of the given width in distances between the eyes. The old take more, as the series' old man.
 BLUSH = (0.86, 0.38, 0.28)
-BLUSH_SHARE = {"female": 0.4, "female-old": 0.45, "male": 0.36, "male-old": 0.6}
+BLUSH_SHARE = {"female": 0.4, "female-old": 0.45, "male": 0.45, "male-old": 0.6}
 CHEEK_SPOT = (0.12, -0.25, -0.72)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
@@ -34,9 +34,10 @@ NOSE_SHARE = 0.8
 # the mouth goes this share of the way to the face's own skin colour, so the painted lip of the kit's photograph goes.
 MOUTH_SPOT = (0.0, -0.05, -0.62)
 MOUTH_WIDE = (0.42, 0.16)
-LIP_TO_SKIN = 0.8
+# Round 25 (4.75): gone almost all the way, the mouth was "um risco apagado": the series' lips have a little colour.
+LIP_TO_SKIN = 0.45
 # A woman's lips are drawn on a patch of their own (`parle_lips`): it goes this share of the way to the skin at their corners.
-LIP_PATCH_TO_SKIN = 0.7
+LIP_PATCH_TO_SKIN = 0.35
 
 
 def smooth(low, high, value):

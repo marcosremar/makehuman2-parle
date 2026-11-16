@@ -41,4 +41,16 @@ sculpt = parle_style.sculpt_field(tip, eyes, "male")
 bridge = np.array([[0.0, -0.085, 1.628]])
 assert sculpt(tip[None])[0, 1] < tip[1] - 0.001, "the tip of the nose does not come out into its ball"
 assert np.allclose(sculpt(bridge), bridge), "the ball of the nose pulls the bridge in"
+# Simple volumes (round 27): a bump on a smoothed patch goes, the volume stays, and the rims of the eyes and the lips are left.
+grid = np.stack(np.meshgrid(np.arange(9.0), np.arange(9.0)), -1).reshape(-1, 2)
+flat = np.c_[grid, np.zeros(len(grid))]
+flat[40, 2] = 1.0
+links = [(i, i + 1) for i in range(81) if i % 9 < 8] + [(i, i + 9) for i in range(72)]
+done = parle_style.smoothed(flat, np.array(links), np.ones(81), rounds=10)
+assert done[40, 2] < 0.4 and abs(done[:, 2].sum() - 1.0) < 0.5, "the bump is not smoothed out, or the volume went"
+rim = eyes[0][0] + np.array([0.0, -0.012, 0.0])
+lips = tip + np.array([0.0, 0.006, -0.04])
+neck = tip + np.array([0.0, 0.06, -0.12])
+weight = parle_style.simple_weight(np.array([rim, lips, neck]), tip, eyes)
+assert weight[0] < 0.01 and weight[1] < 0.01 and weight[2] > 0.9, f"the smoothing takes the eye or the lips, or leaves the neck: {weight}"
 print("ok")

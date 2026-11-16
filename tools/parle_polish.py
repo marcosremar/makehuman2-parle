@@ -233,7 +233,8 @@ EYE_ROUND_TRIAL = "PARLE_EYE_ROUND"
 EYE_TALL_STEP_M = 0.0004
 EYE_TALL_ROUNDS = 5
 EYE_TALL_BLINK_MOST = 0.35
-EYE_OPEN_BLINK_MOST = 0.6
+# Round 23 (2026-11-16): at 0.6 the lids stopped at 0.52 of the width, short of EYE_TALL_LEAST, and still read half closed.
+EYE_OPEN_BLINK_MOST = 1.0
 FAIR_SOFT_FROM = 0.15
 # The lips are the points their own traits move by this share or more. They take part with a small weight: point against point
 # their sculpted form came out rough, a row of ridges along the upper lip (2026-11-12, in clay), and a small weight takes out what
@@ -726,6 +727,9 @@ def keeps_its_move(name):
     return name.startswith(MOUTH_MOVES)
 
 
+SKIN_MATTE = {"Roughness": 0.75, "Specular IOR Level": 0.25, "Coat Weight": 0.0, "Subsurface Weight": 0.0}
+
+
 def drawn_paint(meshes, body, kind, sex):
     """The paint of a drawn face that has to come after the cast's own dyes (`parle_paint`): the eyebrows as clean bands (dark on the
     young, light grey on the old; the cast dyes them in the hair's colour after the face is made), and a woman's lips, drawn on
@@ -771,6 +775,12 @@ def matte_skin(body):
     gone = [link for link in tree.links if link.to_node.type == "BSDF_PRINCIPLED" and link.to_socket.name == "Normal"]
     for link in gone:
         tree.links.remove(link)
+    # Round 27 (2026-11-16): "pele cerosa": the skin a matte clay, with no wax sheen.
+    for node in tree.nodes:
+        if node.type == "BSDF_PRINCIPLED":
+            for name, value in SKIN_MATTE.items():
+                if name in node.inputs and not node.inputs[name].is_linked:
+                    node.inputs[name].default_value = value
     return len(gone)
 
 
@@ -1668,6 +1678,20 @@ def natural_body(meshes, rig, height, sex, kit):
         tip = parle_style.nose_tip(rest_points(body), balls)
         warp(body, parle_style.sculpt_field(tip, balls, kind), kept=keeps_its_move)
         print("CABEÇA esculpida do tipo", kind)
+        # Then smoothed into simple volumes; the same move goes to every key, so the lids and the speech move as they did.
+        rest = rest_points(body)
+        edges = np.array([edge.vertices[:] for edge in body.data.edges])
+        # An open edge of the skin (the ring the neck's seam leaves, the lining's end) would be pulled out of the mesh: it stays.
+        sides = np.zeros(len(edges), int)
+        index = {tuple(sorted(edge)): number for number, edge in enumerate(edges.tolist())}
+        for polygon in body.data.polygons:
+            for key in polygon.edge_keys:
+                sides[index[tuple(sorted(key))]] += 1
+        weight = parle_style.simple_weight(rest, tip, balls)
+        weight[np.unique(edges[sides < 2])] = 0.0
+        move = parle_style.smoothed(rest, edges, weight) - rest
+        warp(body, lambda points: points + move, kept=lambda name: True)
+        print("CABEÇA em volumes simples: o ponto que mais andou,", round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1), "mm")
     lined = lining_behind_skin(meshes)
     if lined:
         print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")
