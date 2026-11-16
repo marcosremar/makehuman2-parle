@@ -31,8 +31,11 @@ BLUSH = (0.86, 0.38, 0.28)
 # Round 30: at a half the blush read as red patches and the skin orange: back to round 29's.
 # Round 48: both judges asked the old woman's and the old man's nose tip and cheeks a quarter redder, as the series' old man.
 # Round 52: both judges asked the nose tip and the cheeks of all four "25 a 30 % mais vermelhos": a seventh more.
-BLUSH_SHARE = {"female": 0.46, "female-old": 0.64, "male": 0.52, "male-old": 0.72}
-CHEEK_SPOT = (0.12, -0.25, -0.72)
+# Round 56: the old's nose tip and cheeks "+25 a 30 % de saturação, como o idoso da série" (judge B).
+BLUSH_SHARE = {"female": 0.46, "female-old": 0.74, "male": 0.52, "male-old": 0.82}
+# Round 56: the young woman's blush reached the mouth and the chin ("tirar as manchas rosadas em volta da boca", judge B): the spot
+# a little higher on the cheek.
+CHEEK_SPOT = (0.12, -0.25, -0.62)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
 # Round 54: both judges, the tip of the nose "15 a 25 % mais vermelha" on all four.

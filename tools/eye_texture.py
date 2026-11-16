@@ -79,8 +79,10 @@ PUPIL = np.array((0.0, 0.0, 0.0))
 SCLERA = np.array((0.96, 0.96, 0.96))
 # One small clean catchlight up and to one side of the pupil, as every eye of the series the owner chose has (round 20 of the loop,
 # 2026-11-16): a disc in iris radii, at (across, down) from the iris's middle. The iris drawn flat, with almost none of its fibres.
-CATCHLIGHT = (0.36, -0.4)
-CATCHLIGHT_RADIUS = 0.17
+# Round 56: bigger, and a little further out so it does not cut the pupil's round edge (`tests/test_parle_eye_map.py`).
+CATCHLIGHT = (0.43, -0.46)
+# Round 56, judge B on all four: "brilho 2× maior".
+CATCHLIGHT_RADIUS = 0.21
 FIBRES = 0.04
 
 

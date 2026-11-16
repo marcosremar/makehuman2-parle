@@ -299,7 +299,9 @@ SPEECH_OPEN = {
 # The open jaw itself is left alone: with the pucker in it, the lips of both jaws would move with it, and the jaw is how the lower
 # lip is told from the upper one (`parle_polish.fair_face`).
 SPEECH_MIX = {
-    "viseme_O": {"viseme_O": 0.29, "viseme_U": 1.0, "jawOpen": -0.29},
+    # Rounds 44 to 56, both judges: the "o" "fica numa fenda reta com os dentes à mostra, lê-se como e", where it should be a ring
+    # with the lips forward, "sem abrir mais": more of the pucker, the same opening (Rafa's limit, owner 2026-11-16).
+    "viseme_O": {"viseme_O": 0.29, "viseme_U": 1.2, "jawOpen": -0.29},
     "viseme_U": {"viseme_U": 1.11, "jawOpen": -0.23},
     "viseme_CH": {"viseme_CH": 0.67, "viseme_U": 0.82, "jawOpen": -0.18},
     "viseme_aa": {"viseme_aa": 1.0, "viseme_U": 0.4},

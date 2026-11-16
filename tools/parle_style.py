@@ -59,7 +59,8 @@ EYE_TALL_LEAST_BY_KIND = {"male": 0.56, "female": 0.56, "male-old": 0.41, "femal
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
 # Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.
-EYE_GLOW = 0.3
+# Round 56, judge B on all four: "esclera branca e limpa, cerca de 70 % menos da sombra cinza da pálpebra sobre o branco".
+EYE_GLOW = 0.5
 SKIN_WARM = 0.012
 # The nose's reach about its tip, in metres; below the tip it is shorter (NOSE_BELOW), so the upper lip stays where it was, and up
 # the bridge longer (NOSE_ABOVE). The middle it grows about stands NOSE_BACK behind the tip, a little above it.
@@ -147,7 +148,7 @@ def warmer(rgb, amount):
 # to its form a point goes.
 SCULPT = {
     "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.66, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "chin": 0.45, "lid": -0.16, "ridge": 0.0},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "chin": 0.45, "lid": -0.24, "ridge": 0.0},
     "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.72, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
     "female-old": {"nose_ball": (0.32, 0.32, 0.28), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.85, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
@@ -156,7 +157,8 @@ SCULPT = {
 # Round 35: the cheek a high round mass ("maçã alta"), its ball higher under the eye (0.14, 0.58, -0.48), and a brow ridge forward
 # (`ridge` in SCULPT) and lighter smoothing: round 36 fell from 5.5 to 4.5, so back to round 34's.
 CHEEK_AT = (0.12, 0.62, -0.62)
-CHIN_AT = (0.0, 0.55, -1.25)
+# Round 55: "boca e queixo muito atrás da ponta do nariz" in profile, the men most (judge A, "3 a 4 mm mais à frente"): 3 mm forward.
+CHIN_AT = (0.0, 0.5, -1.25)
 # How far about each form its pull reaches, in its own radii, and the zone of the nose about the tip, in distances between the eyes.
 REACH = 1.4
 # How much of the way to the chin's ball a point goes (round 25: the young man's chin "recua muito" from the side).
@@ -276,7 +278,8 @@ def orbit_weight(points, tip, eyes):
 # A ring about the lips (SIMPLE_MOUTH_WIDE), from FOLD_IN to FOLD_OUT times their size, in front.
 FOLD_IN = 1.05
 FOLD_OUT = 3.2
-FOLD_ROUNDS = 40
+# Round 56: at 40 the folds still asked "50 % mais suaves" (judge A, the old woman and the young man).
+FOLD_ROUNDS = 70
 
 
 def fold_weight(points, tip, eyes):
