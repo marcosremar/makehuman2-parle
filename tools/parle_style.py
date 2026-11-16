@@ -20,15 +20,15 @@ STYLE = {
     # The eyes (2026-11-16, round 49): grown 1.25 on the men and 1.12 on the women for the series, the skin round them kept under a
     # third of its room (0.36 on the men, 0.22 on the women: the bags under the eyes the judges asked away, the women past the 1.3
     # the owner's test holds, `tests/test_parle_eyes.py`). The women's eyes back to 1.3 of the kit's, the men's to 1.25.
-    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.6, "eye": 1.25 / 1.1, "skin": 1.55},
+    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
     "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.5, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 48 (5.7): both judges, three rounds running, asked the young woman's nose a third smaller, a button ("hoje é nariz de
     # homem"), and the old woman's tip shorter.
     # Round 53: both judges asked the women's and the old man's eyebrows a half to twice as thick; the young woman's stays under
     # the young man's (the series' order, `tests/test_parle_style.py`).
-    # Round 63, both judges: the young woman's eyebrows "50 % mais grossas no meio", "20 % mais grossa no terço de dentro".
-    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.55, "eye": 1.0, "skin": 1.55},
+    # Round 63, both judges asked the young woman's eyebrows thicker; at 1.55 (round 64) both "30 a 40 % mais finas": back to 1.35.
+    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "eye": 1.0, "skin": 1.55},
     # Rounds 54 and 58: the old woman's nose "20 % menor, ... hoje parece nariz de homem" (both judges).
     "female-old": {"forward": 0.85, "nose": 1.3, "tip": 1.2, "brow": 2.4, "eye": 1.0, "skin": 1.55},
 }
