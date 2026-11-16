@@ -17,13 +17,16 @@ import numpy as np
 # own default, which this replaces). The series' young men have noses 0.31 to 0.37 of the face long against 0.29 to 0.31 on the cast,
 # and much further out; its old man's is the biggest thing on his face.
 STYLE = {
-    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25, "skin": 1.55},
+    # The eyes (2026-11-16, round 49): grown 1.25 on the men and 1.12 on the women for the series, the skin round them kept under a
+    # third of its room (0.36 on the men, 0.22 on the women: the bags under the eyes the judges asked away, the women past the 1.3
+    # the owner's test holds, `tests/test_parle_eyes.py`). The women's eyes back to 1.3 of the kit's, the men's to 1.25.
+    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
-    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.0, "eye": 1.25, "skin": 1.55},
+    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.0, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 48 (5.7): both judges, three rounds running, asked the young woman's nose a third smaller, a button ("hoje é nariz de
     # homem"), and the old woman's tip shorter.
-    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.2, "eye": 1.12, "skin": 1.55},
-    "female-old": {"forward": 0.85, "nose": 1.45, "tip": 1.3, "brow": 1.9, "eye": 1.12, "skin": 1.55},
+    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.2, "eye": 1.0, "skin": 1.55},
+    "female-old": {"forward": 0.85, "nose": 1.45, "tip": 1.3, "brow": 1.9, "eye": 1.0, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
@@ -139,9 +142,9 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.55, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
+    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.55, "cheek_share": 0.66, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
     "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.62, "cheek_share": 0.85, "chin": 0.45, "lid": -0.16, "ridge": 0.0},
-    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.6, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
+    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.54, "cheek_share": 0.72, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
     "female-old": {"nose_ball": (0.32, 0.32, 0.28), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.85, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip

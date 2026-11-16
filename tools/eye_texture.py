@@ -64,7 +64,9 @@ LIMBUS_SHARE = 0.90
 # lighter (round 8 of the loop), so each colour is IRIS_LIGHTER times the one chosen above.
 # Round 27: the dark brown iris read almost black; the series' are a mid brown.
 # Round 33: at 1.6 the brown washed into the white, an iris "sumida".
-IRIS_LIGHTER = 1.15
+# 2026-11-16: at 1.15 the light brown passed the value the owner's test holds (0.48 against 0.43, `tests/test_parle_eye_map.py`: a
+# light brown reads orange in the player, 34 of 42 bodies on 2026-11-11): the browns as the owner chose them.
+IRIS_LIGHTER = 1.0
 IRISES = {name: tuple(min(1.0, value * IRIS_LIGHTER) for value in colour) for name, colour in {
     "castanho-escuro": (0.16, 0.2, 0.316),
     "castanho": (0.202, 0.251, 0.393),

@@ -9,7 +9,8 @@ import bpy
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
-from parle_face import LIPS_FULL, chin_back, full_lips, held_in, relaxed_corners, relaxed_under_lip  # noqa: E402
+# The cast takes no full lips since the series the owner chose on 2026-11-15 (`LIPS_FULL`); the shape they had is still tested.
+from parle_face import LIPS_FULL_ROUND as LIPS_FULL, chin_back, full_lips, held_in, relaxed_corners, relaxed_under_lip  # noqa: E402
 
 # A strip of face seen in profile, every 3 mm from the lip down: a ridge at the lip's lower half and a hollow under it.
 heights = np.arange(0.0, -0.06, -0.003)

@@ -51,8 +51,11 @@ BODY_BOX_M = 0.01
 BODY_BEHIND_M = 0.001
 BODY_ISLAND_U = 0.7
 BODY_ISLAND_V = 0.8
-TONGUE_FRONT = 0.72
-TONGUE_DEEP = 0.52
+# Round 48 (2026-11-16, two judges against the series the owner chose): in every "a" and "o" the inside of the mouth read light
+# lilac where the series' is dark ("na série a boca aberta é escura"); the tongue map, a light pink, is the most of it. The tongue
+# a third darker; the wine of the mucosa (`MUCOSA_*`) stays as the owner judged it on 2026-11-11.
+TONGUE_FRONT = 0.48
+TONGUE_DEEP = 0.34
 TONGUE_DARK_M = 0.045
 FILL_PX = 8
 

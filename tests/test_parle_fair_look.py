@@ -25,7 +25,9 @@ assert women["faceEyeSpacing"] > 0 and "faceEyeSize" not in women, f"the eyes go
 # faults (above): it went back, and nothing goes past half of a trait.
 traits = {name: value for name, value in women.items() if name.startswith("face")}
 assert all(abs(value) <= 0.5 for value in traits.values()), f"how far the traits of the women go: {traits}"
-assert not any(name.startswith("face") for name in men), f"the men's faces, which score next to Rafa's, are bent too: {men}"
+# The men's faces scored next to Rafa's and were left as they were; the series the owner chose on 2026-11-15 draws every face, and
+# the men's traits are bent too, no further than the women's.
+assert all(abs(value) <= 0.5 for name, value in men.items() if name.startswith("face")), f"how far the traits of the men go: {men}"
 # The eyebrows keep the height and the slope they had: let down they pressed on the lid, and with the inner end let down too they
 # climbed to a far peak, a scowl (the judge by sight, 2026-11-12). What changes is their shape (`BROW_ARCH`, below). And the nose is
 # shorter with a round tip.

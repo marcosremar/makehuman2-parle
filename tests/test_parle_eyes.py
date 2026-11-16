@@ -41,7 +41,8 @@ def grown(scale):
 
 
 women, men = parle_polish.eye_scale("female-slim"), parle_polish.eye_scale("male-muscled")
-assert men == parle_polish.EYE_SCALE < women, f"the women's eyes grow no more than the men's: {women} against {men}"
+# The drawn head of the series the owner chose (2026-11-15) grows the men's eyes too, still less than the women's.
+assert parle_polish.EYE_SCALE <= men < women, f"the women's eyes grow no more than the men's: {women} against {men}"
 assert parle_polish.eye_scale("female-normal") == parle_polish.eye_scale("female-muscled") == women, "the women's eyes differ from kit to kit"
 # On photographs, eyes are judged too large from 116.3% on, with a spread of 9.1 (Seyama & Nagayama 2009), and on a drawn face bigger
 # eyes hardly matter (the same authors, 2007). The head of the cast is drawn: a quarter bigger than a real one on the women, its skin
@@ -57,7 +58,9 @@ assert np.allclose(after[beyond], FAR[beyond], atol=1e-7), "the skin past the re
 room = np.diff(after) / np.diff(FAR)
 assert room.min() > 0.45, f"the skin round the eye is pressed to less than half its room, the start of a fold: {room.min():.2f}"
 # The men's, which grow less, settle in the nearer reach.
-assert np.allclose(grown(men)[0][FAR >= parle_polish.EYE_REACH_M], FAR[FAR >= parle_polish.EYE_REACH_M], atol=1e-7), "the men's eyes reach as far as the women's"
+# The men's, which grow less, keep more of the skin's room (2026-11-16: grown 1.375 for the series, it kept 0.36, the bags under
+# the eyes the judges by sight asked away).
+assert (np.diff(grown(men)[0]) / np.diff(FAR)).min() > room.min(), "the men's eyes press the skin round them as much as the women's"
 # Why not bigger: at 1.4, in the reach the eyes had then, the same skin had a fifth of its room and stood as a bag under each eye
 # (2026-11-11); and in the wider reach it still has less than at the women's size.
 wide = parle_polish.EYE_REACH_WIDE_M

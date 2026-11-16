@@ -73,8 +73,11 @@ CHIN_LONGER = {"female": 0.05, "male": 0.0}
 # rest (2026-11-12, `parle_beauty.mouth_curve` on whole portraits). The men's sit 2% below with 0.12, as Rafa's.
 # Round 26 (2026-11-16): the series' faces rest with the corners of the mouth up a little, kind faces; at 0.05 and 0.12 the
 # old woman read "séria e cansada".
-# Round 42: both judges read the closed mouth as "uma fenda reta", corners down, "emburrada": up again.
-REST_SMILE = {"female": 0.26, "male": 0.3}
+# Round 42: both judges read the closed mouth as "uma fenda reta", corners down, "emburrada": up again, to 0.26 and 0.3. Past the
+# 0.2 the test holds (`tests/test_parle_fair_look.py`, far from a smile) it held a smile at rest, and from round 48 the judges saw
+# its crease from the nose to the corner and pinched corners on the young woman and the young man: the men at 0.2, the women at the
+# 0.06 their corners, already above the middle of the lips, hold (the same test, measured against Sofia on 2026-11-12).
+REST_SMILE = {"female": 0.06, "male": 0.2}
 # The nose stays at -0.3 in width: at -0.7, with the kit's narrow straight nose on top, the measure did not move (it reads the wings of
 # the nose against the cheekbones, and the cheekbones had done it) and the cheek drawn in beside the wing let the lining of the mouth
 # through (2026-11-12, `parle_polish.lining_behind_skin`).
@@ -120,11 +123,16 @@ REST_SMILE = {"female": 0.26, "male": 0.3}
 # 0.195 and 0.203, nose 0.30 against 0.302 (read off the shapes of the finished bodies). The judge by sight had asked for a face
 # less square; on the shape of the face the owner's eye decides.
 FAIR_LOOK = {
-    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.2, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.1, "faceCheek": 0.9,
-               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": 0.25, "faceEyeOpen": 0.0, "eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceEyeTilt": 0.3,
+    # faceCheek: 0.9 for the series' full cheeks went past half of a trait, the test's bound (`tests/test_parle_fair_look.py`);
+    # the fullness goes to the cheek's ball of the sculpture (`parle_style.SCULPT`) instead.
+    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.2, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.1, "faceCheek": 0.5,
+               "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": 0.25, "faceEyeOpen": 0.0, "eyeWideLeft": 0.5, "eyeWideRight": 0.5, "faceEyeTilt": 0.3,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
     # The series' men have round eyes with white showing (2026-11-15): the lids open half again, as the women's.
-    "male": {"faceNoseLength": -0.3, "noseShape-curto": 0.5, "eyeWideLeft": 1.0, "eyeWideRight": 1.0, "faceCheek": 0.8, "mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
+    # The wide-eyed shape at 1.0 on both sexes for the series (2026-11-15) was past the 0.3 to 0.7 of the women's and the none of the
+    # men's that the test holds (`tests/test_parle_fair_look.py`: further, white shows over the iris, a stare); the opening of each
+    # kind is reached by the blink run backwards (`parle_polish.eyes_no_rounder`, EYE_TALL_LEAST_BY_KIND).
+    "male": {"faceNoseLength": -0.3, "noseShape-curto": 0.5, "faceCheek": 0.5, "mouthSmileLeft": REST_SMILE["male"], "mouthSmileRight": REST_SMILE["male"]},
 }
 # The traits of a person's own that make her eyes bigger or more open than the kit's (`<head>.glb.face.json`, read off the game's
 # face of that person by the game's repository and already in the rest shape when the look is given). The game's faces have eyes
@@ -156,7 +164,8 @@ BROW_ARCH = {"female": 0.5, "male": 0.6}
 # way: its whole reach on the eyebrow is 3 mm.
 # The men's too, once their arch came down (`BROW_ARCH`): flattened where it was, it lay on the eye, a slab, and its height over
 # the eye read 12% of the face where Rafa's reads 15 (`parle_beauty.brow_high`, 2026-11-12).
-BROW_LIFT_M = {"female": 0.003, "male": 0.006}
+# Raised to 6 mm on the men for the series (2026-11-16), past the 5 the test holds (`tests/test_parle_fair_look.py`): 5.
+BROW_LIFT_M = {"female": 0.003, "male": 0.005}
 # The traits of the look that open or close the lids at rest, and the shapes that shut them: a point a blink moves this far or
 # more gives back the whole of what those traits moved it (`blink_still_closes`).
 LID_TRAITS = ("faceEyeOpen", "eyeWideLeft", "eyeWideRight")
@@ -177,6 +186,8 @@ LIP_THIN = {"female": 0.0, "male": -0.5}
 # it left a thread of colour over a bare swelling, since the colour is measured from the slit of the mesh, which lies some 3 mm
 # inside the line where the lips are seen to meet. A point is of the lower lip when the open jaw carries it this share of how far
 # it carries the lip it carries most.
+# The series the owner chose on 2026-11-15 draws the mouth as a cut with a little colour, not a lip (round 21 of the loop): 2.0 read
+# as a muzzle ("focinho") next to it, 0.5 since.
 UPPER_LIP_VOLUME = {"female": 0.5, "male": 0.0}
 UPPER_LIP_JAW_SHARE = 0.3
 # The lower lip read as two, a crumpled ridge over the hollow under it: three lips with the upper one (owner, 2026-11-09, pharmacy). Thinner
@@ -256,11 +267,13 @@ POUT_VISEMES = ("viseme_U", "viseme_O", "viseme_CH", "viseme_RR")
 # what the judge by sight called "the same flat slit") while the lower teeth dropped as written, further than the lip that covers
 # them. Found on 2026-11-12 by measuring the shapes of a built body against what they should have been. The body keeps what was
 # judged; the teeth and the tongue now go with it, and no mesh is taken twice (`calm_speech`, `mixed_speech`).
-# Round 23 (2026-11-16): the mouth "hardly opens" in the "a" against the series' wide-open speech: jaw and "a" a third more.
-# Round 38 (two judges): the "a" still asked to open 40 % more with the teeth showing, on all four: jaw and "a" a sixth more.
+# Rounds 23 and 38 of the loop (2026-11-16) opened the jaw and the "a" by a third and a sixth for judges by sight looking at the
+# "a" at its whole weight against the series' wide-open speech: in the player (0.55 of the "a" and 0.2 of the jaw) that put the
+# peak at 19 mm, past Rafa's 14, the owner's lead and reference of movement (owner, 2026-11-11 and 12; `tests/test_parle_speech.py`,
+# a Blender test that was not run in those rounds). Back to the shares the owner judged.
 SPEECH_OPEN = {
-    "female": {"jawOpen": 0.66, "viseme_aa": 0.57, "viseme_E": 0.36, "viseme_O": 0.81, "viseme_I": 0.64},
-    "male": {"jawOpen": 0.76, "viseme_aa": 0.66, "viseme_E": 0.49, "viseme_I": 0.81},
+    "female": {"jawOpen": 0.42, "viseme_aa": 0.36, "viseme_E": 0.36, "viseme_O": 0.81, "viseme_I": 0.64},
+    "male": {"jawOpen": 0.49, "viseme_aa": 0.42, "viseme_E": 0.49, "viseme_I": 0.81},
 }
 # The rounded shapes of speech. With the weights the player gives them (`LipSync.cs`: about half of each shape), the kit's "o" was
 # "a wide letterbox gape where Sofia makes a small round pucker", its "ch" "the same slack half-open slit as RR, E and TH, where

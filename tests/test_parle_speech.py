@@ -119,5 +119,6 @@ keys = mesh.shape_keys.key_blocks
 grown = parle_face.upper_lip_volume(keys, parle_face.key_points(keys[0]), parle_face.UPPER_LIP_VOLUME["female"])
 assert np.allclose(grown[0], np.array((0, -0.002, 0)) * parle_face.UPPER_LIP_VOLUME["female"], atol=1e-9), f"the upper lip grew {grown[0]}"
 assert np.allclose(grown[1:], 0, atol=1e-9), f"the lower lip or the skin away from the lips grew: {grown[1:]}"
-assert 1 <= parle_face.UPPER_LIP_VOLUME["female"] <= 2.5 and parle_face.UPPER_LIP_VOLUME["male"] == 0, f"how much the upper lip takes: {parle_face.UPPER_LIP_VOLUME}"
+# 1 to 2.5 next to Sofia; the series the owner chose on 2026-11-15 draws a cut with a little colour, and 0.5 since its round 21.
+assert 0.3 <= parle_face.UPPER_LIP_VOLUME["female"] <= 2.5 and parle_face.UPPER_LIP_VOLUME["male"] == 0, f"how much the upper lip takes: {parle_face.UPPER_LIP_VOLUME}"
 print("ok")
