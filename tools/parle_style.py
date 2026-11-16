@@ -151,10 +151,10 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.6, "cheek_share": 0.76, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.67, "cheek_share": 0.92, "chin": 0.45, "lid": -0.32, "ridge": 0.0},
-    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.59, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
-    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.67, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
+    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.63, "cheek_share": 0.76, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.7, "cheek_share": 0.92, "chin": 0.45, "lid": -0.32, "ridge": 0.0},
+    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
+    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.7, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.

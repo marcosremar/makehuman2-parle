@@ -62,7 +62,8 @@ MOUTH_WIDE = (0.42, 0.16)
 LIP_TO_SKIN = 0.45
 # A woman's lips take their colour from a patch of their own (`parle_lips.with_lip_patch`): the lip the kit's photograph paints on
 # her face showed about the patch as "uma mancha rosada de textura em volta da boca e no queixo" (round 59, the young woman).
-LIP_TO_SKIN_WOMAN = 0.9
+# Round 62: at 0.9 the cheeks' tone, lighter than the skin about the mouth, drew "um halo claro em volta da boca" (judge A): 0.7.
+LIP_TO_SKIN_WOMAN = 0.7
 # A woman's lips are drawn on a patch of their own (`parle_lips`): it goes this share of the way to the skin at their corners.
 # Round 38: at 0.35 a woman's lip read "mancha rosa borrada fora da boca" to both judges.
 # Round 52: the women's lips "com cor mais perto da pele" (judge B, the young and the old woman): 0.72. Round 55, both judges: "a
