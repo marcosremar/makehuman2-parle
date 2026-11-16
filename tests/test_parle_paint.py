@@ -48,4 +48,7 @@ nape = np.array([0.0, 0.1, 1.5])
 share = parle_paint.jaw_share(np.array([chin, jaw, forehead, nape]), tip, eyes)
 assert share[0] > 0.9 * parle_paint.JAW_TO_SKIN and share[1] > 0.5 * parle_paint.JAW_TO_SKIN, "the beard's shade stays on the chin or the jaw"
 assert share[2] == 0 and share[3] < 0.01, "the forehead or the nape go to the face's skin"
+# The lash line at the rim of the lids goes to the skin too (round 40: a dark ring about the eye).
+rim = eyes[0][0] + np.array([0.0, -0.4, 0.95]) * eyes[0][1]
+assert parle_paint.orbit_share(np.array([rim]), eyes)[0] > 0.5 * parle_paint.ORBIT_TO_SKIN, "the rim of the lids keeps its dark line"
 print("ok")

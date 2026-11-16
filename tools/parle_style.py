@@ -185,7 +185,8 @@ LOWER_WIDE = 2.4
 SIMPLE_MIDDLE = (0.0, 1.0, -0.9)
 SIMPLE_IN = 2.0
 SIMPLE_OUT = 2.9
-SIMPLE_EYE = (1.25, 1.9)
+# Round 40: a bag line under the eye (Carlos, Dona Marta) between 1.25 and 1.9 radii, half smoothed: closer to the rim.
+SIMPLE_EYE = (1.18, 1.55)
 SIMPLE_MOUTH = (0.0, 0.1, -0.62)
 SIMPLE_MOUTH_WIDE = (0.62, 0.3)
 # Round 35 (5.4) read "um balão liso" at 25; 12 in round 36 did not help (above).

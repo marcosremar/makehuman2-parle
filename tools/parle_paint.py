@@ -11,7 +11,8 @@
 import numpy as np
 
 # An eyebrow's edge: the alpha of its strands drawn as a clean band, from soft to whole between these.
-BROW_EDGE = (0.18, 0.5)
+# Round 40: at 0.18 the faint strands over the brow came out whole, a second arc above it.
+BROW_EDGE = (0.3, 0.55)
 # How dark a young person's eyebrow is drawn, of its own colour; an old person's goes this share to a light grey instead (the series'
 # old man has white-grey brows with a clean outline).
 # Round 21 (4.0): the young's still read as a grey smudge at 0.45 of their own colour, the old's dark grey: both now go most of the
@@ -42,9 +43,11 @@ LIP_TO_SKIN = 0.45
 LIP_PATCH_TO_SKIN = 0.6
 # The kit's photograph darkens the skin about each eye (round 29: "anel cinza-escuro da órbita, que lê como olheira"): from
 # the rim out to ORBIT_OUT radii of the globe it goes ORBIT_TO_SKIN of the way to the face's skin.
-ORBIT_IN = 1.05
+# Round 40 (two judges): "anel escuro em volta do olho", the eye sunk with dark circles: the dark line the photograph paints at
+# the rim of the lids (the lash line of a face with lashes) was left, inside 1.05 radii. From inside the rim, and most of the way.
+ORBIT_IN = 0.9
 ORBIT_OUT = 2.1
-ORBIT_TO_SKIN = 0.6
+ORBIT_TO_SKIN = 0.85
 # The kit's photograph shades the jaw and the chin of a man (a shaved beard) and the skin under the chin: the mouth's oval cleared to
 # the face's skin then read as a light band under the lip (round 36, Carlos). The lower face, from under the nose down past the jaw,
 # goes this share of the way to the face's skin, in distances between the eyes below the nose tip and in front of it.
