@@ -28,7 +28,8 @@ STYLE = {
     # Round 53: both judges asked the women's and the old man's eyebrows a half to twice as thick; the young woman's stays under
     # the young man's (the series' order, `tests/test_parle_style.py`).
     "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "eye": 1.0, "skin": 1.55},
-    "female-old": {"forward": 0.85, "nose": 1.45, "tip": 1.3, "brow": 2.4, "eye": 1.0, "skin": 1.55},
+    # Rounds 54 and 58: the old woman's nose "20 % menor, ... hoje parece nariz de homem" (both judges).
+    "female-old": {"forward": 0.85, "nose": 1.3, "tip": 1.2, "brow": 2.4, "eye": 1.0, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
@@ -148,9 +149,9 @@ def warmer(rgb, amount):
 # to its form a point goes.
 SCULPT = {
     "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.6, "cheek_share": 0.66, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.67, "cheek_share": 0.85, "chin": 0.45, "lid": -0.24, "ridge": 0.0},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.67, "cheek_share": 0.85, "chin": 0.45, "lid": -0.32, "ridge": 0.0},
     "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.59, "cheek_share": 0.72, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
-    "female-old": {"nose_ball": (0.32, 0.32, 0.28), "nose_share": 0.9, "cheek": 0.67, "cheek_share": 0.85, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
+    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.67, "cheek_share": 0.85, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.

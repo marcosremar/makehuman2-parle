@@ -102,13 +102,6 @@ assert "jawOpen" not in mix, "the open jaw is made again from other shapes"
 # At the player's peak of an "o" (0.51 of the shape, the jaw added by the player), the mouth is narrower than it is tall is not
 # asked here: only that the pucker in it is past half of the kit's whole "u", where it was a third.
 assert 0.51 * mix["viseme_O"]["viseme_U"] > 0.5, "the pucker in the player's \"o\""
-# The teeth go back in the rounded shapes, the rest of them stays (2026-11-16: teeth between the puckered lips in every "o").
-rounded = shaped("Human.teeth_base", {"viseme_O": (0, 0, -0.002), "viseme_aa": (0, 0, -0.01)})
-before_o = parle_face.key_points(rounded.data.shape_keys.key_blocks["viseme_O"]).copy()
-parle_face.teeth_back_in_rounded([rounded])
-after_keys = rounded.data.shape_keys.key_blocks
-assert np.allclose(parle_face.key_points(after_keys["viseme_O"]) - before_o, (0, parle_face.ROUNDED_TEETH_BACK_M["viseme_O"], 0)), "the teeth stay in the o"
-assert np.allclose(parle_face.key_points(after_keys["viseme_aa"])[0], (0, 0, -0.01)) and np.allclose(parle_face.key_points(after_keys[0]), 0), "the teeth went back in the a or at rest"
 
 # The upper lip of the women takes the kit's own lip volume, the lower lip none of it (2026-11-12): next to Sofia's it was "thin and
 # flat". One point on each lip; the jaw carries the lower one.

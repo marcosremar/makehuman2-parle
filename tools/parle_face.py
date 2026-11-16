@@ -181,7 +181,8 @@ BLINK_WHOLE_M = parle_polish.BLINK_WHOLE_M
 # The women's kit has full lips that bulged like a sausage in the player's perspective and light (owner, 2026-11-08: lower lip too
 # big). The kit's own `faceLipVolume`, on the lip that follows the jaw and fading 4 mm around it: -1 on women, -0.5 on men; -2 creased.
 # Next to four reference heads (owner, 2026-11-09) thinning was the wrong way: their lips are two full forms and hers a thin band. The shape comes from `full_lips`.
-LIP_THIN = {"female": 0.0, "male": -0.5}
+# Rounds 57 and 58, both judges: the men's lower lip "20 % mais cheio" ("hoje a boca é um risco"): half the thinning.
+LIP_THIN = {"female": 0.0, "male": -0.25}
 # The upper lip of the women, the lip the jaw does not carry: the kit's own `faceLipVolume` on it. Next to Sofia's, whose upper lip
 # is a form of its own with an edge, theirs was "thin and flat under a smear of colour that overshoots the form" to the judge by
 # sight (2026-11-12, rounds 13 to 15, the first fault of the face at rest in the last), and seen from the side the lower lip stood
@@ -714,25 +715,6 @@ def soften_pout(body, forward):
     body.data.update()
 
 
-# In the rounded shapes of speech the teeth go back behind the puckered lips: in every "o" of rounds 44 to 57 both judges saw "os
-# dentes entre os lábios franzidos ... na série o «o» é um oval escuro". The opening is the same (Rafa's limit, owner 2026-11-16).
-ROUNDED_TEETH_BACK_M = {"viseme_O": 0.0025, "viseme_U": 0.0025}
-
-
-def teeth_back_in_rounded(meshes):
-    """The teeth of each mesh go back (+y) in the rounded shapes of speech (ROUNDED_TEETH_BACK_M), the rest shape kept."""
-    for obj in dict.fromkeys(meshes):
-        keys = obj.data.shape_keys.key_blocks if obj.data.shape_keys else None
-        if not keys or "teeth" not in obj.name:
-            continue
-        for name, back in ROUNDED_TEETH_BACK_M.items():
-            if name in keys:
-                points = key_points(keys[name])
-                points[:, 1] += back
-                keys[name].data.foreach_set("co", points.ravel())
-        obj.data.update()
-
-
 def mixed_speech(meshes, mix):
     """Each of those shapes made again from the shapes each mesh has: the shares of the move of each, from the rest shape, read
     before any of them is written. A share of a shape a mesh does not have counts for nothing there (the teeth have no smile).
@@ -1127,7 +1109,6 @@ def clean_face(body, added, job, env):
     speaking = list(dict.fromkeys([body, *(obj for obj in added if obj.type == "MESH" and obj.data.shape_keys)]))
     calm_speech(speaking, SPEECH_OPEN[sex])
     mixed_speech(speaking, SPEECH_MIX)
-    teeth_back_in_rounded(speaking)
     # After the jaw is calmed: `mouthClose` is the final `jawOpen` backwards. Read before `calm_speech`, it took back the whole kit's
     # jaw while the body kept 0.6 to 0.9 of it, and pushed the lower lip 17 to 26 mm past the rest (2026-11-12). The lips close over
     # the open jaw in /p b m/, not the jaw (2026-11-11, thread of tooth in /m/).
