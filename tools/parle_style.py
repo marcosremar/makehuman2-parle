@@ -62,8 +62,9 @@ EYE_TALL_LEAST_BY_KIND = {"male": 0.40, "female": 0.46, "male-old": 0.37, "femal
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
 # Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.
-# Round 56, judge B on all four: "esclera branca e limpa, cerca de 70 % menos da sombra cinza da pálpebra sobre o branco".
-EYE_GLOW = 0.5
+# Round 56, judge B on all four: "esclera branca e limpa, cerca de 70 % menos da sombra cinza da pálpebra sobre o branco". Round 61:
+# still "de cinza para branco-marfim, só a cor" (judge B): 0.65.
+EYE_GLOW = 0.65
 SKIN_WARM = 0.012
 # The nose's reach about its tip, in metres; below the tip it is shorter (NOSE_BELOW), so the upper lip stays where it was, and up
 # the bridge longer (NOSE_ABOVE). The middle it grows about stands NOSE_BACK behind the tip, a little above it.

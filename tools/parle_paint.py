@@ -38,7 +38,9 @@ BLUSH_SHARE = {"female": 0.4, "female-old": 0.74, "male": 0.52, "male-old": 0.82
 # a little higher on the cheek.
 # Round 57: the young woman's blush "na lateral, até a borda do rosto" (judge B), "40 % mais fraco, sem as duas manchas" (judge A):
 # on the round of the cheek under the eye, and softer and narrower on her.
-CHEEK_SPOT = (0.04, -0.25, -0.56)
+# Round 61, both judges: at -0.56 the young woman's blush reached the chin and the low cheek, "o rosa que borra em volta da boca";
+# the series' sits "no alto das maçãs", just under the eye.
+CHEEK_SPOT = (0.1, -0.25, -0.42)
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
 # Round 54: both judges, the tip of the nose "15 a 25 % mais vermelha" on all four.
@@ -46,7 +48,8 @@ NOSE_SHARE = 1.0
 # The old: on the old man "dois discos vermelhos" on the cheeks, where the series' old man has a wide soft flush and the tip of his
 # nose is the reddest of his face (both judges, round 51). By kind: the width of the cheek's spot, how much of the blush the cheek
 # takes and how much the nose's tip takes.
-CHEEK_WIDE_BY_KIND = {"male-old": 0.52, "female-old": 0.46, "female": 0.3}
+# Round 61: the old man's blush still "em círculo de borda dura" (judge B): wider.
+CHEEK_WIDE_BY_KIND = {"male-old": 0.64, "female-old": 0.5, "female": 0.3}
 # Round 52: with the cheek's part weaker one judge read the old paler; round 53, both judges: "trocar os dois discos vermelhos por um
 # avermelhado difuso 40 % mais fraco" on the old man, "blush 30 % mais fraco e espalhado" on the old woman.
 CHEEK_PART_BY_KIND = {"male-old": 0.6, "female-old": 0.7}
@@ -63,8 +66,9 @@ LIP_TO_SKIN_WOMAN = 0.9
 # A woman's lips are drawn on a patch of their own (`parle_lips`): it goes this share of the way to the skin at their corners.
 # Round 38: at 0.35 a woman's lip read "mancha rosa borrada fora da boca" to both judges.
 # Round 52: the women's lips "com cor mais perto da pele" (judge B, the young and the old woman): 0.72. Round 55, both judges: "a
-# boca é um risco fino", "15 % mais rosada": 0.55. Round 59: "25 % mais saturados que a pele": 0.45.
-LIP_PATCH_TO_SKIN = 0.45
+# boca é um risco fino", "15 % mais rosada": 0.55. Round 59: "25 % mais saturados que a pele": 0.45. Round 61: "lábio só 1 tom
+# acima da pele" (judge B): 0.55.
+LIP_PATCH_TO_SKIN = 0.55
 # The kit's photograph darkens the skin about each eye (round 29: "anel cinza-escuro da órbita, que lê como olheira"): from
 # the rim out to ORBIT_OUT radii of the globe it goes ORBIT_TO_SKIN of the way to the face's skin.
 # Round 40 (two judges): "anel escuro em volta do olho", the eye sunk with dark circles: the dark line the photograph paints at
