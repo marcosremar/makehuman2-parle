@@ -229,6 +229,9 @@ EYE_TALL_MOST = 0.43
 # the day before; the judges by sight then read the old woman's and the old man's eyes "esbugalhado" round after round. Back to the
 # owner's: Sofia's 0.50 for a woman, 0.43 for a man (`tests/test_parle_eye_round.py`).
 EYE_TALL_MOST_BY_SEX = {"female": 0.50, "male": 0.43}
+# The old man's lids lower still, under the men's most (rounds 47 to 63, both judges: "branco em volta de toda a íris", "pálpebra de
+# cima ... encostando no topo da íris"): a kind's most under its sex's.
+EYE_TALL_MOST_BY_KIND = {"male-old": 0.34}
 # How much of a point's weight on the head makes it the head's own for the drawn head (`drawn_head`).
 HEAD_WHOLE = 0.4
 # A trial of another limit without touching this file (`eye_round_most`): a QA door, not a mode of the cast.
@@ -1837,7 +1840,7 @@ def natural_body(meshes, rig, height, sex, kit):
     for name, (was, left) in blinks_shut(meshes).items():
         print("PISCADA", name, "fresta de", round(was * 1000, 1), "mm com a pálpebra fechada; ficou", round(left * 1000, 1), "mm")
     opened = rest_points(body) if body is not None else None
-    for name, (wide, was, tall, share) in eyes_no_rounder(meshes, eye_round_most(sex), parle_style.EYE_TALL_LEAST_BY_KIND.get(str(body.get("parle_kind", sex)) if body is not None else sex, parle_style.EYE_TALL_LEAST)).items():
+    for name, (wide, was, tall, share) in eyes_no_rounder(meshes, min(eye_round_most(sex), EYE_TALL_MOST_BY_KIND.get(str(body.get("parle_kind", sex)) if body is not None else sex, 1.0)), parle_style.EYE_TALL_LEAST_BY_KIND.get(str(body.get("parle_kind", sex)) if body is not None else sex, parle_style.EYE_TALL_LEAST)).items():
         print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
     if opened is not None:
         # The skin under the eyebrows went up with the lid's lift, evened out (LIFT_SPREAD_REACH): the eyebrows go with it.

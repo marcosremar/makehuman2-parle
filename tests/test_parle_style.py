@@ -118,4 +118,7 @@ fold_f = mouth_f + np.array([0.6 * 0.064, 0.0, 0.1 * 0.064])
 cheekbone_f = eyes_f[0][0] + np.array([0.0, -0.01, -0.02])
 weights_f = parle_style.fold_weight(np.array([mouth_f, fold_f, cheekbone_f]), tip_f, eyes_f)
 assert weights_f[0] == 0 and weights_f[1] > 0.5 and weights_f[2] == 0, f"the folds about the mouth: {weights_f}"
+# The lower part of the lower lip is smoothed with the chin (round 63: "um vinco duro e reto logo abaixo do lábio inferior").
+under_lip = mouth_m + np.array([0.0, 0.0, -0.15 * 0.064])
+assert parle_style.simple_weight(np.array([under_lip]), tip_m, eyes_m)[0] > 0.02, "the smoothing stops at the lower lip's edge"
 print("ok")

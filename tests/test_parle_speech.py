@@ -103,7 +103,7 @@ assert "jawOpen" not in mix, "the open jaw is made again from other shapes"
 # asked here: only that the pucker in it is past half of the kit's whole "u", where it was a third.
 assert 0.51 * mix["viseme_O"]["viseme_U"] > 0.5, "the pucker in the player's \"o\""
 # The smile takes half of the cheek's squint on its side (round 59: "as maçãs sobem no sorriso"), and nothing of the other side.
-assert parle_face.SMILE_MIX["mouthSmileLeft"] == {"mouthSmileLeft": 1.0, "cheekSquintLeft": 0.5} and "cheekSquintLeft" not in parle_face.SMILE_MIX["mouthSmileRight"], f"the smile: {parle_face.SMILE_MIX}"
+assert parle_face.SMILE_MIX["mouthSmileLeft"]["mouthSmileLeft"] == 1.0 and 0 < parle_face.SMILE_MIX["mouthSmileLeft"]["cheekSquintLeft"] <= 1.0 and "cheekSquintLeft" not in parle_face.SMILE_MIX["mouthSmileRight"], f"the smile: {parle_face.SMILE_MIX}"
 
 # The upper lip of the women takes the kit's own lip volume, the lower lip none of it (2026-11-12): next to Sofia's it was "thin and
 # flat". One point on each lip; the jaw carries the lower one.

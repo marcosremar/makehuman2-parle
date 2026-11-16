@@ -19,7 +19,8 @@ BROW_EDGE = (0.42, 0.62)
 # way to a colour of their own.
 # Round 57, both judges: the young woman's eyebrows "castanha como o cabelo (hoje quase preta)": a young person's eyebrow is its
 # own colour (the cast dyes it in the hair's) made darker, no longer one near-black for all.
-BROW_YOUNG_DARKEN = 0.5
+# Round 63: "castanho-médio como o cabelo (hoje quase preta)" (judge B): 0.6.
+BROW_YOUNG_DARKEN = 0.6
 # Rounds 49 to 52: both judges asked the old's eyebrows "cinza médio em vez de branco".
 # Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey. Round 55: still "cinza-claro, some na pele": darker.
 BROW_OLD_GREY = (0.46, 0.43, 0.4)

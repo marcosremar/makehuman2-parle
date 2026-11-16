@@ -20,14 +20,15 @@ STYLE = {
     # The eyes (2026-11-16, round 49): grown 1.25 on the men and 1.12 on the women for the series, the skin round them kept under a
     # third of its room (0.36 on the men, 0.22 on the women: the bags under the eyes the judges asked away, the women past the 1.3
     # the owner's test holds, `tests/test_parle_eyes.py`). The women's eyes back to 1.3 of the kit's, the men's to 1.25.
-    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25 / 1.1, "skin": 1.55},
+    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.6, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
     "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.5, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 48 (5.7): both judges, three rounds running, asked the young woman's nose a third smaller, a button ("hoje é nariz de
     # homem"), and the old woman's tip shorter.
     # Round 53: both judges asked the women's and the old man's eyebrows a half to twice as thick; the young woman's stays under
     # the young man's (the series' order, `tests/test_parle_style.py`).
-    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "eye": 1.0, "skin": 1.55},
+    # Round 63, both judges: the young woman's eyebrows "50 % mais grossas no meio", "20 % mais grossa no terço de dentro".
+    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.55, "eye": 1.0, "skin": 1.55},
     # Rounds 54 and 58: the old woman's nose "20 % menor, ... hoje parece nariz de homem" (both judges).
     "female-old": {"forward": 0.85, "nose": 1.3, "tip": 1.2, "brow": 2.4, "eye": 1.0, "skin": 1.55},
 }
@@ -58,7 +59,7 @@ EYE_TALL_LEAST = 0.6
 # most on the old, "tira o ar arregalado".
 # 2026-11-16, after round 59: under the owner's most (`parle_polish.EYE_TALL_MOST_BY_SEX`, 0.50 for a woman and 0.43 for a man), a
 # little more open than the lids the owner approved on 2026-11-12 (0.41 to 0.425), so the lid lies over the top of the iris.
-EYE_TALL_LEAST_BY_KIND = {"male": 0.40, "female": 0.46, "male-old": 0.37, "female-old": 0.43}
+EYE_TALL_LEAST_BY_KIND = {"male": 0.40, "female": 0.46, "male-old": 0.30, "female-old": 0.43}
 # How much the eye's own map lights it (emission): the white of the series' eyes is white even in the shade of the brow.
 # Round 30 (2026-11-16): the white of the eye read grey-pink in the orbit's shade; the series' is clean white.
 # Round 38 (two judges, 4.1): the white still "sombra funda em volta" on all four.
@@ -224,7 +225,10 @@ SIMPLE_MOUTH = (0.0, 0.1, -0.62)
 # not it: the block stood out as a muzzle with a crease round it, from the wing of the nose to under the corner of the mouth ("um
 # vinco que vai da asa do nariz até abaixo do canto da boca", both judges, rounds 48 to 50). The lips only, and the smoothing
 # coming in over SIMPLE_MOUTH_RAMP times their size.
-SIMPLE_MOUTH_WIDE = (0.48, 0.17)
+# Round 63, both judges: "um vinco duro e reto logo abaixo do lábio inferior", "uma linha dupla de boneco", where the smoothing
+# stopped at the edge of the lips' oval: the lower part of the lower lip smoothed too (a longer way in, 2.2, smoothed the cheek
+# beside the mouth less than round 51 did).
+SIMPLE_MOUTH_WIDE = (0.48, 0.12)
 SIMPLE_MOUTH_RAMP = 1.5
 # Round 35 (5.4) read "um balão liso" at 25; 12 in round 36 did not help (above).
 SIMPLE_ROUNDS = 25
