@@ -15,7 +15,8 @@ import os
 
 import numpy as np
 
-SKIRT_WORDS = ("dress", "skirt")
+# The skirt of an apron (`tools/derive_garment.py --apron`) hangs in front of both legs like the front of a dress.
+SKIRT_WORDS = ("dress", "skirt", "apron")
 CLEAR_GAP_M = 0.006
 CLEAR_REACH_M = 0.06
 CLEAR_STEP_M = 0.01
