@@ -363,13 +363,22 @@ def follow_skin(meshes, before, after):
 
 def frames_on_face(meshes, body, balls):
     """Each frame of glasses on the eyes narrowed across to the face at the temples (`parle_style.frame_scale`); glasses worn on
-    top of the head are left. What was narrowed, by how much."""
+    top of the head laid on the hair (`parle_style.settle_on`). What was narrowed, by how much, or how far it went to the hair."""
     eye_z = float(np.mean([centre[2] for centre, _ in balls]))
     skin = rest_points(body)
     done = {}
     for obj in [item for item in meshes if item.type == "MESH" and any(word in item.name.lower() for word in ("glasses", "aviator"))]:
         points = rest_points(obj)
         if abs(float(np.median(points[:, 2])) - eye_z) > 0.03:
+            # On top of the head: they rest on the hair (`parle_style.settle_on`), or on the scalp when there is none.
+            hair = [rest_points(item) for item in meshes if item.type == "MESH" and "hair" in item.name.lower()]
+            surface = np.concatenate(hair) if hair else skin
+            surface = surface[np.linalg.norm(surface - points.mean(axis=0), axis=1) < 0.15]
+            if len(surface):
+                move = parle_style.settle_on(points, surface)
+                if np.linalg.norm(move) > 1e-4:
+                    warp(obj, lambda pts, move=move: pts + move)
+                    done[obj.name] = "no cabelo, " + str(round(float(np.linalg.norm(move)) * 1000, 1)) + " mm"
             continue
         scale = parle_style.frame_scale(points, skin, eye_z)
         if scale < 1.0:
@@ -1738,6 +1747,42 @@ def brows_on_skin(meshes):
     return furthest
 
 
+def hair_edges_on_skin(meshes, body, balls):
+    """The lower edge of each short hair laid on the skin (`parle_style.tucked_edge`), the hair round it following. How many edge
+    points of each went, and how far the furthest stood off the skin before (mm)."""
+    eye_z = float(np.mean([centre[2] for centre, _ in balls]))
+    eye_y = float(np.mean([centre[1] for centre, _ in balls]))
+    skin = BVHTree.FromPolygons([tuple(point) for point in rest_points(body)], [tuple(polygon.vertices) for polygon in body.data.polygons])
+    done = {}
+    for obj in [item for item in meshes if item.type == "MESH" and "hair" in item.name.lower() and len(item.data.polygons)]:
+        points = rest_points(obj)
+        if points[:, 2].min() < eye_z - parle_style.HAIR_SHORT_M:
+            continue
+        count = {}
+        for polygon in obj.data.polygons:
+            for key in polygon.edge_keys:
+                count[key] = count.get(key, 0) + 1
+        rim = sorted({index for key, seen in count.items() if seen == 1 for index in key})
+        edge, targets, furthest = [], [], 0.0
+        for index in rim:
+            point = points[index]
+            if point[2] > eye_z + parle_style.HAIR_TUCK_ABOVE_M or point[1] < eye_y + parle_style.HAIR_TUCK_BEHIND_M:
+                continue
+            at, normal, _, far = skin.find_nearest(Vector(point))
+            if at is None or far > parle_style.HAIR_TUCK_REACH_M:
+                continue
+            edge.append(index)
+            targets.append(np.array(at + normal * parle_style.HAIR_ON_SKIN_M))
+            furthest = max(furthest, far)
+        if not edge:
+            continue
+        edges = np.array(list(count), int)
+        move = parle_style.tucked_edge(points, edges, edge, targets)
+        warp(obj, lambda world, move=move: world + move)
+        done[obj.name] = (len(edge), round(furthest * 1000, 1))
+    return done
+
+
 def arm_helpers(rig, meshes):
     """The helper bones of the elbows and wrists (`parle_limbs.helpers`), keyed in every clip the skeleton carries. Run after the
     clips are final, the last thing before the export."""
@@ -1828,6 +1873,7 @@ def natural_body(meshes, rig, height, sex, kit):
         print("CABEÇA em volumes simples: o ponto que mais andou,", round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1), "mm")
         print("CABEÇA: hair, clothes and worn things followed the skin:", follow_skin(meshes, before, rest_points(body)))
         print("CABEÇA: óculos na largura do rosto:", frames_on_face(meshes, body, balls))
+        print("CABEÇA: borda do cabelo curto na pele:", hair_edges_on_skin(meshes, body, balls))
     lined = lining_behind_skin(meshes)
     if lined:
         print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")

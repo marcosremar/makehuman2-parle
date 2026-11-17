@@ -17,9 +17,41 @@ brow[:, :, 3] = np.linspace(0.0, 1.0, 16).reshape(4, 4)
 young, old = parle_paint.drawn_brow(brow, False), parle_paint.drawn_brow(brow, True)
 assert young[..., :3].max() < 0.7 * 0.5, "the young's eyebrow is not darker than its own colour"
 # Grey on the old: from round 49 to 54 both judges asked it "cinza médio em vez de branco", neither dark nor white.
-assert 0.4 < old[..., :3].min() and old[..., :3].max() < 0.7, "the old's eyebrow is not a mid grey"
+assert 0.4 < old[..., :3].mean() and old[..., :3].max() < 0.7, "the old's eyebrow is not a mid grey"
 alpha = young[..., 3].ravel()
 assert ((alpha < 0.02) | (alpha > 0.98)).mean() >= 0.6, "the eyebrow's edge is still a soft smudge"
+
+# Round 66 (owner, 2026-11-17: "melhora a sobrancelha"): the kit's strands have a lumpy edge that the thickening of the old made a
+# slab with a wavy top, and blunt ends. Drawn again, an eyebrow's upper edge runs smooth, its head is round, its tail a point, and
+# it stays where the kit's was; the old's grey is darker at its lower edge than at its upper.
+rows, columns = 128, 256
+ys, xs = np.mgrid[0:rows, 0:columns]
+along = (xs - 20) / 200.0
+middle = 64 - 18 * np.sin(np.pi * np.clip(along, 0, 1) * 0.8)
+half = (9 - 7 * np.clip(along, 0, 1)) + 2.5 * np.sin(xs / 4.0) * (ys < middle)
+strands = (np.abs(ys - middle) <= half) & (along >= 0) & (along <= 1)
+lumpy = np.zeros((rows, columns, 4), np.float32)
+lumpy[..., :3], lumpy[..., 3] = 0.3, strands
+drawn = parle_paint.drawn_brow(lumpy, True)
+solid = drawn[..., 3] > 0.5
+cols = np.where(solid.any(axis=0))[0]
+top = solid[:, cols].argmax(axis=0)
+kit_top = strands[:, cols].argmax(axis=0)
+body = slice(0, int(len(cols) * 0.8))
+
+
+def lumps(edge):
+    return np.std(edge[body] - np.polyval(np.polyfit(cols[body], edge[body], 4), cols[body]))
+
+
+assert lumps(top) < lumps(kit_top) / 3, f"the eyebrow's upper edge keeps the strands' lumps: {lumps(top):.2f} against {lumps(kit_top):.2f}"
+thick = solid[:, cols].sum(axis=0)
+assert thick[:3].max() < thick[8:20].max() and thick[-4:].max() <= 0.3 * thick[:30].max(), f"no round head or no pointed tail: {thick[:12]} {thick[-6:]}"
+grown = parle_paint.box_blur(strands.astype(np.float32)[..., None], 3, passes=1)[..., 0] > 0
+assert not (solid & ~grown).any(), "the eyebrow is drawn off where the kit's was"
+across = parle_paint.brow_band(strands)[1]
+upper, lower = solid & (across < -0.5), solid & (across > 0.5)
+assert drawn[..., :3][lower].mean() < drawn[..., :3][upper].mean() * 0.85, "the old's eyebrow is one flat grey"
 
 rng = np.random.default_rng(1)
 skin = 0.6 + 0.1 * rng.standard_normal((64, 64, 3)).astype(np.float32)

@@ -20,6 +20,10 @@ except ValueError:
 men, old = parle_style.STYLE["male"], parle_style.STYLE["male-old"]
 assert men["nose"] > parle_style.STYLE["female"]["nose"] and old["nose"] > men["nose"], "the series' men have the bigger nose, the old the biggest"
 assert old["brow"] > men["brow"] > parle_style.STYLE["female"]["brow"], "the eyebrows of the kinds are not in the series' order"
+# Round 66 (owner, 2026-11-17: "melhora a sobrancelha"): the old's eyebrows were a block (2.5 times the kit's, as thick at the
+# temple as by the nose): under twice the kit's, and thinning to the temple.
+for kind in ("male-old", "female-old"):
+    assert parle_style.STYLE[kind]["brow"] < 2 and parle_style.STYLE[kind]["brow_outer"] < 0.8, f"the old's eyebrow is a block: {kind}"
 
 tip = np.array([0.0, -0.1, 1.6])
 field = parle_style.nose_field(tip, 1.6, 0.9)
@@ -110,6 +114,30 @@ frame_pts = np.array([[x, -0.1, 1.6] for x in np.linspace(-0.08, 0.08, 17)] + [[
 scale_f = parle_style.frame_scale(frame_pts, face_pts, 1.6)
 assert abs(scale_f - (0.065 + parle_style.FRAME_CLEAR_M) / 0.08) < 1e-6, f"the frame is not narrowed to the face: {scale_f}"
 assert parle_style.frame_scale(frame_pts * np.array([0.5, 1, 1]), face_pts, 1.6) == 1.0, "a frame narrower than the face was narrowed"
+# Glasses on top of the head rest on the hair (round 66: the young woman's stood 1.4 to 4 cm over it): a ring over a dome of hair
+# comes down to it, its nearest point FRAME_ON_HAIR_M off, none nearer; one already resting stays.
+theta, phi = np.meshgrid(np.linspace(0, np.pi / 2, 30), np.linspace(0, 2 * np.pi, 60))
+dome = 0.1 * np.column_stack([(np.sin(theta) * np.cos(phi)).ravel(), (np.sin(theta) * np.sin(phi)).ravel(), np.cos(theta).ravel()])
+angle = np.linspace(0, 2 * np.pi, 40)
+ring = np.column_stack([0.07 * np.cos(angle), 0.07 * np.sin(angle), np.full(40, 0.11)])
+lifted = ring + parle_style.settle_on(ring, dome)
+gap = parle_style.nearest_on(lifted, dome)[0]
+assert abs(gap.min() - parle_style.FRAME_ON_HAIR_M) < 0.001 and gap.min() >= parle_style.FRAME_ON_HAIR_M - 1e-6, f"the glasses float or sink: {gap.min()}"
+assert lifted[:, 2].mean() < ring[:, 2].mean() - 0.02, "the glasses did not come down onto the hair"
+assert np.allclose(parle_style.settle_on(lifted, dome), 0, atol=1e-3), "glasses already resting on the hair moved"
+# The lower edge of short hair lies on the skin (round 66: a cap 7 mm off the young man's neck, a helmet's rim): a strip of hair
+# whose lower row goes onto the skin moves the row over it less, and the rows further than HAIR_TUCK_FADE_M not at all.
+rows_z = np.arange(0.0, 0.06, 0.005)
+strip = np.array([(x, 0.0, z) for z in rows_z for x in np.arange(0.0, 0.05, 0.005)])
+across = 10
+links = [(r * across + c, r * across + c + 1) for r in range(len(rows_z)) for c in range(across - 1)]
+links += [(r * across + c, (r + 1) * across + c) for r in range(len(rows_z) - 1) for c in range(across)]
+lower = np.arange(across)
+tuck = parle_style.tucked_edge(strip, np.array(links), lower, strip[lower] + np.array([0.0, 0.007, 0.0]))
+by_row = tuck[:, 1].reshape(len(rows_z), across).mean(axis=1)
+assert np.allclose(by_row[0], 0.007) and np.all(np.diff(by_row) <= 1e-9), f"the hair does not follow its edge evenly: {by_row}"
+assert np.allclose(by_row[rows_z > parle_style.HAIR_TUCK_FADE_M + 1e-9], 0), f"the top of the hair moved with its edge: {by_row}"
+assert 0 < by_row[2] < 0.007, f"the hair next to the edge did not follow it: {by_row}"
 # The folds about the mouth fill (rounds 48 to 54): the skin in a ring about the lips takes part, the lips and the cheekbone do not.
 eyes_f = [(np.array([0.032, -0.06, 1.66]), 0.012), (np.array([-0.032, -0.06, 1.66]), 0.012)]
 tip_f = np.array([0.0, -0.1, 1.62])

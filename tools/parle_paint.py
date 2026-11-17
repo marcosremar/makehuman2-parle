@@ -92,14 +92,77 @@ def smooth(low, high, value):
     return t * t * (3 - 2 * t)
 
 
+# Round 66 (owner, 2026-11-17: "melhora a sobrancelha"): the kit's strands cut at BROW_EDGE and then stretched up to 2.5 times
+# about their middle line on the old (`parle_style.STYLE`) came out a grey slab with a lumpy top on the old woman, a block on the old
+# man and a band with blunt ends on the young. Each eyebrow of the map is drawn again as the series draws one: its middle line and
+# its thickness read off the kit's shape column by column and smoothed (polynomials of these degrees along its length), a round head
+# by the nose and a point at the temple over this last share of its length, the edge this many pixels soft.
+BROW_LINE_DEGREE = 5
+BROW_THICK_DEGREE = 3
+BROW_TAIL = 0.3
+BROW_SOFT_PX = 1.0
+# The old's grey goes this much darker towards its lower edge: one flat light grey read as a smudge on the skin (rounds 49 to 65).
+BROW_OLD_UNDER = 0.3
+
+
+def brow_islands(solid):
+    """The rows (start, end) of each eyebrow of a map: runs of rows with a solid texel, split by empty rows."""
+    rows = np.where(solid.any(axis=1))[0]
+    if not len(rows):
+        return []
+    cuts = np.where(np.diff(rows) > 1)[0]
+    return list(zip(np.concatenate([[rows[0]], rows[cuts + 1]]), np.concatenate([rows[cuts], [rows[-1]]]) + 1))
+
+
+def brow_band(solid):
+    """Each eyebrow of a map (rows x columns of bool, the kit's strands) drawn again as one smooth band (BROW_LINE_DEGREE): its
+    alpha (0..1) and, across it, where each texel lies from its upper edge (-1) to its lower one (1). An eyebrow too small to
+    smooth keeps its own shape."""
+    rows = solid.shape[0]
+    alpha, across = np.zeros(solid.shape, np.float32), np.zeros(solid.shape, np.float32)
+    for top_row, end_row in brow_islands(solid):
+        part = solid[top_row:end_row]
+        cols = np.where(part.any(axis=0))[0]
+        if len(cols) <= BROW_LINE_DEGREE + 2:
+            alpha[top_row:end_row] = np.maximum(alpha[top_row:end_row], part)
+            continue
+        top = part[:, cols].argmax(axis=0) + top_row
+        bottom = end_row - part[::-1, cols].argmax(axis=0)
+        first, last = cols[0], cols[-1] + 1
+        length = last - first
+        line = np.polyfit((cols + 0.5 - first) / length, (top + bottom) / 2, BROW_LINE_DEGREE)
+        thick = np.polyfit((cols + 0.5 - first) / length, bottom - top, BROW_THICK_DEGREE)
+        head_first = np.polyval(thick, 0.1) >= np.polyval(thick, 0.9)
+        reach = 2 * (end_row - top_row)
+        ys, xs = np.mgrid[max(top_row - reach, 0):min(end_row + reach, rows), first:last]
+        at = (xs + 0.5 - first) / length
+        along = at if head_first else 1 - at
+        half = np.maximum(np.polyval(thick, at), 0) / 2
+        cap = max(np.polyval(thick, 0.0 if head_first else 1.0) / 2 / length, 1e-9)
+        half = half * np.sqrt(1 - np.clip((cap - along) / cap, 0, 1) ** 2)
+        half = half * np.sin(np.pi / 2 * np.clip((1 - along) / BROW_TAIL, 0, 1))
+        off = ys + 0.5 - np.polyval(line, at)
+        drawn = np.clip(0.5 - (np.abs(off) - half) / BROW_SOFT_PX, 0, 1).astype(np.float32)
+        region = (slice(ys[0, 0], ys[-1, 0] + 1), slice(first, last))
+        across[region] = np.where(drawn > alpha[region], np.clip(off / np.maximum(half, 1e-6), -1, 1), across[region])
+        alpha[region] = np.maximum(alpha[region], drawn)
+    return alpha, across
+
+
 def drawn_brow(pixels, old):
-    """An eyebrow map (rows x columns x RGBA, 0..1, sRGB) drawn as one clean band: dark on the young, light grey on the old."""
-    out = np.array(pixels, np.float32, copy=True)
-    out[:, :, 3] = smooth(BROW_EDGE[0], BROW_EDGE[1], out[:, :, 3])
+    """An eyebrow map (rows x columns x RGBA, 0..1, sRGB) drawn as the series draws one (`brow_band`), in one colour: its own made
+    darker on the young, a mid grey on the old that darkens towards its lower edge (BROW_OLD_UNDER)."""
+    pixels = np.asarray(pixels, np.float32)
+    alpha, across = brow_band(smooth(BROW_EDGE[0], BROW_EDGE[1], pixels[:, :, 3]) >= 0.5)
+    colour = solid_mean(pixels)
+    out = np.empty_like(pixels)
     if old:
-        out[:, :, :3] = out[:, :, :3] * (1 - BROW_OLD_SHARE) + np.asarray(BROW_OLD_GREY, np.float32) * BROW_OLD_SHARE
+        tone = colour * (1 - BROW_OLD_SHARE) + np.asarray(BROW_OLD_GREY, np.float32) * BROW_OLD_SHARE
+        shade = 1 - BROW_OLD_UNDER * smooth(-0.2, 1.0, across)
     else:
-        out[:, :, :3] = out[:, :, :3] * BROW_YOUNG_DARKEN
+        tone, shade = colour * BROW_YOUNG_DARKEN, np.ones(alpha.shape, np.float32)
+    out[:, :, :3] = tone[None, None, :] * shade[:, :, None]
+    out[:, :, 3] = alpha
     return out
 
 

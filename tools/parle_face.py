@@ -1060,7 +1060,7 @@ def clean_face(body, added, job, env):
         parle_polish.round_globes(obj)
     own = own_traits(job)
     style = parle_style.STYLE[parle_style.kind_of(sex, job)]
-    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], fair_look(sex, own), style["brow"], BROW_OUTER[sex], BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex], own, BROW_INNER_UP_M[sex])
+    calm_look([body, *(obj for obj in added if obj.type == "MESH" and any(word in obj.name for word in ("eyebrow", "teeth", "tongue", "low-poly")))], LIP_THIN[sex], MOUTH_BACK[sex], MOUTH_WIDE[sex], CHIN_BACK[sex], UNDER_LIP_ROUNDS[sex], LIPS_FULL[sex], LIPS_CUPID[sex], CHIN_LONGER[sex], fair_look(sex, own), style["brow"], style.get("brow_outer", BROW_OUTER[sex]), BROW_LONG[sex], BROW_ARCH[sex], BROW_LIFT_M[sex], UPPER_LIP_VOLUME[sex], own, BROW_INNER_UP_M[sex])
     soften_pout(body, POUT_FORWARD[sex])
     globe = next((obj for obj in added if obj.type == "MESH" and "low-poly" in obj.name), None)
     if globe is None:

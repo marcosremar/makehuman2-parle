@@ -22,7 +22,10 @@ STYLE = {
     # the owner's test holds, `tests/test_parle_eyes.py`). The women's eyes back to 1.3 of the kit's, the men's to 1.25.
     "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
-    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 2.5, "eye": 1.25 / 1.1, "skin": 1.55},
+    # Round 66 (owner, 2026-11-17: "melhora a sobrancelha"): at 2.5 his eyebrow stood 3 cm tall by the nose, a grey block over the
+    # glasses, as thick at the temple as by the nose: thinner, and to `brow_outer` of that at its outer end (the series' old man's
+    # are bushy by the nose and thin out to the temple). The young's keep `parle_face.BROW_OUTER`.
+    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 1.9, "brow_outer": 0.65, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 48 (5.7): both judges, three rounds running, asked the young woman's nose a third smaller, a button ("hoje é nariz de
     # homem"), and the old woman's tip shorter.
     # Round 53: both judges asked the women's and the old man's eyebrows a half to twice as thick; the young woman's stays under
@@ -30,7 +33,8 @@ STYLE = {
     # Round 63, both judges asked the young woman's eyebrows thicker; at 1.55 (round 64) both "30 a 40 % mais finas": back to 1.35.
     "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "eye": 1.0, "skin": 1.55},
     # Rounds 54 and 58: the old woman's nose "20 % menor, ... hoje parece nariz de homem" (both judges).
-    "female-old": {"forward": 0.85, "nose": 1.3, "tip": 1.2, "brow": 2.4, "eye": 1.0, "skin": 1.55},
+    # Round 66: at 2.4 the old woman's eyebrow was a flat grey slab over the eye: thinner, and thinning to the temple.
+    "female-old": {"forward": 0.85, "nose": 1.3, "tip": 1.2, "brow": 1.7, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
@@ -368,6 +372,37 @@ def spread(step, edges, pinned, free, rounds):
     return step
 
 
+
+# The lower edge of short hair lies on the skin (round 66: the cap under the young man's curls stood 7 mm off his neck, up to 15,
+# and the old man's 6.6 mm, a helmet's rim behind the ear; the series paints a hairline flush on the head). An edge point of a hair
+# that ends above the jaw, at the nape, round the ears or at the sideburns and no further than HAIR_TUCK_REACH_M from the skin goes
+# to HAIR_ON_SKIN_M off it; the rest of the hair follows, less and less, out to HAIR_TUCK_FADE_M from the edge.
+HAIR_ON_SKIN_M = 0.001
+HAIR_TUCK_REACH_M = 0.02
+HAIR_TUCK_FADE_M = 0.03
+HAIR_TUCK_ROUNDS = 60
+# A hair that ends above the eyes less this much is short; below it (long hair to the shoulders) its edge is left. Only the edge
+# below the eyes plus HAIR_TUCK_ABOVE_M and this far behind them goes (not a fringe on the forehead).
+HAIR_SHORT_M = 0.1
+HAIR_TUCK_ABOVE_M = 0.03
+HAIR_TUCK_BEHIND_M = 0.04
+
+
+def tucked_edge(points, edges, edge, targets):
+    """The move (n x 3) of a hair whose `edge` points (indices) go to `targets` (their places on the skin): the points further than
+    HAIR_TUCK_FADE_M from every one of them stay, the ones between follow evenly (`spread`)."""
+    points = np.asarray(points, float)
+    step = np.zeros_like(points)
+    edge = np.asarray(edge, int)
+    if not len(edge):
+        return step
+    step[edge] = np.asarray(targets, float) - points[edge]
+    far = nearest_on(points, points[edge])[0] > HAIR_TUCK_FADE_M
+    pinned = far.copy()
+    pinned[edge] = True
+    return spread(step, edges, pinned, np.ones(len(points), bool), HAIR_TUCK_ROUNDS)
+
+
 # A frame on the eyes is no wider than the face at the temples (round 51: the old man's glasses stood out past his face in 3/4,
 # fitted to the kit's head before the drawn one narrowed it): the front of the frame comes in to the face's width there and this
 # much more, the frame narrowed across as a whole.
@@ -390,6 +425,42 @@ def frame_scale(frame, skin, eye_z):
         return 1.0
     face = float(np.abs(side[:, 0] - middle).max())
     return min(1.0, (face + FRAME_CLEAR_M) / half)
+
+# Glasses worn on top of the head rest on the hair (round 66: the young woman's sunglasses stood 1.4 to 4 cm over her hair, the hair
+# having followed the drawn head and the glasses not): moved as a whole until their nearest point is this far from the hair's
+# nearest point (points of the hair, so a little more than the distance to its surface), over at most this many steps.
+FRAME_ON_HAIR_M = 0.003
+FRAME_SETTLE_ROUNDS = 8
+# Each step goes towards the hair along the mean way from this share of the frame's points nearest it.
+FRAME_SETTLE_SHARE = 0.1
+
+
+def nearest_on(points, surface, chunk=256):
+    """For each of `points`, its distance to the nearest of `surface`'s points, and that point."""
+    points, surface = np.asarray(points, float), np.asarray(surface, float)
+    distance, nearest = np.empty(len(points)), np.empty_like(points)
+    for start in range(0, len(points), chunk):
+        part = points[start:start + chunk]
+        gaps = np.linalg.norm(part[:, None, :] - surface[None, :, :], axis=2)
+        index = gaps.argmin(axis=1)
+        distance[start:start + chunk], nearest[start:start + chunk] = gaps[np.arange(len(part)), index], surface[index]
+    return distance, nearest
+
+
+def settle_on(frame, surface, clear=FRAME_ON_HAIR_M):
+    """The move (x, y, z) that takes a frame of glasses (`frame`, its points) as a whole onto `surface` (its points), its nearest
+    point `clear` from it: no point of the frame comes nearer than `clear`, since no point moves further than the gap it closes."""
+    frame = np.asarray(frame, float)
+    move = np.zeros(3)
+    for _ in range(FRAME_SETTLE_ROUNDS):
+        distance, nearest = nearest_on(frame + move, surface)
+        gap = float(distance.min()) - clear
+        if gap <= 1e-4:
+            break
+        close = distance <= np.quantile(distance, FRAME_SETTLE_SHARE)
+        way = (nearest[close] - (frame + move)[close]).mean(axis=0)
+        move += way / max(np.linalg.norm(way), 1e-9) * gap
+    return move
 
 
 def follow_field(before, after):
