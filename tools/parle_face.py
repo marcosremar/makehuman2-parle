@@ -313,7 +313,8 @@ SMILE_MIX = {
 SPEECH_MIX = {
     # Rounds 44 to 56, both judges: the "o" "fica numa fenda reta com os dentes à mostra, lê-se como e", where it should be a ring
     # with the lips forward, "sem abrir mais": more of the pucker, the same opening (Rafa's limit, owner 2026-11-16).
-    "viseme_O": {"viseme_O": 0.29, "viseme_U": 1.2, "jawOpen": -0.29},
+    # Round 71: the women's "o" "bico de pato inchado" (both judges), now that no teeth show in it: a little less of the pucker.
+    "viseme_O": {"viseme_O": 0.29, "viseme_U": 1.05, "jawOpen": -0.29},
     "viseme_U": {"viseme_U": 1.11, "jawOpen": -0.23},
     "viseme_CH": {"viseme_CH": 0.67, "viseme_U": 0.82, "jawOpen": -0.18},
     "viseme_aa": {"viseme_aa": 1.0, "viseme_U": 0.4},
@@ -1128,6 +1129,8 @@ def clean_face(body, added, job, env):
     calm_speech(speaking, SPEECH_OPEN[sex])
     mixed_speech(speaking, SPEECH_MIX)
     mixed_speech(speaking, SMILE_MIX)
+    narrow_round(body, MOUTH_WIDE[sex])
+    creases_opened(body)
     # No teeth in the rounded shapes (`parle_tongue.hidden_in_round`), read off the jaw after the mixes above.
     for teeth in [obj for obj in speaking if "teeth" in obj.name and "jawOpen" in obj.data.shape_keys.key_blocks]:
         keys = teeth.data.shape_keys.key_blocks
@@ -1141,6 +1144,39 @@ def clean_face(body, added, job, env):
     parle_mouth_close.add_mouth_close(body)
     # Pucker, funnel, press, roll and stretch for speech from video (babylon-cinema #3029), CC0 faceunits01 walked onto the skin (2026-11-12).
     parle_mouth_arkit.add_arkit_mouth(body)
+
+
+# Round 71 (both judges, the four men: the "o" "quase não arredonda, parece um e fechado", "quase igual ao repouso"): the mouth of
+# the drawn face is made wider at rest by the kit's own trait (MOUTH_WIDE, 1.4 on the men), and the rounded shapes, cut for the
+# kit's mouth, drew a wide slit on it. In each of them the mouth gives back this share of that widening: a round mouth as wide as
+# the kit's own pucker.
+ROUND_NARROW = {"viseme_O": 1.0, "viseme_U": 1.0, "viseme_CH": 0.5}
+# The shapes whose creases are opened (`parle_style.creases_out`).
+CREASED = ("mouthSmileLeft", "mouthSmileRight", "viseme_O", "viseme_U", "viseme_CH")
+
+
+def narrow_round(body, wide):
+    """The rounded shapes of speech with the widening of the mouth taken back (ROUND_NARROW)."""
+    keys = body.data.shape_keys.key_blocks
+    if "faceMouthWidth" not in keys:
+        return
+    rest = key_points(keys[0])
+    widening = (key_points(keys["faceMouthWidth"]) - rest) * wide
+    for name, share in ROUND_NARROW.items():
+        if name in keys:
+            keys[name].data.foreach_set("co", (key_points(keys[name]) - widening * share).ravel())
+    body.data.update()
+
+
+def creases_opened(body):
+    """The smile and the rounded shapes with their creases opened into slopes (`parle_style.creases_out`)."""
+    keys = body.data.shape_keys.key_blocks
+    rest = key_points(keys[0])
+    edges = np.array([edge.vertices[:] for edge in body.data.edges])
+    for name in CREASED:
+        if name in keys:
+            keys[name].data.foreach_set("co", (rest + parle_style.creases_out(key_points(keys[name]) - rest, edges)).ravel())
+    body.data.update()
 
 
 def soften_under_chin(body):

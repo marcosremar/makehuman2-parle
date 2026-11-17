@@ -407,6 +407,21 @@ def tucked_edge(points, edges, edge, targets):
     return spread(step, edges, pinned, np.ones(len(points), bool), HAIR_TUCK_ROUNDS)
 
 
+
+# A shape of the face (a smile, a rounded mouth) whose move falls off abruptly creases the skin there (round 71, both judges on
+# all eight: the smile's "vincos fundos nos cantos", the "o"'s "vincos saindo dos cantos"). Its move goes this share of the way to
+# the same move evened over the mesh for this many rounds (`spread`): the crease opens into a slope, the shape stays.
+CREASE_ROUNDS = 3
+CREASE_SHARE = 0.6
+
+
+def creases_out(move, edges, rounds=CREASE_ROUNDS, share=CREASE_SHARE):
+    """The move (n x 3) of a shape with its creases opened: `share` of the way to itself evened along the mesh's `edges`."""
+    move = np.asarray(move, float)
+    none = np.zeros(len(move), bool)
+    return move * (1 - share) + spread(move, edges, none, ~none, rounds) * share
+
+
 # A frame on the eyes is no wider than the face at the temples (round 51: the old man's glasses stood out past his face in 3/4,
 # fitted to the kit's head before the drawn one narrowed it): the front of the frame comes in to the face's width there and this
 # much more, the frame narrowed across as a whole.

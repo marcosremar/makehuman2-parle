@@ -193,3 +193,11 @@ turns = np.diff(np.sign(steps_x[np.abs(steps_x) > 0.0002]))
 assert np.count_nonzero(turns) <= 2, f"the arm zigzags: {np.round(arm_x * 1000, 1)}"
 assert parle_style.nearest_on(bent[len(lens_pts):], bumpy_head)[0].min() >= parle_style.FRAME_ON_HAIR_M - 1e-4, "an arm went into the head"
 assert np.all(parle_style.under_smooth(np.array([5.0, 1.0, 5.0, 5.0])) <= np.array([5.0, 1.0, 5.0, 5.0]) + 1e-12), "the curve passes a gap"
+# Round 71: the smile and the "o" creased the skin at the corners of the mouth (both judges, all eight): along a chain, a move
+# that stops abruptly becomes a slope (its steepest step under half of what it was), and most of the move stays.
+chain = np.array([(index, index + 1) for index in range(19)])
+abrupt = np.zeros((20, 3))
+abrupt[:10, 2] = 0.004
+opened = parle_style.creases_out(abrupt, chain)
+assert np.abs(np.diff(opened[:, 2])).max() < 0.5 * 0.004, f"the crease is still a step: {np.abs(np.diff(opened[:, 2])).max()}"
+assert opened[:5, 2].min() > 0.9 * 0.004 and np.allclose(opened[15:], 0, atol=2e-4), f"the shape went with its crease: {opened[:, 2]}"
