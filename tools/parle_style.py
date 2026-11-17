@@ -460,16 +460,31 @@ def hat_scale(rim, gaps, centre, clear=HAT_CLEAR_M):
 
 # The arms of a frame lie along the head (round 68: the market owner's stood 11 to 24 mm off it and ended in hooks in the air, the
 # young woman's sunglasses' ran straight back off her hair, both judges): from FRAME_ARM_FROM_M behind the front of the frame, each
-# slice of an arm FRAME_ARM_SLICE_M long goes whole towards the head till its nearest point is FRAME_ON_HAIR_M off it, fully from
-# FRAME_ARM_RAMP_M further back; the front of the frame stays.
+# slice of an arm FRAME_ARM_SLICE_M long goes whole towards the head, fully from FRAME_ARM_RAMP_M further back; the front stays.
+# Round 69: each slice taken to its own gap, the arms came out "em zigue-zague, como arame quebrado" (judge A): an arm goes one
+# way, and by a smooth curve that stays under every slice's gap (so no slice goes nearer than FRAME_ON_HAIR_M), evened over
+# FRAME_ARM_EVEN slices for FRAME_ARM_EVEN_ROUNDS rounds.
 FRAME_ARM_FROM_M = 0.01
 FRAME_ARM_RAMP_M = 0.015
 FRAME_ARM_SLICE_M = 0.005
+FRAME_ARM_EVEN = 7
+FRAME_ARM_EVEN_ROUNDS = 30
+
+
+def under_smooth(gaps, width=FRAME_ARM_EVEN, rounds=FRAME_ARM_EVEN_ROUNDS):
+    """A smooth curve under `gaps` (one per slice, in order): evened over `width` slices and kept under them, round after round."""
+    gaps = np.asarray(gaps, float)
+    curve = gaps.copy()
+    half = width // 2
+    for _ in range(rounds):
+        padded = np.concatenate([np.repeat(curve[:1], half), curve, np.repeat(curve[-1:], half)])
+        curve = np.minimum(gaps, np.convolve(padded, np.ones(width) / width, mode="valid"))
+    return curve
 
 
 def arms_on_head(frame, surface, clear=FRAME_ON_HAIR_M):
     """The move (n x 3) of each point of a frame of glasses (`frame`, the face looking at -y) that lays its arms on the head
-    (`surface`, its points): slice by slice along each arm, as a whole, the slices' moves evened along it."""
+    (`surface`, its points): slice by slice along each arm, as a whole, one way for the arm, by a smooth curve (`under_smooth`)."""
     frame = np.asarray(frame, float)
     move = np.zeros_like(frame)
     behind = frame[:, 1] - frame[:, 1].min()
@@ -480,23 +495,29 @@ def arms_on_head(frame, surface, clear=FRAME_ON_HAIR_M):
             continue
         slices = np.floor((behind[arm] - FRAME_ARM_FROM_M) / FRAME_ARM_SLICE_M).astype(int)
         distance, nearest = nearest_on(frame[arm], surface)
-        steps = np.zeros((slices.max() + 1, 3))
-        filled = np.zeros(len(steps), bool)
+        count = slices.max() + 1
+        gaps, ways, filled = np.zeros(count), np.zeros((count, 3)), np.zeros(count, bool)
         for index in np.unique(slices):
             here = slices == index
             filled[index] = True
-            gap = float(distance[here].min()) - clear
-            if gap > 0:
-                way = (nearest[here] - frame[arm][here]).mean(axis=0)
-                steps[index] = way / max(np.linalg.norm(way), 1e-9) * gap
-        # Each slice's move evened with its neighbours' (no further than its own, so no slice goes nearer than `clear`).
-        evened = np.zeros_like(steps)
-        for index in np.where(filled)[0]:
-            near = [other for other in range(max(index - 1, 0), min(index + 2, len(steps))) if filled[other]]
-            evened[index] = steps[near].mean(axis=0)
-            evened[index] *= min(1.0, np.linalg.norm(steps[index]) / max(np.linalg.norm(evened[index]), 1e-9))
-        move[arm] = evened[slices] * np.clip((behind[arm] - FRAME_ARM_FROM_M) / FRAME_ARM_RAMP_M, 0, 1)[:, None]
+            gaps[index] = max(float(distance[here].min()) - clear, 0.0)
+            ways[index] = (nearest[here] - frame[arm][here]).mean(axis=0)
+        if not gaps.any():
+            continue
+        # An empty slice takes the gap of the nearest filled one before it.
+        for index in range(count):
+            if not filled[index]:
+                gaps[index] = gaps[index - 1] if index else gaps[filled.argmax()]
+        way = (ways * gaps[:, None]).sum(axis=0)
+        way /= max(np.linalg.norm(way), 1e-9)
+        curve = under_smooth(gaps)
+        move[arm] = way * (curve[slices] * np.clip((behind[arm] - FRAME_ARM_FROM_M) / FRAME_ARM_RAMP_M, 0, 1))[:, None]
     return move
+
+
+# Round 69 (judge A): the old men's glasses "flutuam ~1 cm à frente dos olhos": a frame on the eyes goes back as a whole till the
+# point of its front nearest the face (the bridge on the nose) is this far off it.
+FRAME_ON_NOSE_M = 0.002
 
 
 def nearest_on(points, surface, chunk=256):

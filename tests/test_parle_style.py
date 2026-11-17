@@ -182,3 +182,14 @@ far_back = laid[len(lens_pts):][arm_pts[:, 1] > -0.07]
 gaps = parle_style.nearest_on(far_back, side_head)[0]
 assert np.all(gaps >= parle_style.FRAME_ON_HAIR_M - 1e-4) and gaps.max() < parle_style.FRAME_ON_HAIR_M + 0.002, f"the arm is not on the head: {gaps.max()}"
 assert np.allclose(np.ptp(laid[len(lens_pts):].reshape(-1, 2, 3)[:, :, 2], axis=1), 0.002), "an arm's slice lost its thickness"
+
+# Round 69: the arms came out in a zigzag (judge A): on a head whose side bulges and hollows, the laid arm runs smooth (no slice
+# turns back) and no slice goes nearer than FRAME_ON_HAIR_M.
+bumpy_head = np.array([(0.07 + 0.006 * np.sin(y * 300), y, z) for y in np.linspace(-0.1, 0.05, 120) for z in np.linspace(-0.02, 0.02, 9)])
+bent = glasses_pts + parle_style.arms_on_head(glasses_pts, bumpy_head)
+arm_x = bent[len(lens_pts):].reshape(-1, 2, 3)[:, 0, 0]
+steps_x = np.diff(arm_x[arm_pts[::2, 1] > -0.085])
+turns = np.diff(np.sign(steps_x[np.abs(steps_x) > 0.0002]))
+assert np.count_nonzero(turns) <= 2, f"the arm zigzags: {np.round(arm_x * 1000, 1)}"
+assert parle_style.nearest_on(bent[len(lens_pts):], bumpy_head)[0].min() >= parle_style.FRAME_ON_HAIR_M - 1e-4, "an arm went into the head"
+assert np.all(parle_style.under_smooth(np.array([5.0, 1.0, 5.0, 5.0])) <= np.array([5.0, 1.0, 5.0, 5.0]) + 1e-12), "the curve passes a gap"

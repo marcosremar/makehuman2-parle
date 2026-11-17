@@ -386,6 +386,15 @@ def frames_on_face(meshes, body, balls):
             middle = float(np.median(skin[:, 0]))
             warp(obj, lambda pts, scale=scale, middle=middle: np.column_stack([middle + (pts[:, 0] - middle) * scale, pts[:, 1], pts[:, 2]]))
             done[obj.name] = round(scale, 3)
+        # The frame goes back onto the nose (FRAME_ON_NOSE_M), then its arms onto the head.
+        points = rest_points(obj)
+        front = points[points[:, 1] < points[:, 1].min() + 0.01]
+        face = skin[(skin[:, 1] < front[:, 1].max() + 0.04) & (np.abs(skin[:, 2] - eye_z) < 0.04)]
+        if len(face):
+            gap = float(parle_style.nearest_on(front, face)[0].min()) - parle_style.FRAME_ON_NOSE_M
+            if gap > 0:
+                warp(obj, lambda pts, gap=gap: pts + np.array([0.0, gap, 0.0]))
+                done[obj.name + " no nariz"] = round(gap * 1000, 1)
         hair = [rest_points(item) for item in meshes if item.type == "MESH" and "hair" in item.name.lower()]
         head = np.concatenate([skin, *hair])
         done[obj.name + " hastes"] = arms_to_head(obj, head[np.linalg.norm(head - rest_points(obj).mean(axis=0), axis=1) < 0.2])
