@@ -1238,7 +1238,10 @@ def soften_under_chin(body):
     if globe is not None:
         world = parle_polish.rest_points(body)
         balls = parle_polish.eye_balls(globe)
-        fold = parle_style.jaw_neck_weight(world, parle_style.nose_tip(world, balls), balls, parle_style.JAW_FOLD_BACK)
+        lining = parle_polish.mouth_lining(body, list(bpy.data.objects))
+        fold = parle_style.jaw_neck_weight(world, parle_style.nose_tip(world, balls), balls, parle_style.JAW_FOLD_BACK, deep_lips=lining is None)
+        if lining is not None:
+            fold[lining] = 0.0
         same = np.unique(np.round(points, 5), axis=0, return_inverse=True)[1].ravel()
         soft = parle_normals.eased(average, edges, fold, same)
         corners = corners + (soft - average)[point_of]

@@ -336,19 +336,33 @@ def simple_weight(points, tip, eyes):
 JAW_NECK_FROM = (0.7, 0.9)
 JAW_NECK_RELAX = 10
 JAW_NECK_TO = (2.3, 2.7)
-JAW_NECK_BACK = (1.5, 2.3)
+# Round 85 (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"; rounds 83 and 84 left a small tooth in the
+# line of the jaw seen three quarters on, about half way from the chin to the ear). Drawn outside Blender with the edges of the
+# mesh, the rim of the jaw has a step there, already on the head before it is sculpted: the line of the jaw climbs towards the
+# ear, to 0.65 to 0.85 distances between the eyes under the nose tip at 1.3 to 1.5 behind it, and the zone above started at one
+# height all round (0.7 to 0.9), so the rim at the side was half out of it. The start of the zone climbs with the jaw: by
+# JAW_NECK_RISE from JAW_NECK_RISE_BEHIND[0] to [1] behind the tip, and it reaches a little further back (1.5 to 2.3 before).
+JAW_NECK_RISE = 0.45
+JAW_NECK_RISE_BEHIND = (0.7, 1.3)
+JAW_NECK_BACK = (2.0, 2.6)
+# The lips are left as they are no further back than this (whole to the first, not at all past the second): the corners of the
+# mouth stand some 0.4 to 0.5 distances between the eyes behind the nose tip.
+JAW_NECK_LIPS_BEHIND = (0.7, 1.1)
 # Round 76: at 20 rounds a small step stayed under the men's chin in profile ("uma ondulação mole no meio", "dobra dupla").
 JAW_NECK_ROUNDS = 50
 
 
 # How far back the normals are eased along the fold of the jaw (`parle_normals.eased`): past the angle of the jaw, which stands
 # 1.7 to 2.1 distances between the eyes behind the nose tip, where the smoothing of the form (JAW_NECK_BACK) is fading out.
-JAW_FOLD_BACK = (2.2, 2.8)
+JAW_FOLD_BACK = (2.5, 3.0)
 
 
-def jaw_neck_weight(points, tip, eyes, back=None):
+def jaw_neck_weight(points, tip, eyes, back=None, deep_lips=False):
     """How much each point of the skin is smoothed again under the jaw (0..1), the face looking at -y; `back` in place of
-    JAW_NECK_BACK."""
+    JAW_NECK_BACK. The oval of the lips has no depth: it also covers the rim of the jaw at the side of the face, and the inside
+    of the mouth behind the lips. It is taken at the front only, so the rim is smoothed, and the caller then takes the inside
+    of the mouth out by its own points (`parle_polish.mouth_lining`); with `deep_lips`, for a body whose lining is not
+    known, the oval keeps its whole depth."""
     back = JAW_NECK_BACK if back is None else back
     points = np.asarray(points, float)
     centres = [np.asarray(centre, float) for centre, _ in eyes]
@@ -356,10 +370,14 @@ def jaw_neck_weight(points, tip, eyes, back=None):
     tip = np.asarray(tip, float)
     below = (tip[2] - points[:, 2]) / unit
     behind = (points[:, 1] - tip[1]) / unit
-    weight = smooth((below - JAW_NECK_FROM[0]) / (JAW_NECK_FROM[1] - JAW_NECK_FROM[0])) * smooth((JAW_NECK_TO[1] - below) / (JAW_NECK_TO[1] - JAW_NECK_TO[0]))
+    start = JAW_NECK_FROM[0] - JAW_NECK_RISE * smooth((behind - JAW_NECK_RISE_BEHIND[0]) / (JAW_NECK_RISE_BEHIND[1] - JAW_NECK_RISE_BEHIND[0]))
+    weight = smooth((below - start) / (JAW_NECK_FROM[1] - JAW_NECK_FROM[0])) * smooth((JAW_NECK_TO[1] - below) / (JAW_NECK_TO[1] - JAW_NECK_TO[0]))
     weight *= smooth((back[1] - behind) / (back[1] - back[0]))
     off = (points - (tip + np.array(SIMPLE_MOUTH) * unit)) / unit
-    return weight * smooth((np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1]) - 1.0) / SIMPLE_MOUTH_RAMP)
+    lips = smooth((np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1]) - 1.0) / SIMPLE_MOUTH_RAMP)
+    # The lips are at the front: their oval, which has no depth, also took the rim of the jaw at the side of the face (round 85).
+    front = 1.0 if deep_lips else smooth((JAW_NECK_LIPS_BEHIND[1] - behind) / (JAW_NECK_LIPS_BEHIND[1] - JAW_NECK_LIPS_BEHIND[0]))
+    return weight * (1.0 - (1.0 - lips) * front)
 
 
 def orbit_weight(points, tip, eyes):

@@ -259,5 +259,17 @@ assert bend(calm_vee) < 0.5 * bend(vee) and np.allclose(calm_vee[[0, 20]], vee[[
 assert parle_style.JAW_NECK_FROM[1] <= 0.9, "the fold under the chin is half out of the zone that is smoothed"
 
 # Round 84: the normals are eased along the fold of the jaw past its angle (JAW_FOLD_BACK), where the smoothing of the form has faded.
-angle = tip + np.array([0.045, 2.0 * 0.064, -1.0 * 0.064])
+angle = tip + np.array([0.045, 2.45 * 0.064, -1.0 * 0.064])
 assert parle_style.jaw_neck_weight(angle[None], tip, eyes, parle_style.JAW_FOLD_BACK)[0] > 0.95 > parle_style.jaw_neck_weight(angle[None], tip, eyes)[0], "the angle of the jaw is outside the zone of the fold"
+
+# Round 85: the rim of the jaw at the side, where the line of the jaw has climbed towards the ear (0.75 distances between the eyes under
+# the nose tip, 1.4 behind it), is inside the zone smoothed under the jaw; the same height at the front of the chin is not.
+side_rim = tip + np.array([0.5 * 0.064, 1.4 * 0.064, -0.75 * 0.064])
+front_chin = tip + np.array([0.3 * 0.064, 0.3 * 0.064, -0.75 * 0.064])
+rim = parle_style.jaw_neck_weight(np.array([side_rim, front_chin]), tip, eyes)
+assert rim[0] > 0.9 and rim[1] < 0.2, f"the rim of the jaw at the side is left out of the smoothing, or the front of the chin is in it: {rim}"
+# A point inside the mouth, on the middle line behind the lips: with the oval of the lips at the front only it would be smoothed with the
+# jaw (round 85: the lining moved 3 cm), so the caller takes the lining out; a body whose lining is not known keeps the oval's whole depth.
+inside = tip + np.array([0.0, 1.4 * 0.064, -0.72 * 0.064])
+assert parle_style.jaw_neck_weight(inside[None], tip, eyes, deep_lips=True)[0] < 0.05, "the inside of the mouth is smoothed with the jaw on a body with no lining known"
+assert parle_style.jaw_neck_weight(side_rim[None], tip, eyes, deep_lips=True)[0] < 0.5, "deep_lips no longer keeps the oval's depth"

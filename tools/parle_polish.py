@@ -1727,6 +1727,24 @@ def fair_face(body, rig, rounds=FAIR_ROUNDS, balls=()):
     return int((far > 1e-4).sum()), float(far.max())
 
 
+def mouth_lining(body, meshes):
+    """The points of the inside of the mouth (`parle_mouth.mouth_piece`), or None on a body with no teeth or no map: the steps that
+    smooth the skin of the jaw leave them where they are."""
+    import parle_mouth
+
+    teeth = next((obj for obj in meshes if obj.type == "MESH" and "teeth" in obj.name), None)
+    if body is None or teeth is None or not body.data.uv_layers.active:
+        return None
+    loops = body.data.uv_layers.active.data
+    uv = np.zeros((len(body.data.vertices), 2))
+    for loop in body.data.loops:
+        uv[loop.vertex_index] = loops[loop.index].uv[0], 1 - loops[loop.index].uv[1]
+    faces = [tuple(polygon.vertices) for polygon in body.data.polygons]
+    triangles = np.array([(face[0], second, third) for face in faces for second, third in zip(face[1:], face[2:])])
+    piece = parle_mouth.mouth_piece(rest_points(body), uv, rest_points(teeth), triangles)
+    return piece if piece.any() else None
+
+
 def lining_behind_skin(meshes):
     """The inside of the mouth back behind the skin of the face where it comes through it, and how many points went.
 
@@ -1939,7 +1957,10 @@ def natural_body(meshes, rig, height, sex, kit):
             warp(obj, short)
         # The folds the shorter face left under the jaw opened (`parle_style.jaw_neck_weight`), every key with it.
         rest = rest_points(body)
-        under = parle_style.jaw_neck_weight(rest, tip, balls)
+        lining = mouth_lining(body, meshes)
+        under = parle_style.jaw_neck_weight(rest, tip, balls, deep_lips=lining is None)
+        if lining is not None:
+            under[lining] = 0.0
         under[np.unique(edges[sides < 2])] = 0.0
         eased = parle_style.relaxed(parle_style.smoothed(rest, edges, under, parle_style.JAW_NECK_ROUNDS), edges, under, parle_style.JAW_NECK_RELAX) - rest
         warp(body, lambda points: points + eased, kept=lambda name: True)
