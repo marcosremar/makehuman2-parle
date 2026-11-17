@@ -341,8 +341,15 @@ JAW_NECK_BACK = (1.5, 2.3)
 JAW_NECK_ROUNDS = 50
 
 
-def jaw_neck_weight(points, tip, eyes):
-    """How much each point of the skin is smoothed again under the jaw (0..1), the face looking at -y."""
+# How far back the normals are eased along the fold of the jaw (`parle_normals.eased`): past the angle of the jaw, which stands
+# 1.7 to 2.1 distances between the eyes behind the nose tip, where the smoothing of the form (JAW_NECK_BACK) is fading out.
+JAW_FOLD_BACK = (2.2, 2.8)
+
+
+def jaw_neck_weight(points, tip, eyes, back=None):
+    """How much each point of the skin is smoothed again under the jaw (0..1), the face looking at -y; `back` in place of
+    JAW_NECK_BACK."""
+    back = JAW_NECK_BACK if back is None else back
     points = np.asarray(points, float)
     centres = [np.asarray(centre, float) for centre, _ in eyes]
     unit = float(np.linalg.norm(centres[0] - centres[1]))
@@ -350,7 +357,7 @@ def jaw_neck_weight(points, tip, eyes):
     below = (tip[2] - points[:, 2]) / unit
     behind = (points[:, 1] - tip[1]) / unit
     weight = smooth((below - JAW_NECK_FROM[0]) / (JAW_NECK_FROM[1] - JAW_NECK_FROM[0])) * smooth((JAW_NECK_TO[1] - below) / (JAW_NECK_TO[1] - JAW_NECK_TO[0]))
-    weight *= smooth((JAW_NECK_BACK[1] - behind) / (JAW_NECK_BACK[1] - JAW_NECK_BACK[0]))
+    weight *= smooth((back[1] - behind) / (back[1] - back[0]))
     off = (points - (tip + np.array(SIMPLE_MOUTH) * unit)) / unit
     return weight * smooth((np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1]) - 1.0) / SIMPLE_MOUTH_RAMP)
 

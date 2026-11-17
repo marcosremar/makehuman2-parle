@@ -43,3 +43,19 @@ even = normals.smoothed_share(share, links)
 assert np.abs(np.diff(even)).max() < 0.5 * np.abs(np.diff(share)).max(), f"neighbours along a crease must turn together: {share} -> {even}"
 assert even.max() > 0.3, f"the crease under the jaw still turns: {even}"
 print("ok serrilhado")
+
+# Round 84 (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"): along the fold of the jaw and the neck the
+# edges of the mesh run in a zigzag and the edge of the shade was a saw. A strip of points whose normals alternate: eased, the
+# neighbours stand much closer; a point of no weight keeps its normal; two points at one place keep one normal between them.
+strip = np.array([[0, -0.3, -0.95] if k % 2 else [0, -0.95, -0.3] for k in range(12)], float)
+strip /= np.linalg.norm(strip, axis=1, keepdims=True)
+chain_links = np.array([(k, k + 1) for k in range(11)])
+weight = np.r_[0.0, np.ones(11)]
+soft = normals.eased(strip, chain_links, weight)
+turn = lambda rows: np.degrees(np.arccos(np.clip((rows[1:] * rows[:-1]).sum(axis=1), -1, 1)))
+assert turn(soft)[2:].max() < 0.2 * turn(strip).max(), f"the normals along a fold still alternate: {turn(soft)}"
+assert np.allclose(soft[0], strip[0]), "a point outside the zone lost its normal"
+assert abs(np.linalg.norm(soft, axis=1) - 1).max() < 1e-9
+seam = normals.eased(strip, chain_links, np.ones(12), same=np.r_[0, 1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10])
+assert np.allclose(seam[5], seam[6]), "two points at one place got two normals: a line along the seam of the neck"
+print("ok dobra")

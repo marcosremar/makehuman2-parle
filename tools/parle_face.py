@@ -1233,6 +1233,18 @@ def soften_under_chin(body):
     np.add.at(average, point_of, corners)
     average /= np.maximum(np.linalg.norm(average, axis=1, keepdims=True), 1e-9)
     edges = np.array([edge.vertices[:] for edge in mesh.edges])
+    # First the normals eased along the fold of the jaw and the neck (`parle_normals.eased`), on a body with eye globes to place it by.
+    globe = next((obj for obj in bpy.data.objects if obj.type == "MESH" and "low-poly" in obj.name), None)
+    if globe is not None:
+        world = parle_polish.rest_points(body)
+        balls = parle_polish.eye_balls(globe)
+        fold = parle_style.jaw_neck_weight(world, parle_style.nose_tip(world, balls), balls, parle_style.JAW_FOLD_BACK)
+        same = np.unique(np.round(points, 5), axis=0, return_inverse=True)[1].ravel()
+        soft = parle_normals.eased(average, edges, fold, same)
+        corners = corners + (soft - average)[point_of]
+        corners /= np.maximum(np.linalg.norm(corners, axis=1, keepdims=True), 1e-9)
+        print("QUEIXO dobra: normais alisadas em", int((fold > 0.01).sum()), "pontos, a que mais virou", round(float(np.degrees(np.arccos(np.clip((soft * average).sum(axis=1), -1, 1))).max()), 1), "graus")
+        average = soft
     share = parle_normals.smoothed_share(parle_normals.under_chin_share(points, average), edges)[point_of][:, None] * parle_normals.TURN
     turned = corners * (1 - share) + parle_normals.AHEAD[None] * share
     turned /= np.maximum(np.linalg.norm(turned, axis=1, keepdims=True), 1e-9)

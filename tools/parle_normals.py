@@ -64,6 +64,41 @@ def smoothed_share(share, edges, rounds=SMOOTH_ROUNDS):
     return share
 
 
+# The fold between the under side of the jaw and the neck (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas";
+# round 83 left a small tooth in the line of every woman's jaw seen three quarters on). The form there is smooth, but the edges
+# of the mesh cross the fold in a zigzag and each point's normal is its own faces': the edge of the shade under the jaw came
+# out as a saw, in the kit's own head as much as in the drawn one. The normals there are averaged with their neighbours'
+# (`eased`), FOLD_ROUNDS times, points at the same place (the seam of the neck) as one point.
+FOLD_ROUNDS = 30
+
+
+def eased(normals, edges, weight, same=None, rounds=FOLD_ROUNDS):
+    """The normals (n x 3) averaged with their neighbours' along `edges` (m x 2), each point going `weight` (n) of half the way
+    each round; `same` (n) gives the points that stand at one place the same number, and they keep one normal."""
+    normals = np.asarray(normals, float)
+    same = np.arange(len(normals)) if same is None else np.asarray(same, int)
+    count = int(same.max()) + 1 if len(same) else 0
+    members = np.maximum(np.bincount(same, minlength=count), 1)[:, None]
+    one = np.zeros((count, 3))
+    np.add.at(one, same, normals)
+    one /= np.maximum(np.linalg.norm(one, axis=1, keepdims=True), 1e-9)
+    share = np.zeros(count)
+    np.add.at(share, same, np.asarray(weight, float))
+    share = (share / members[:, 0])[:, None]
+    links = np.unique(np.sort(same[np.asarray(edges, int).reshape(-1, 2)], axis=1), axis=0)
+    links = links[links[:, 0] != links[:, 1]]
+    near = np.maximum(np.bincount(links.ravel(), minlength=count), 1)[:, None]
+    for _ in range(rounds):
+        total = np.zeros_like(one)
+        np.add.at(total, links[:, 0], one[links[:, 1]])
+        np.add.at(total, links[:, 1], one[links[:, 0]])
+        mean = total / near
+        mean /= np.maximum(np.linalg.norm(mean, axis=1, keepdims=True), 1e-9)
+        one = one + 0.5 * share * (mean - one)
+        one /= np.maximum(np.linalg.norm(one, axis=1, keepdims=True), 1e-9)
+    return one[same]
+
+
 def softened(points, normals):
     """The normals with the under side of the chin turned forward."""
     share = (under_chin_share(points, normals) * TURN)[:, None]

@@ -257,3 +257,7 @@ calm_vee = parle_style.relaxed(vee, np.array([(index, index + 1) for index in ra
 bend = lambda line: abs(line[9, 2] - 2 * line[10, 2] + line[11, 2])
 assert bend(calm_vee) < 0.5 * bend(vee) and np.allclose(calm_vee[[0, 20]], vee[[0, 20]]), f"a fold is not rounded: {bend(calm_vee)} of {bend(vee)}"
 assert parle_style.JAW_NECK_FROM[1] <= 0.9, "the fold under the chin is half out of the zone that is smoothed"
+
+# Round 84: the normals are eased along the fold of the jaw past its angle (JAW_FOLD_BACK), where the smoothing of the form has faded.
+angle = tip + np.array([0.045, 2.0 * 0.064, -1.0 * 0.064])
+assert parle_style.jaw_neck_weight(angle[None], tip, eyes, parle_style.JAW_FOLD_BACK)[0] > 0.95 > parle_style.jaw_neck_weight(angle[None], tip, eyes)[0], "the angle of the jaw is outside the zone of the fold"
