@@ -258,6 +258,38 @@ def masked_blur(image, covered, radius):
     return np.where(weight > 0, blurred, image)
 
 
+# The map about the islands (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"; rounds 82 to 85 smoothed the
+# form and the normals and a small dark tooth stayed in the line of every jaw seen three quarters on). Drawn with the map alone
+# and no light, the tooth is on the map: every paint of the face goes on the texels a face of the mesh covers, and the empty
+# map between the islands keeps the kit's photograph, darker and pinker than the painted skin. The top edge of the neck's island
+# runs in a zigzag right under the angle of the jaw, and in its notches the renderer, which reads between texels and from
+# smaller copies of the map, took that old colour into the skin: a dark mark under each angle of the jaw. The empty map takes
+# the colour of the nearest island for MAP_PAD_PX texels of a 1024 map (`padded`), the usual margin about the islands of a map.
+MAP_PAD_PX = 16
+
+
+def padded(image, covered, reach):
+    """The image (rows x columns x channels) with the texels that no face covers, within `reach` texels of one that a face does
+    (`covered`, rows x columns of bool), given the mean colour of their covered neighbours, ring by ring outwards; the covered
+    texels and the empty map further off are kept. The map wraps round at its edges, as it does on the mesh."""
+    out = np.asarray(image, np.float32).copy()
+    known = np.asarray(covered, bool).copy()
+    for _ in range(int(reach)):
+        total = np.zeros_like(out)
+        count = np.zeros(known.shape, np.float32)
+        for axis in (0, 1):
+            for shift in (1, -1):
+                near = np.roll(known, shift, axis)
+                total += np.roll(out, shift, axis) * near[:, :, None]
+                count += near
+        grow = ~known & (count > 0)
+        if not grow.any():
+            break
+        out[grow] = total[grow] / count[grow][:, None]
+        known |= grow
+    return out
+
+
 def box_blur(image, radius, passes=3):
     """The image (rows x columns x channels) blurred by `passes` box filters of `radius` pixels, edges held."""
     out = np.asarray(image, np.float32)

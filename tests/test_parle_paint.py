@@ -211,3 +211,17 @@ assert all(0.004 < length < 0.012 for length in feet), f"the crow's feet are not
 plain = np.full((40, 80, 3), 0.8, np.float32)
 lined_map = parle_paint.stroked(plain, [[(10.0, 20.0), (70.0, 20.0)]], np.array([0.5, 0.4, 0.4], np.float32))
 assert lined_map[20, 40, 0] < 0.7 and lined_map[20, 40, 0] < lined_map[20, 13, 0] and np.allclose(lined_map[27], 0.8) and np.allclose(lined_map[20, 75:], 0.8), "a line of age is not drawn, or runs over"
+
+# Round 86 (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"): the empty map about an island kept the kit's
+# photograph and showed as a dark mark under the angle of the jaw. An island of one colour on a map of another, with a notch in
+# its edge: padded, the notch and a margin about the island take the island's colour, the island is as it was, the map far off too.
+island = np.zeros((40, 40), bool)
+island[10:30, 10:30] = True
+island[10:14, 18:22] = False  # the notch
+map_colours = np.where(island[:, :, None], np.float32([0.9, 0.7, 0.5]), np.float32([0.4, 0.2, 0.2]))
+pad = parle_paint.padded(map_colours, island, 4)
+assert np.allclose(pad[island], [0.9, 0.7, 0.5]) and np.allclose(pad[11, 19], [0.9, 0.7, 0.5]) and np.allclose(pad[7, 15], [0.9, 0.7, 0.5]), "the notch or the margin of the island keeps the old map"
+assert np.allclose(pad[2, 2], [0.4, 0.2, 0.2]) and np.allclose(pad[20, 36], [0.4, 0.2, 0.2]), "the map far from the island changed"
+assert np.allclose(parle_paint.padded(map_colours, island, 0), map_colours), "no reach, and the map changed"
+assert parle_paint.MAP_PAD_PX >= 8, "the margin about the islands is under 8 texels: the smaller copies of the map read past it"
+print("ok margem")

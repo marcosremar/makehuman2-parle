@@ -1091,6 +1091,9 @@ def paint_face(body, added, tip, balls, kind):
         pixels[:, :, :3] = parle_paint.stroked(pixels[:, :, :3], [parle_paint.evened_line(on_map[first:last]) for first, last in zip(ends[:-1], ends[1:])],
                                                face_skin * np.asarray(parle_paint.AGE_TONE, np.float32), parle_paint.AGE_LINE_PX * width / 1024)
     pixels[:, :, :3] = pixels[:, :, :3] * (1 - dark[:, :, None]) + held * dark[:, :, None]
+    # Last, the empty map about the islands takes their colour (`parle_paint.padded`): it kept the kit's photograph, which showed
+    # as a dark mark under each angle of the jaw, where the edge of the neck's island runs in a zigzag.
+    pixels[:, :, :3] = parle_paint.padded(pixels[:, :, :3], covered, max(2, round(parle_paint.MAP_PAD_PX * width / 1024)))
     skin.pixels.foreach_set(pixels.ravel())
     skin.pack()
 
