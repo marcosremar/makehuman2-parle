@@ -276,3 +276,11 @@ assert parle_style.jaw_neck_weight(side_rim[None], tip, eyes, deep_lips=True)[0]
 
 # Round 89: the teeth lit from their own map a little, less than the eye.
 assert 0.2 <= parle_style.TEETH_GLOW < parle_style.EYE_GLOW, f"the teeth glow: {parle_style.TEETH_GLOW}"
+
+# Round 90: the skin's saturation has a ceiling: a saturated skin comes down to it, a paler one is left as it is.
+orange = np.tile([[0.8, 0.45, 0.25]], (50, 1)) + np.linspace(0, 0.05, 50)[:, None]
+capped = parle_style.capped_saturation(orange)
+top, low = capped.max(axis=1), capped.min(axis=1)
+assert abs(np.median((top - low) / top) - parle_style.SKIN_SAT_MOST) < 0.03, "an orange skin is not brought down to the ceiling"
+pale = np.tile([[0.9, 0.75, 0.65]], (50, 1))
+assert np.allclose(parle_style.capped_saturation(pale), pale), "a pale skin changed"

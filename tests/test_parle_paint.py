@@ -202,7 +202,7 @@ old_woman, old_man = parle_paint.age_lines(tip, eyes, "female-old"), parle_paint
 # Round 87: the crow's feet read as a scar at the temple (four judges of four) and are not drawn; the folds by the nose and the
 # man's two lines on the forehead stay.
 assert len(old_woman) == 2 and len(old_man) == 4, f"the lines of age: {len(old_woman)} on an old woman, {len(old_man)} on an old man"
-assert parle_paint.AGE_LINE <= 0.3 and parle_paint.AGE_LINE_PX >= 3.0, "the lines of age are thin dark scratches again"
+assert parle_paint.AGE_LINE <= 0.2 and parle_paint.AGE_LINE_PX >= 4.0, "the lines of age are thin dark scratches again"
 assert all(len(line) == parle_paint.AGE_POINTS for line in old_man), "a line of age is not laid at its points"
 wobbly = np.column_stack([np.arange(9.0), np.array([0, 1, -1, 1, -1, 1, -1, 1, 0.0])])
 calm = parle_paint.evened_line(wobbly)
@@ -211,7 +211,7 @@ fold = np.asarray(old_woman[0])
 assert fold[0, 2] > fold[-1, 2] and abs(fold[0, 0] - tip[0]) > 0.01, f"the first line of an old woman is not the fold from the nose's wing down: {fold[[0, -1]]}"
 plain = np.full((40, 80, 3), 0.8, np.float32)
 lined_map = parle_paint.stroked(plain, [[(10.0, 20.0), (70.0, 20.0)]], np.array([0.5, 0.4, 0.4], np.float32))
-assert lined_map[20, 40, 0] < 0.76 and lined_map[20, 40, 0] < lined_map[20, 13, 0] and np.allclose(lined_map[27], 0.8) and np.allclose(lined_map[20, 75:], 0.8), "a line of age is not drawn, or runs over"
+assert lined_map[20, 40, 0] < 0.79 and lined_map[20, 40, 0] < lined_map[20, 13, 0] and np.allclose(lined_map[27], 0.8) and np.allclose(lined_map[20, 75:], 0.8), "a line of age is not drawn, or runs over"
 
 # Round 86 (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"): the empty map about an island kept the kit's
 # photograph and showed as a dark mark under the angle of the jaw. An island of one colour on a map of another, with a notch in
@@ -244,3 +244,7 @@ ends = (lock[36:46, 10:38, 3] > 0.5).sum(axis=0)
 raw_ends = (strands_map[36:46, 10:38, 3] > 0.5).sum(axis=0)
 assert np.abs(np.diff(ends)).max() < np.abs(np.diff(raw_ends)).max(), "the frayed end of the hair is as ragged as before"
 print("ok cabelo")
+
+# Round 90: the hair blur made a helmet of long hair (four judges of four): it is off, and with no blur the map is unchanged.
+assert parle_paint.HAIR_MASS_PX == 0 and parle_paint.HAIR_EDGE_PX == 0, "the hair blur is on again"
+assert np.allclose(parle_paint.drawn_hair(strands_map, 0, 0), strands_map), "with no blur the hair map changed"

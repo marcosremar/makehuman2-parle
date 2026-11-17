@@ -155,6 +155,32 @@ def tip_field(tip, grow, forward=1.0):
     return field
 
 
+# The skin's saturation has a ceiling (round 90; four judges of four on round 89: Bia's skin "laranja", "marrom quente, saturação
+# 20 % menor"; Dona Marta and Carlos 10 % less). `warmer` multiplies every skin's saturation alike, and a skin of the kit that
+# was already saturated (the darker ones) went orange: on the maps of round 89 the median saturation (HSV) of the skin was 0.49 to
+# 0.61 on the lighter four and 0.66 to 0.78 on the darker four, and on the portraits 0.37 to 0.55 on the cheek. Over
+# SKIN_SAT_MOST the skin's colour comes back towards its grey until its median is that (`capped_saturation`).
+SKIN_SAT_MOST = 0.62
+
+
+def capped_saturation(rgb, most=SKIN_SAT_MOST, rounds=3):
+    """Colours (0-1, n x 3) with their colour about their grey scaled down, alike for all, until the median saturation (HSV) of the
+    skin (value over a quarter, saturation over 0.15) is at most `most`; unchanged when it already is."""
+    rgb = np.asarray(rgb, float).copy()
+    for _ in range(rounds):
+        top, low = rgb.max(axis=1), rgb.min(axis=1)
+        sat = np.where(top > 0, (top - low) / np.maximum(top, 1e-6), 0.0)
+        skin = (top > 0.25) & (sat > 0.15)
+        if not skin.any():
+            break
+        median = float(np.median(sat[skin]))
+        if median <= most + 1e-3:
+            break
+        grey = rgb.mean(axis=1, keepdims=True)
+        rgb = np.clip(grey + (rgb - grey) * (most / median), 0, 1)
+    return rgb
+
+
 def warmer(rgb, amount):
     """Colours (0-1, n x 3) with their saturation times `amount` about their grey and turned SKIN_WARM towards orange."""
     rgb = np.asarray(rgb, float)

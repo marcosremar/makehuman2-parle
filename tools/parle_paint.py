@@ -217,8 +217,10 @@ HAIR_BLEED_PX = 24
 # HAIR_MASS_PX texels of a 1024 map (the grain of single strands goes, the darker roots and lighter lumps stay), and the alpha
 # over HAIR_EDGE_PX and cut again at a half (`drawn_hair`), so a frayed edge becomes a round one and strands a few texels apart
 # join into a lock.
-HAIR_MASS_PX = 7
-HAIR_EDGE_PX = 4
+# Round 90 (four judges of four on round 89): the blur made Lúcia's long hair "capacete liso", the hair's mean fell from 5.4 to 4.2;
+# off (0) until the hair is drawn as locks some other way. The function stays for that.
+HAIR_MASS_PX = 0
+HAIR_EDGE_PX = 0
 # How far a scalp cap painted with a skin map goes to the colour of the strands over it.
 SCALP_TO_HAIR = 0.9
 
@@ -511,8 +513,9 @@ AGE_TONE = (0.72, 0.56, 0.52)
 # Round 87 (four judges of four on the portraits of round 86, the four old): the lines still "riscos finos e escuros", and the crow's
 # feet, a "<" at the temple, "parecem cicatriz"; they ask a soft furrow two to three millimetres wide with little contrast. The
 # lines are fainter and wider (0.38 and 2.2 before), and the crow's feet are not drawn (CROW_TO empty).
-AGE_LINE = 0.26
-AGE_LINE_PX = 3.2
+# Round 90 (four judges of four on round 89, the four old: "rugas pintadas apagadas ou trocadas por sombra macia"): fainter and wider.
+AGE_LINE = 0.17
+AGE_LINE_PX = 4.6
 AGE_POINTS = 9
 CROW_FROM = (1.18, 0.15, 0.0)
 CROW_TO = ()

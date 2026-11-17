@@ -893,8 +893,8 @@ def drawn_paint(meshes, body, kind, sex):
                     pixels = np.empty(width * height * 4, np.float32)
                     node.image.pixels.foreach_get(pixels)
                     radius = max(1, round(parle_paint.HAIR_BLEED_PX * width / 1024))
-                    massed = parle_paint.drawn_hair(pixels.reshape(height, width, 4), max(1, round(parle_paint.HAIR_MASS_PX * width / 1024)),
-                                                    max(1, round(parle_paint.HAIR_EDGE_PX * width / 1024)))
+                    massed = parle_paint.drawn_hair(pixels.reshape(height, width, 4), round(parle_paint.HAIR_MASS_PX * width / 1024),
+                                                    round(parle_paint.HAIR_EDGE_PX * width / 1024))
                     node.image.pixels.foreach_set(parle_paint.bled(massed, radius).ravel())
                     node.image.pack()
                     done.append("borda do cabelo")

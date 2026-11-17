@@ -1130,7 +1130,7 @@ def clean_face(body, added, job, env):
     skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None)
     if skin is not None:
         pixels = np.array(skin.pixels[:]).reshape(-1, 4)
-        pixels[:, :3] = parle_style.warmer(pixels[:, :3], style["skin"])
+        pixels[:, :3] = parle_style.capped_saturation(parle_style.warmer(pixels[:, :3], style["skin"]))
         skin.pixels.foreach_set(pixels.astype(np.float32).ravel())
         skin.pack()
     paint_face(body, added, tip, parle_polish.eye_balls(globe), body["parle_kind"])
