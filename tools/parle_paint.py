@@ -122,10 +122,11 @@ def brow_islands(solid):
     return list(zip(np.concatenate([[rows[0]], rows[cuts + 1]]), np.concatenate([rows[cuts], [rows[-1]]]) + 1))
 
 
-def brow_band(solid):
+def brow_band(solid, heads=()):
     """Each eyebrow of a map (rows x columns of bool, the kit's strands) drawn again as one smooth band (BROW_LINE_DEGREE): its
     alpha (0..1) and, across it, where each texel lies from its upper edge (-1) to its lower one (1). An eyebrow too small to
-    smooth keeps its own shape."""
+    smooth keeps its own shape. `heads`: for the eyebrows the mesh places, (first row, last row as shares of the map's height,
+    whether its head, the end by the nose, is at its first column); one it does not place has its head at its thicker end."""
     rows = solid.shape[0]
     alpha, across = np.zeros(solid.shape, np.float32), np.zeros(solid.shape, np.float32)
     for top_row, end_row in brow_islands(solid):
@@ -140,7 +141,12 @@ def brow_band(solid):
         length = last - first
         line = np.polyfit((cols + 0.5 - first) / length, (top + bottom) / 2, BROW_LINE_DEGREE)
         thick = np.polyfit((cols + 0.5 - first) / length, bottom - top, BROW_THICK_DEGREE)
-        head_first = np.polyval(thick, 0.1) >= np.polyval(thick, 0.9)
+        # Round 76: by its thicker end alone, a woman's eyebrow had its round head at the temple and its point by the nose: a thin
+        # stroke that bends down at the temple is tall there, column by column ("ponta de dentro caída e pontuda", "ponta de fora
+        # cortada reta", both judges from round 66 on).
+        middle_row = (top_row + end_row) / 2 / rows
+        placed = [first_column for low, high, first_column in heads if low <= middle_row <= high]
+        head_first = placed[0] if placed else np.polyval(thick, 0.1) >= np.polyval(thick, 0.9)
         reach = 2 * (end_row - top_row)
         ys, xs = np.mgrid[max(top_row - reach, 0):min(end_row + reach, rows), first:last]
         at = (xs + 0.5 - first) / length
@@ -157,11 +163,25 @@ def brow_band(solid):
     return alpha, across
 
 
-def drawn_brow(pixels, old):
+def brow_heads(uv, away):
+    """Where the head of each eyebrow of a mesh is on its map, for `brow_band`: from the place on the map of each corner of the
+    mesh (`uv`, n x 2, v up) and how far from the middle of the face its point stands (`away`, n). The map's rows run with v."""
+    uv, away = np.asarray(uv, float), np.asarray(away, float)
+    order = np.argsort(uv[:, 1])
+    gaps = np.diff(uv[order, 1])
+    groups = [order] if not len(gaps) or gaps.max() < 0.02 else [order[:gaps.argmax() + 1], order[gaps.argmax() + 1:]]
+    heads = []
+    for group in groups:
+        if len(group) > 2 and np.ptp(uv[group, 0]) > 0:
+            heads.append((float(uv[group, 1].min()), float(uv[group, 1].max()), bool(np.corrcoef(uv[group, 0], away[group])[0, 1] > 0)))
+    return heads
+
+
+def drawn_brow(pixels, old, heads=()):
     """An eyebrow map (rows x columns x RGBA, 0..1, sRGB) drawn as the series draws one (`brow_band`), in one colour: its own made
-    darker on the young, a mid grey on the old that darkens towards its lower edge (BROW_OLD_UNDER)."""
+    darker on the young, a mid grey on the old that darkens towards its lower edge (BROW_OLD_UNDER). `heads` as in `brow_band`."""
     pixels = np.asarray(pixels, np.float32)
-    alpha, across = brow_band(smooth(BROW_EDGE[0], BROW_EDGE[1], pixels[:, :, 3]) >= 0.5)
+    alpha, across = brow_band(smooth(BROW_EDGE[0], BROW_EDGE[1], pixels[:, :, 3]) >= 0.5, heads)
     colour = solid_mean(pixels)
     out = np.empty_like(pixels)
     if old:
@@ -383,8 +403,9 @@ def lip_ends_share(across, most):
 # face's light and nothing tells it from the cheek or the throat. The skin that faces down under the jaw is painted this share of
 # the way to its own colour times JAW_SHADE_TONE, a warm shade and not a grey one: from JAW_SHADE_BELOW distances between the eyes
 # under the nose tip (under the lips' hollow) to the foot of the neck, behind the front of the chin, not round the nape.
-JAW_SHADE = 0.7
-JAW_SHADE_TONE = (0.78, 0.66, 0.62)
+# Round 76: at 0.7 of the way to 0.78, 0.66, 0.62 of the skin it hardly showed; both judges still "mandíbula 3 mm mais marcada".
+JAW_SHADE = 0.8
+JAW_SHADE_TONE = (0.7, 0.57, 0.53)
 JAW_SHADE_BELOW = (1.0, 1.2)
 JAW_SHADE_FOOT = (2.4, 3.0)
 JAW_SHADE_BEHIND = (0.2, 0.5)

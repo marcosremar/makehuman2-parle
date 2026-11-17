@@ -33,7 +33,9 @@ STYLE = {
     # Round 53: both judges asked the women's and the old man's eyebrows a half to twice as thick; the young woman's stays under
     # the young man's (the series' order, `tests/test_parle_style.py`).
     # Round 63, both judges asked the young woman's eyebrows thicker; at 1.55 (round 64) both "30 a 40 % mais finas": back to 1.35.
-    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "eye": 1.0, "skin": 1.55},
+    # Round 76 (both judges, seven of eight: the eyebrow "em vírgula, mais grossa na cabeça e afinando até a ponta"): a woman's
+    # thins to 0.6 of its head at the temple (`parle_face.BROW_OUTER` 0.75 until then).
+    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
     # Rounds 54 and 58: the old woman's nose "20 % menor, ... hoje parece nariz de homem" (both judges).
     # Round 66: at 2.4 the old woman's eyebrow was a flat grey slab over the eye: thinner, and thinning to the temple.
     "female-old": {"forward": 0.85, "nose": 1.3, "tip": 1.2, "brow": 1.7, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
@@ -158,10 +160,10 @@ def warmer(rgb, amount):
 # the eyes (`unit`), so one set of numbers serves every person of a kind. SCULPT has them by kind; a share is how much of the way
 # to its form a point goes.
 SCULPT = {
-    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.63, "cheek_share": 0.76, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
-    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.7, "cheek_share": 0.92, "chin": 0.45, "lid": -0.32, "ridge": 0.0},
-    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.62, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
-    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.7, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
+    "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.66, "cheek_share": 0.76, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
+    "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.735, "cheek_share": 0.92, "chin": 0.45, "lid": -0.32, "ridge": 0.0},
+    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.65, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
+    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.735, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
@@ -169,7 +171,10 @@ SCULPT = {
 # (`ridge` in SCULPT) and lighter smoothing: round 36 fell from 5.5 to 4.5, so back to round 34's.
 # Round 57, both judges on all four: the cheeks "15 a 20 % mais cheias e redondas, com o volume subido para a maçã": the balls a
 # twelfth bigger (SCULPT) and a little higher.
-CHEEK_AT = (0.12, 0.62, -0.56)
+# Round 76 (both judges, all eight: "bochechas 10 % mais cheias no terço de baixo", "maçã 5 a 8 % mais larga na altura da asa do
+# nariz"): the balls lower and a little further out, and a twentieth bigger (SCULPT). Lower more than out: the owner faults a
+# wide face over a narrow jaw (2026-11-12, `parle_face.FAIR_LOOK`).
+CHEEK_AT = (0.14, 0.62, -0.64)
 # Round 55: "boca e queixo muito atrás da ponta do nariz" in profile (judge A): 3 mm forward in round 57; the crease under the young
 # man's lower lip came back where the chin's ball ends ("uma segunda boca", round 60), as in round 26: back.
 CHIN_AT = (0.0, 0.55, -1.25)
@@ -283,7 +288,8 @@ def simple_weight(points, tip, eyes):
 JAW_NECK_FROM = (0.8, 1.05)
 JAW_NECK_TO = (2.3, 2.7)
 JAW_NECK_BACK = (1.5, 2.3)
-JAW_NECK_ROUNDS = 20
+# Round 76: at 20 rounds a small step stayed under the men's chin in profile ("uma ondulação mole no meio", "dobra dupla").
+JAW_NECK_ROUNDS = 50
 
 
 def jaw_neck_weight(points, tip, eyes):

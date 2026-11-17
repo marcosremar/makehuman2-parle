@@ -306,9 +306,11 @@ SPEECH_OPEN = {
 # 59); the kit's own cheekSquint, half of it, goes into each side's smile. The resting smile is laid on before (`calm_look`).
 # Round 63 (judge A, all four): "no sorriso, maçãs do rosto subindo uns 20 % e pálpebra de baixo cobrindo ¼ da íris, olho apertado
 # como o das moças da série": more of the cheek's squint, and some of the eye's.
+# Round 76 (both judges, all eight: in the smile "faixa de 3 mm dos dentes de cima à mostra", where the lips stayed shut or showed
+# a thread of teeth): each side's smile takes this much of the "i", the lips parted over the teeth.
 SMILE_MIX = {
-    "mouthSmileLeft": {"mouthSmileLeft": 1.0, "cheekSquintLeft": 0.8, "eyeSquintLeft": 0.4},
-    "mouthSmileRight": {"mouthSmileRight": 1.0, "cheekSquintRight": 0.8, "eyeSquintRight": 0.4},
+    "mouthSmileLeft": {"mouthSmileLeft": 1.0, "cheekSquintLeft": 0.8, "eyeSquintLeft": 0.4, "viseme_I": 0.3},
+    "mouthSmileRight": {"mouthSmileRight": 1.0, "cheekSquintRight": 0.8, "eyeSquintRight": 0.4, "viseme_I": 0.3},
 }
 SPEECH_MIX = {
     # Rounds 44 to 56, both judges: the "o" "fica numa fenda reta com os dentes à mostra, lê-se como e", where it should be a ring

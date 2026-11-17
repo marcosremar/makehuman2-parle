@@ -173,3 +173,14 @@ shaded = parle_paint.jaw_shade_share(spots, facing, tip, eyes)
 assert shaded[0] > 0.99 and np.all(shaded[1:] < 0.01), f"what is shaded under the jaw: {shaded}"
 tone = np.array(parle_paint.JAW_SHADE_TONE)
 assert tone[0] > tone[1] > tone[2] and 0.5 < tone.mean() < 0.85 and 0 < parle_paint.JAW_SHADE <= 0.8, "the shade under the jaw is not a warm, light one"
+
+# Round 76: a woman's eyebrow had its round head at the temple and its point by the nose (the kit's thin stroke bends down at
+# the temple, and is tall there column by column). The mesh says which end is by the nose: with the head at the last column, the
+# point is at the first.
+uv_corners = np.array([(0.1, 0.5), (0.5, 0.52), (0.9, 0.5), (0.1, 0.1), (0.5, 0.12), (0.9, 0.1)])
+heads = parle_paint.brow_heads(uv_corners, np.array([0.06, 0.04, 0.02, 0.02, 0.04, 0.06]))
+assert len(heads) == 2 and {head[2] for head in heads} == {True, False}, f"the head of each eyebrow, from the mesh: {heads}"
+turned = parle_paint.brow_band(strands, [(0.0, 1.0, False)])[0] > 0.5
+turned_cols = np.where(turned.any(axis=0))[0]
+turned_thick = turned[:, turned_cols].sum(axis=0)
+assert turned_thick[:4].max() <= 0.4 * turned_thick[-30:].max() and turned_thick[-3:].max() < turned_thick[-20:-8].max(), "the head is not at the end the mesh gives"

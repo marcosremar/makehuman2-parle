@@ -877,7 +877,10 @@ def drawn_paint(meshes, body, kind, sex):
                     width, height = node.image.size
                     pixels = np.empty(width * height * 4, np.float32)
                     node.image.pixels.foreach_get(pixels)
-                    node.image.pixels.foreach_set(parle_paint.drawn_brow(pixels.reshape(height, width, 4), kind.endswith("-old")).ravel())
+                    corners = np.array([loop.uv[:] for loop in obj.data.uv_layers.active.data])
+                    points = rest_points(obj)[[loop.vertex_index for loop in obj.data.loops]]
+                    heads = parle_paint.brow_heads(corners, np.abs(points[:, 0] - np.median(rest_points(body)[:, 0])))
+                    node.image.pixels.foreach_set(parle_paint.drawn_brow(pixels.reshape(height, width, 4), kind.endswith("-old"), heads).ravel())
                     node.image.pack()
                     done.append("sobrancelha")
     seen = set()
