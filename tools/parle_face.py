@@ -1042,6 +1042,7 @@ def paint_face(body, added, tip, balls, kind):
     face_skin = np.median(pixels[:, :, :3][np.nan_to_num(cheek_canvas) > 0.5], axis=0)
     # A beard painted on the map and the hair painted on a scalp are kept through the paints below (`parle_paint.kept_dark`); the
     # head's skin goes to one tone, the cheeks' (`parle_paint.evened`).
+    body["parle_face_skin"] = [float(value) for value in face_skin]
     dark = parle_paint.kept_dark(pixels, face_skin, max(1, round(parle_paint.KEPT_DARK_ROUND_PX * width / 1024)))
     held = pixels[:, :, :3].copy()
     head = 1 - parle_paint.neck_share(rest, tip, balls)

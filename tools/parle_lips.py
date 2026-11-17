@@ -54,7 +54,14 @@ CORNER_REACH = 1.08
 # Towards the corners the lips narrow faster than an ellipse does: as one, their colour reached the corner a third as tall as at the
 # middle and drew a band with blunt ends, which on a map with a millimetre and a half to the texel blurred into a smear past the
 # corners of the mouth (2026-11-12, on the portrait). The height of each lip goes with this power of the ellipse.
-LIP_TAPER = 1.5
+# Round 73 (both judges, the women of eight: "faixa rosa reta e larga de canto a canto", "o lábio fica com a mesma espessura dos
+# dois lados"): at 1.5 a lip was still six tenths as tall at 0.7 of the way to the corner. 2.0, half as tall there.
+LIP_TAPER = 2.0
+# Round 73 (both judges, the four men of eight: "a boca é só um corte, sem lábio", "lábio de baixo visível, 3 a 5 mm"): a man of the
+# drawn cast has a lower lip of his own on the patch, this far under the line where the lips meet, and of an upper lip only a
+# thread that carries the line (`parle_paint.man_lip_patch`, `parle_lip_cut`).
+MAN_LIP_LOW_M = 0.0055
+MAN_LIP_UP_M = 0.002
 # On a woman the colour of the lower lip goes further down. The jaw rests closed as far as the lips need to meet
 # (`parle_face.CALM_LOOK`), which carries the lower lip some 3.5 mm up behind the upper one: of its 8.5 mm of colour 5 showed, a thin
 # band over the pale roll of the lip, whose most forward point is 5 mm under the meeting and whose hollow 13 mm (2026-11-12, on the
@@ -66,8 +73,11 @@ SIZE = 1024
 LIP_EDGE_M = 0.001
 BOW_AT_M = 0.0065
 BOW_WIDE_M = 0.006
-BOW_PEAK = 0.14
-BOW_DIP = 0.2
+# Round 73 (both judges, the women: "sem arco de cupido", "lábio de cima em arco com um M suave"): 0.14 and 0.2 until then. No
+# further: at 0.24 and 0.32 the bow bent between two points of the mesh, and a face of lip was left off the patch
+# (`tests/test_parle_lip_cut.py`).
+BOW_PEAK = 0.2
+BOW_DIP = 0.26
 BOW_DIP_WIDE_M = 0.0035
 # Where the lips meet there is a thin dark line in every photograph; it stops short of the corners.
 # The very middle rolls into the mouth and is not seen: the line sits a little on the lower lip.
@@ -181,15 +191,24 @@ def steady_fit(x, y):
     return np.polyfit(x[near], y[near], SLIT_DEGREE) if near.sum() > SLIT_DEGREE + 2 else curve
 
 
-def lip_reach(x, half, low=LIP_LOW_M):
-    """How far the upper lip goes above the line where the lips meet and the lower one under it, at `x` from the middle of the
-    face: both narrow to nothing at the corners, and the upper one has the two peaks of the bow."""
+def lip_reach(x, half, low=LIP_LOW_M, up=LIP_UP_M):
+    """How far the upper lip goes above the line where the lips meet (`up` at its tallest but for the bow) and the lower one under
+    it (`low`), at `x` from the middle of the face: both narrow to nothing at the corners, and the upper one has the two peaks of
+    the bow."""
     high = np.sqrt(np.clip(1 - (x / half) ** 2, 0, 1)) ** LIP_TAPER
     bow = 1 + BOW_PEAK * np.exp(-(((np.abs(x) - BOW_AT_M) / BOW_WIDE_M) ** 2)) - BOW_DIP * np.exp(-((x / BOW_DIP_WIDE_M) ** 2))
-    return LIP_UP_M * high * bow, low * high
+    return up * high * bow, low * high
 
 
-def lip_place(line, points, low=LIP_LOW_M):
+def patch_places(wide, tall, edge):
+    """The place on the lips of each texel of the patch with its rim (`edge` texels each side), as `with_lip_patch` reads it: how
+    far across (1 x columns), and how high (rows x 1, the first row at the top of the map: the upper border)."""
+    across = ((np.arange(wide + 2 * edge) - 2 * edge) / max(wide - 2 * edge - 1, 1))[None, :].clip(0, 1)
+    up = (1 - (np.arange(tall + 2 * edge) - 2 * edge) / max(tall - 2 * edge - 1, 1))[:, None].clip(0, 1)
+    return across, up
+
+
+def lip_place(line, points, low=LIP_LOW_M, high=LIP_UP_M):
     """Point by point of a mesh, with the line of its mouth (`mouth_line`): how far inside the lip the point is, in metres (nothing
     or less outside it: over the upper border, under the lower one, past a corner, or inside the mouth), and its place on the lips:
     across, from one corner of the mouth (0) to the other (1), and up, from the lower border (0) through the line where the lips
@@ -198,7 +217,7 @@ def lip_place(line, points, low=LIP_LOW_M):
     centres, medians = line["centres"], line["medians"]
     height = points[:, 2] - np.polyval(line["curve"], np.clip(x, centres[0] - line["middle"], centres[-1] - line["middle"]))
     in_front = np.polyval(line["depth"], np.clip(x, centres[0] - line["middle"], centres[-1] - line["middle"])) + FRONT_M - points[:, 1]
-    over, under = lip_reach(x, line["half"], low)
+    over, under = lip_reach(x, line["half"], low, high)
     inside = np.minimum(np.minimum(over - height, height + under), in_front)
     up = np.where(height >= 0, 0.5 + 0.5 * np.clip(height / np.maximum(over, 1e-9), 0, 1), 0.5 - 0.5 * np.clip(-height / np.maximum(under, 1e-9), 0, 1))
     return inside, np.clip(0.5 + x / (2 * line["half"]), 0, 1), up

@@ -910,7 +910,7 @@ def drawn_paint(meshes, body, kind, sex):
                     node.image.pack()
                     done.append("couro do cabelo")
     skin = next((node.image for node in body.active_material.node_tree.nodes if node.type == "TEX_IMAGE" and node.image), None) if body.active_material else None
-    if sex == "female" and skin is not None:
+    if skin is not None and (sex == "female" or "parle_face_skin" in body):
         width, height = skin.size
         pixels = np.empty(width * height * 4, np.float32)
         skin.pixels.foreach_get(pixels)
@@ -921,8 +921,14 @@ def drawn_paint(meshes, body, kind, sex):
         # Rows of the map counted from its top; Blender's start at the bottom.
         rows = slice(height - (top + tall + edge), height - (top - edge))
         columns = slice(left - edge, left + wide + edge)
-        corner = pixels[height - (top + tall // 2), left - edge, :3].copy()
-        pixels[rows, columns, :3] = pixels[rows, columns, :3] * (1 - parle_paint.LIP_PATCH_TO_SKIN) + corner * parle_paint.LIP_PATCH_TO_SKIN
+        across, up = parle_lips.patch_places(wide, tall, edge)
+        if sex == "female":
+            corner = pixels[height - (top + tall // 2), left - edge, :3].copy()
+            share = parle_paint.lip_ends_share(across, parle_paint.LIP_PATCH_TO_SKIN)[:, :, None]
+            pixels[rows, columns, :3] = pixels[rows, columns, :3] * (1 - share) + corner * share
+        else:
+            # A man's lips are drawn here, on the patch his lips are then cut to (`parle_lip_cut`), from the colour of his face.
+            pixels[rows, columns, :3] = parle_paint.man_lip_patch(across, up, np.array(body["parle_face_skin"], np.float32))[::-1]
         skin.pixels.foreach_set(pixels.ravel())
         skin.pack()
         done.append("lábio")
@@ -1959,10 +1965,10 @@ def natural_body(meshes, rig, height, sex, kit):
         print("PELE lisa: relevo tirado de", matte_skin(body), "ligações")
     if body is not None:
         print("PINTURA de desenho:", drawn_paint(meshes, body, str(body.get("parle_kind", sex)), sex))
-    if sex == "female" and body is not None and globe is not None:
+    if body is not None and globe is not None and (sex == "female" or "parle_face_skin" in body):
         import parle_lip_cut  # here and not above: it reads this module
 
-        lips, added = parle_lip_cut.lips_with_an_edge(body)
+        lips, added = parle_lip_cut.lips_with_an_edge(body) if sex == "female" else parle_lip_cut.lips_with_an_edge(body, parle_lips.MAN_LIP_LOW_M, parle_lips.MAN_LIP_UP_M)
         print("LÁBIO com a borda na malha:", lips, "faces no retalho do mapa,", added, "pontos novos")
     return built
 

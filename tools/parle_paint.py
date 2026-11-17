@@ -344,6 +344,38 @@ def evened(pixels, canvas, covered, dark, colour, radius):
     return pixels + weight * (np.asarray(colour, np.float32) - tone)
 
 
+
+# A man's lips on their patch (round 73, both judges on the four men: "a boca é só um corte, sem lábio", "lábio de baixo visível,
+# tom 10 % mais escuro que a pele"; `parle_lips.MAN_LIP_LOW_M`): the lower lip in the skin's own colour times these (darker and
+# a little rose), lit by this much in its middle; the thread of upper lip in its shade; and the line where the lips meet darker
+# by the last, this share of a lip wide, fading out before the corners.
+MAN_LIP_TONE = (0.9, 0.76, 0.74)
+MAN_LIP_GLOW = 0.06
+MAN_LIP_UPPER = 0.88
+MAN_LIP_LINE = (0.5, 0.07)
+# A woman's lip gives its colour up to the skin towards the corners, from this share of the half width to the corner ("faixa rosa
+# larga de canto a canto", "boca 10 a 15 % mais estreita", both judges, round 73): the line of the mouth stays as wide.
+LIP_COLOUR_ENDS = (0.5, 1.0)
+
+
+def man_lip_patch(across, up, skin):
+    """The patch of a man's lips (rows x columns x 3) from the place on the lips of each texel (`across` 1 x columns, `up` rows x 1,
+    0 the lower border, 0.5 the line where they meet) and his skin's colour."""
+    across, up = np.asarray(across, np.float32), np.asarray(up, np.float32)
+    from_middle = np.abs(across - 0.5) * 2
+    tone = np.asarray(skin, np.float32) * np.asarray(MAN_LIP_TONE, np.float32)
+    light = 1 + MAN_LIP_GLOW * np.exp(-(((up - 0.25) / 0.15) ** 2)) * (1 - from_middle ** 2)
+    light = np.where(up > 0.5, MAN_LIP_UPPER, light)
+    line = np.exp(-(((up - 0.5) / MAN_LIP_LINE[1]) ** 2)) * np.clip((1 - from_middle) * 4, 0, 1)
+    return np.clip(tone[None, None, :] * (light * (1 - MAN_LIP_LINE[0] * line))[:, :, None], 0, 1)
+
+
+def lip_ends_share(across, most):
+    """How far a woman's lip goes to the skin's colour across the mouth (1 x columns): `most` in its middle, whole at the corners."""
+    from_middle = np.abs(np.asarray(across, np.float32) - 0.5) * 2
+    return most + (1 - most) * smooth(LIP_COLOUR_ENDS[0], LIP_COLOUR_ENDS[1], from_middle)
+
+
 def orbit_share(points, eyes):
     """How much each point about an eye gives up its colour to the skin's (0..ORBIT_TO_SKIN), in front of the globe."""
     points = np.asarray(points, float)

@@ -150,3 +150,16 @@ for column in range(64):
 rounded = parle_paint.kept_dark(teeth, face, 4) > 0.5
 edge_rows = rounded.argmax(axis=0)[8:56]
 assert np.abs(np.diff(edge_rows)).sum() < 0.5 * np.abs(np.diff((parle_paint.kept_dark(teeth, face) > 0.5).argmax(axis=0)[8:56])).sum(), "the beard's edge keeps its teeth"
+
+# Round 73 (both judges, the four men: "a boca é só um corte, sem lábio"): a man's patch has a lower lip darker and more rose than
+# his skin, lit in its middle, a darker line where the lips meet that fades before the corners, and no light rim.
+across = np.linspace(0, 1, 41)[None, :]
+up = np.linspace(1, 0, 21)[:, None]
+man = parle_paint.man_lip_patch(across, up, face)
+lower_lip, meet = man[15, 20], man[10, 20]
+assert 0.8 < lower_lip.mean() / face.mean() < 0.95 and lower_lip[0] / lower_lip[1] > face[0] / face[1] * 1.1, f"a man's lower lip: {lower_lip} on {face}"
+assert meet.mean() < 0.7 * lower_lip.mean() and man[10, 1].mean() > 0.85 * man[15, 1].mean(), "the line where the lips meet: not dark in the middle, or dark at the corner"
+assert man.max() <= face.max() + 1e-6, "a man's lip is lighter than his skin somewhere"
+# A woman's lip gives up its colour towards the corners ("faixa rosa larga de canto a canto"): the middle keeps the common share.
+ends = parle_paint.lip_ends_share(across, parle_paint.LIP_PATCH_TO_SKIN)[0]
+assert abs(ends[20] - parle_paint.LIP_PATCH_TO_SKIN) < 1e-6 and ends[0] > 0.99 and ends[-1] > 0.99 and np.all(np.diff(ends[20:]) >= -1e-9), f"a woman's lip towards the corners: {ends}"

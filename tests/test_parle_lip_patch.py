@@ -18,6 +18,13 @@ LINE = {"middle": 0.0, "half": HALF, "centres": np.array((-0.02, 0.0, 0.02)), "m
 over, under = parle_lips.lip_reach(np.array((0.0, parle_lips.BOW_AT_M, -parle_lips.BOW_AT_M, HALF, 2 * HALF)), HALF)
 assert over[1] == over[2] > over[0] > 0 and over[3] == over[4] == 0 and under[0] > 0 == under[3], f"the reach of the lips across the mouth: {over}, {under}"
 
+# Round 73: a man's lips on the patch are a lower lip and a thread of upper lip (`MAN_LIP_LOW_M`, `MAN_LIP_UP_M`), and a lip is
+# half as tall, or less, seven tenths of the way to the corner ("a mesma espessura dos dois lados", both judges).
+man_over, man_under = parle_lips.lip_reach(np.array((0.0, 0.7 * HALF)), HALF, parle_lips.MAN_LIP_LOW_M, parle_lips.MAN_LIP_UP_M)
+assert 0.003 <= man_under[0] <= 0.006 and man_over[0] < man_under[0] / 2 and man_under[1] <= 0.52 * man_under[0], f"a man's lips: {man_over}, {man_under}"
+assert over[1] > 1.15 * over[0], f"the bow of the upper lip is not marked: {over}"
+assert parle_lips.lip_place(LINE, np.array([(0.0, 0.0, 0.004)]), parle_lips.MAN_LIP_LOW_M, parle_lips.MAN_LIP_UP_M)[0][0] < 0, "a man's upper lip is as tall as a woman's"
+
 points = np.array([
     (0.0, 0.0, over[0] / 2),            # the middle of the upper lip
     (0.0, 0.0, over[0] + 0.002),        # the skin over it
