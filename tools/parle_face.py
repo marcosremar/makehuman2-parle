@@ -1088,7 +1088,7 @@ def paint_face(body, added, tip, balls, kind):
     if marks:
         on_map = skin_places(body, rest, loops, [point for line in marks for point in line]) * (width, height)
         ends = np.cumsum([0] + [len(line) for line in marks])
-        pixels[:, :, :3] = parle_paint.stroked(pixels[:, :, :3], [on_map[first:last] for first, last in zip(ends[:-1], ends[1:])],
+        pixels[:, :, :3] = parle_paint.stroked(pixels[:, :, :3], [parle_paint.evened_line(on_map[first:last]) for first, last in zip(ends[:-1], ends[1:])],
                                                face_skin * np.asarray(parle_paint.AGE_TONE, np.float32), parle_paint.AGE_LINE_PX * width / 1024)
     pixels[:, :, :3] = pixels[:, :, :3] * (1 - dark[:, :, None]) + held * dark[:, :, None]
     skin.pixels.foreach_set(pixels.ravel())

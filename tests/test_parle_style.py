@@ -217,3 +217,22 @@ assert eased[10, 2] > 0.0005 and np.allclose(eased[[0, 20]], fold[[0, 20]]), f"a
 for old_or_young in ("", "-old"):
     assert parle_style.SCULPT["female" + old_or_young]["cheek_wide"] < 0.9 and "cheek_wide" not in parle_style.SCULPT["male" + old_or_young], "the women's cheeks are as wide as the men's"
     assert parle_style.LOWER_FACE["female" + old_or_young] > parle_style.LOWER_FACE["male" + old_or_young] + 0.05, "the women's face is as short under the nose as the men's"
+
+# The owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas". (1) A ball's rim: a flat sheet through a ball is
+# pushed out inside it; with the ease, the sheet leaves the ball with no crease (the push next to the rim is a small share of
+# what it was). (2) The cheeks' and the chin's balls are no longer cut at a plane behind the nose: two points 2 mm apart across
+# that plane, both inside the cheek's ball, go out by nearly the same.
+sheet = np.array([(x, 0.03, 0.0) for x in np.linspace(-0.06, 0.06, 121)])
+ball = (np.zeros(3), (0.05, 0.05, 0.05))
+hard = parle_style.onto_ball(sheet, ball[0], ball[1], 0.9, True) - sheet
+eased = parle_style.onto_ball(sheet, ball[0], ball[1], 0.9, True, parle_style.BALL_EASE) - sheet
+rim = np.abs(np.abs(sheet[:, 0]) - 0.04) < 0.0021
+inside = np.abs(sheet[:, 0]) < 0.01
+assert np.linalg.norm(eased[rim], axis=1).max() < 0.15 * np.linalg.norm(hard[rim], axis=1).max(), "the skin still turns at a crease at the rim of a ball"
+assert np.allclose(eased[inside], hard[inside]), "the ease changed the middle of the ball"
+sculpt = parle_style.sculpt_field(tip, eyes, "male")
+unit_s = float(np.linalg.norm(eyes[0][0] - eyes[1][0]))
+cheek_at = eyes[0][0] + np.array([parle_style.CHEEK_AT[0], parle_style.CHEEK_AT[1], parle_style.CHEEK_AT[2]]) * unit_s
+across = np.array([(cheek_at[0] + 0.3 * unit_s, tip[1] + 0.9 * unit_s + side * 0.001, cheek_at[2]) for side in (-1, 1)])
+steps = np.linalg.norm(sculpt(across) - across, axis=1)
+assert steps.min() > 0.001 and abs(steps[0] - steps[1]) < 0.15 * steps.max(), f"a step across the plane behind the nose: {steps}"

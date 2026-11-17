@@ -436,10 +436,14 @@ def jaw_shade_share(points, normals, tip, eyes):
 # between the eyes from the nose tip (the fold from the nose's wing to beside the mouth) or from between the eyes (the forehead's
 # two, on the old men). Across, back (+y), up; the points between are laid on the skin.
 AGE_TONE = (0.72, 0.56, 0.52)
-AGE_LINE = 0.5
-AGE_LINE_PX = 1.6
-CROW_FROM = (1.5, 0.45, 0.0)
-CROW_TO = ((2.05, 0.75, 0.42), (2.15, 0.8, 0.0), (2.05, 0.75, -0.42))
+# Round 78, seen on the portraits: the lines came out as scratches, thin, dark and wobbling from one triangle of the map to the
+# next, and the crow's feet stood at the temple, 15 mm from the eye. Each line is now laid on the skin at AGE_POINTS points and
+# evened on the map (`evened_line`), drawn wider and fainter, and the crow's feet start at the corner of the eye.
+AGE_LINE = 0.38
+AGE_LINE_PX = 2.2
+AGE_POINTS = 9
+CROW_FROM = (1.18, 0.15, 0.0)
+CROW_TO = ((1.7, 0.42, 0.34), (1.8, 0.48, 0.0), (1.7, 0.42, -0.34))
 NOSE_FOLD = ((0.4, 0.3, 0.02), (0.5, 0.26, -0.12), (0.56, 0.24, -0.25), (0.58, 0.24, -0.38))
 BROW_LINES = (((-0.55, -0.02, 0.82), (-0.2, -0.1, 0.87), (0.2, -0.1, 0.87), (0.55, -0.02, 0.82)), ((-0.45, -0.02, 1.02), (0.0, -0.1, 1.06), (0.45, -0.02, 1.02)))
 
@@ -459,11 +463,28 @@ def age_lines(tip, eyes, kind):
         start = np.asarray(centre, float) + radius * np.array(CROW_FROM) * (side, 1, 1)
         for end in CROW_TO:
             stop = np.asarray(centre, float) + radius * np.array(end) * (side, 1, 1)
-            lines.append([start + (stop - start) * share for share in (0.0, 0.5, 1.0)])
+            lines.append([start, stop])
         lines.append([tip + unit * np.array(point) * (side, 1, 1) for point in NOSE_FOLD])
     if kind.startswith("male"):
         lines += [[between + unit * np.array(point) for point in line] for line in BROW_LINES]
-    return lines
+    return [along_line(line, AGE_POINTS) for line in lines]
+
+
+def along_line(line, count):
+    """`count` points evenly along a line given by a few points (n x 3 or n x 2), its ends kept."""
+    line = np.asarray(line, float)
+    reach = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(line, axis=0), axis=1))])
+    at = np.linspace(0.0, reach[-1], count)
+    return np.column_stack([np.interp(at, reach, line[:, axis]) for axis in range(line.shape[1])])
+
+
+def evened_line(line, rounds=3):
+    """A line on the map (n x 2) with its wobble taken out: each inner point goes to the mean of itself and its two neighbours,
+    `rounds` times, the ends kept."""
+    line = np.array(line, float, copy=True)
+    for _ in range(rounds):
+        line[1:-1] = (line[:-2] + line[1:-1] + line[2:]) / 3
+    return line
 
 
 def stroked(pixels, lines, colour, width=AGE_LINE_PX, strength=AGE_LINE):

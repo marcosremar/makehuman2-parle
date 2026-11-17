@@ -11,6 +11,8 @@
     The kind is the sex and, for the old, "-old" (`kind_of`). A job says it is old with "age": "old"; with nothing said a person is a
     grown one. No mesh, picture or point of any character is kept: the numbers are read off the middle of each group by sight.
 """
+import os
+
 import numpy as np
 
 # How much the nose grows about a point behind its tip, and how thick the eyebrows are left (`parle_face.BROW_THIN` is the kind's
@@ -184,6 +186,9 @@ CHEEK_AT = (0.14, 0.62, -0.64)
 CHIN_AT = (0.0, 0.55, -1.25)
 # How far about each form its pull reaches, in its own radii, and the zone of the nose about the tip, in distances between the eyes.
 REACH = 1.4
+# Where the cheeks' and the chin's balls stop taking the head, in distances between the eyes behind the nose tip: whole to the
+# first, none past the second (the ears stand some 1.9 behind it).
+FRONT_FADE = (0.9, 1.6)
 # How much of the way to the chin's ball a point goes (round 25: the young man's chin "recua muito" from the side).
 # Round 26: at 0.8 a crease stood under the lower lip of both men, where the chin's ball ended.
 CHIN_SHARE = 0.6
@@ -224,6 +229,8 @@ NOSE_ZONE = 0.55
 # (width over height 1.01 to 1.09; the series' women 0.91, the faces the owner approved 0.90) and the men's as wide as his (0.83
 # to 0.89 against 0.83; the series' men 0.77). Back for the men; the women's face is left longer under the nose.
 LOWER_FACE = {"male": 0.83, "male-old": 0.87, "female": 0.93, "female-old": 0.93}
+# A trial of another share for the lower face, for every kind, without touching this file: a QA door, not a mode of the cast.
+LOWER_FACE_TRIAL = "PARLE_LOWER_FACE"
 LOWER_CHIN = -1.3
 # Round 38: at 1.6 the lift reached a woman's collar and the throat came through it.
 LOWER_NECK = 1.1
@@ -255,9 +262,18 @@ SIMPLE_IN_STEP = 0.5
 SIMPLE_OUT_STEP = -0.53
 
 
-def onto_ball(points, centre, radii, share, outward_only):
+# The rim of a ball (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"). A point inside a ball went the
+# whole share of the way out to it right up to the ball's rim, and a point outside not at all: where the skin crossed the ball it
+# turned at a crease, a notch on each side of the chin at the rim of the chin's ball (0.5 distances between the eyes from the
+# middle, the men) and a corner at the angle of the jaw at the rim of the cheek's. With `ease`, the pull of a point inside falls to
+# nothing over the last `ease` of the radius, with no slope at the rim: a fillet where there was a crease.
+BALL_EASE = 0.3
+
+
+def onto_ball(points, centre, radii, share, outward_only, ease=0.0):
     """Each point moved `share` of the way to the surface of the ellipsoid about `centre` (radii across, back, up), along the line
-    from the centre; with `outward_only`, only the points inside it, which fills hollows and leaves the rest."""
+    from the centre; with `outward_only`, only the points inside it, which fills hollows and leaves the rest, and with `ease` the
+    points within that share of the radius of its rim go less, down to nothing at the rim."""
     off = points - centre
     scaled = np.linalg.norm(off / np.asarray(radii, float), axis=1)
     scaled = np.maximum(scaled, 1e-9)
@@ -265,6 +281,8 @@ def onto_ball(points, centre, radii, share, outward_only):
     pull = share * smooth((REACH - scaled) / (REACH - 1.0))
     if outward_only:
         pull = np.where(scaled < 1.0, pull, 0.0)
+        if ease > 0:
+            pull = pull * smooth((1.0 - scaled) / ease)
     return points + pull[:, None] * (onto - points)
 
 
@@ -667,7 +685,7 @@ def lower_face_field(tip, eyes, kind):
     unit = float(np.linalg.norm(centres[0] - centres[1]))
     tip = np.asarray(tip, float)
     chin = tip[2] + LOWER_CHIN * unit
-    lift = (1 - LOWER_FACE[kind]) * (tip[2] - chin)
+    lift = (1 - float(os.environ.get(LOWER_FACE_TRIAL) or LOWER_FACE[kind])) * (tip[2] - chin)
 
     def field(points):
         points = np.asarray(points, float).copy()
@@ -695,6 +713,10 @@ def sculpt_field(tip, eyes, kind):
     def field(points):
         points = np.asarray(points, float).copy()
         front = points[:, 1] < tip[1] + 0.9 * unit
+        # The cheeks' and the chin's balls take the front of the head whole and fade out behind it (FRONT_FADE): cut at a plane
+        # 0.9 distances between the eyes behind the nose tip, the skin in front of it went out to the cheek's ball by millimetres
+        # and the skin behind it not at all, a step down the side of the face to the line of the jaw (owner, 2026-11-17).
+        forward = smooth((tip[1] + FRONT_FADE[1] * unit - points[:, 1]) / ((FRONT_FADE[1] - FRONT_FADE[0]) * unit))[:, None]
         # The upper lid lifted off the iris (round 24, 2026-11-16: "olhos pequenos e fundos, sem branco em volta"; the blink run
         # backwards stops at half the width): the skin over each globe goes up by its kind's "lid" of its radius at the rim, fading out.
         for (centre, radius) in eyes:
@@ -717,11 +739,11 @@ def sculpt_field(tip, eyes, kind):
             side = np.sign(centre[0] - (centres[0][0] + centres[1][0]) / 2)
             at = np.asarray(centre, float) + np.array([side * CHEEK_AT[0], CHEEK_AT[1], CHEEK_AT[2]]) * unit
             radius = spec["cheek"] * unit
-            points[front] = onto_ball(points[front], at, (radius * spec.get("cheek_wide", 1.0), radius, radius * 0.9), spec["cheek_share"], True)
+            points = points + forward * (onto_ball(points, at, (radius * spec.get("cheek_wide", 1.0), radius, radius * 0.9), spec["cheek_share"], True, BALL_EASE) - points)
         # The chin onto a ball.
         chin = tip + np.array(CHIN_AT) * unit
         radius = spec["chin"] * unit
-        points[front] = onto_ball(points[front], chin, (radius * 1.1, radius, radius * 0.85), CHIN_SHARE, True)
+        points = points + forward * (onto_ball(points, chin, (radius * 1.1, radius, radius * 0.85), CHIN_SHARE, True, BALL_EASE) - points)
         # The nose onto a ball behind its tip, in the zone of the nose only.
         radii = np.array(spec["nose_ball"]) * unit
         # The ball stands a little above the tip, so the tip comes up into it: a nose shorter and round, not hanging (round 13).

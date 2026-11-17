@@ -192,6 +192,12 @@ assert turned_thick[:4].max() <= 0.4 * turned_thick[-30:].max() and turned_thick
 assert parle_paint.age_lines(tip, eyes, "female") == [] and parle_paint.age_lines(tip, eyes, "male") == []
 old_woman, old_man = parle_paint.age_lines(tip, eyes, "female-old"), parle_paint.age_lines(tip, eyes, "male-old")
 assert len(old_woman) == 8 and len(old_man) == 10, f"the lines of age: {len(old_woman)} on an old woman, {len(old_man)} on an old man"
+assert all(len(line) == parle_paint.AGE_POINTS for line in old_man), "a line of age is not laid at its points"
+wobbly = np.column_stack([np.arange(9.0), np.array([0, 1, -1, 1, -1, 1, -1, 1, 0.0])])
+calm = parle_paint.evened_line(wobbly)
+assert np.abs(calm[1:-1, 1]).max() < 0.5 and np.allclose(calm[[0, -1]], wobbly[[0, -1]]), "a line of age keeps its wobble, or its ends moved"
+corner = np.linalg.norm(np.asarray(old_woman[0][0]) - eyes[0][0]) / eyes[0][1]
+assert 1.0 < corner < 1.35, f"the crow's feet do not start at the corner of the eye: {corner:.2f} radii from its middle"
 feet = [np.linalg.norm(np.asarray(line[-1]) - np.asarray(line[0])) for line in old_woman[:3]]
 assert all(0.004 < length < 0.012 for length in feet), f"the crow's feet are not some 6 mm long: {feet}"
 plain = np.full((40, 80, 3), 0.8, np.float32)
