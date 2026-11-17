@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
-from parle_tongue import LOWER_TEETH_TUCK, ROOT_SHARE, ROUND_KEYS, TIP_SHARE, carried, hidden_in_round, is_mouth_key, lower_teeth, tongue_share, tucked  # noqa: E402
+from parle_tongue import LOWER_TEETH_TUCK, ROOT_SHARE, ROUND_KEYS, SMILE_LOWER_TUCK, SMILE_TEETH_KEYS, smile_tuck, TIP_SHARE, carried, hidden_in_round, is_mouth_key, lower_teeth, tongue_share, tucked  # noqa: E402
 
 tongue = np.array([[0, -0.05, 0], [0, -0.03, 0], [0, 0.0, 0]], dtype=float)
 share = tongue_share(tongue)
@@ -31,3 +31,11 @@ print("ok")
 hide = hidden_in_round(jaw)
 assert np.all(hide[:2, 2] < 0) and np.all(hide[2:, 2] > 0) and np.allclose(hide[:, :2], 0), f"the rows do not part behind the lips: {hide}"
 assert set(ROUND_KEYS) == {"viseme_O", "viseme_U"}, "the teeth hide in a shape that is not rounded"
+
+# Round 88 (four judges of four, all eight: "sem a fileira de baixo"): in the smile the lower row goes down and back, half on each
+# side, and the upper row stays; the open shapes tuck the lower row at least 5 mm down.
+smile = smile_tuck(jaw, 0.5)
+assert np.allclose(smile[:2], np.asarray(SMILE_LOWER_TUCK) * 0.5) and np.allclose(smile[2:], 0.0), f"the smile moves the upper row, or not the lower: {smile}"
+assert set(SMILE_TEETH_KEYS) == {"mouthSmileLeft", "mouthSmileRight"} and SMILE_LOWER_TUCK[2] < -0.002, "the smile does not take the lower row down"
+assert LOWER_TEETH_TUCK[2] <= -0.005, f"the lower row is tucked under 5 mm: {LOWER_TEETH_TUCK}"
+print("ok sorriso")

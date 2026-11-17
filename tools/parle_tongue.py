@@ -22,7 +22,12 @@ MOUTH_KEYS = ("viseme_", "jawOpen")
 # opens no wider (the owner kept Rafa's limit on 2026-11-16).
 # Round 53: at 1.5 mm both rows still showed ("dentadura"): 3 mm.
 # Round 54: the old woman's "a" still showed both rows ("dentes de baixo 50 % cobertos pelo lábio"): 4 mm.
-LOWER_TEETH_TUCK = (0.0, 0.0015, -0.004)
+# Round 88 (four judges of four on round 86: "sem a fileira de baixo", "dentadura"): 6 mm down and 2 mm back.
+LOWER_TEETH_TUCK = (0.0, 0.002, -0.006)
+# The smile parts the lips with no shape of its own on the teeth, and the lower row showed under the upper one (round 86, all eight):
+# a smile shape on the teeth that takes the lower row down and back by SMILE_LOWER_TUCK, the upper row where it is.
+SMILE_TEETH_KEYS = ("mouthSmileLeft", "mouthSmileRight")
+SMILE_LOWER_TUCK = (0.0, 0.0015, -0.0035)
 
 # Round 70 (owner, 2026-11-17: the mouth first of what is ugly; both judges, rounds 66 to 69: the "o" "um bico em anel com os dentes à
 # mostra"): in the rounded shapes the series shows a small dark ring and no teeth. In those shapes the upper row goes up behind
@@ -31,6 +36,13 @@ LOWER_TEETH_TUCK = (0.0, 0.0015, -0.004)
 ROUND_KEYS = ("viseme_O", "viseme_U")
 ROUND_UPPER_UP_M = 0.0035
 ROUND_LOWER_DOWN_M = 0.002
+
+
+def smile_tuck(jaw_moves, share=1.0):
+    """The move of each tooth in a smile shape (SMILE_TEETH_KEYS): the lower row down and back by `share` of SMILE_LOWER_TUCK, the
+    upper row still. One side of the smile takes half (`share` 0.5): both sides at once take it whole."""
+    lower = lower_teeth(jaw_moves)
+    return np.where(lower[:, None], np.asarray(SMILE_LOWER_TUCK, float) * share, 0.0)
 
 
 def hidden_in_round(jaw_moves):

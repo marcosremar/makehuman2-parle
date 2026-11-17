@@ -80,7 +80,10 @@ gum = image[teeth.gum_strip(1) + 10, 100]
 assert mouth.gum_of(gum[None, None, ::-1].astype(np.float32).repeat(32, 0).repeat(32, 1)).min() > 0.5, f"the gum strip must read as gum to the shade: {gum}"
 edge = image[top + 16, left]
 centre = image[top + 16, left + teeth.TOOTH_W // 2]
-assert edge.mean() < centre.mean(), "a thin darker line separates a tooth from the next"
+# Round 88 (four judges of four on round 86: the teeth "parecem aparelho"): the series draws the upper row as one white band, so no
+# darker line between two teeth any more; and the teeth are near white, no yellow.
+assert abs(edge.mean() - centre.mean()) < 0.01, "a darker line separates a tooth from the next: braces"
+assert centre[1] > 0.87 and centre[2] > 0.93, f"the teeth are not near white: {centre}"
 print("ok")
 
 # Dentes de aparelho no placar de 11/11/2026 (Ivone, Lúcia): cada dente ocupava ~10 % da célula, porque a escala vinha de todos os pontos da

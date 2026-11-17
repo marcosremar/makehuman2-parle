@@ -19,12 +19,15 @@ MARGIN = 0.08
 GUM_LEAST = 100
 BEHIND_ARCH_M = 0.03
 # Warmer than paper white: behind the upper lip the tooth gets only the cool room light, and at 0.80 blue it read silver in the player (2026-11-11).
-IVORY = np.array((0.72, 0.87, 0.96))  # BGR
+# Round 88 (four judges of four on the portraits of round 86, all eight): the teeth "parecem aparelho", grey-green with a dark line
+# between every two; the series draws the upper row as one white band. A little lighter and no line between them (EDGE_SHADE 1);
+# still warm, blue under 0.8 of red: a cooler white read silver in the player (2026-11-11).
+IVORY = np.array((0.76, 0.91, 0.97))  # BGR
 GUM = np.array((112, 116, 196)) / 255  # BGR, the colour of a gum in daylight
 # A tooth is a little warmer towards the gum, and a thin darker line keeps it from melting into the next one. Measured by eye in the player: a design choice to pilot.
 # At 0.8 the line, once the player's filter spread it, drew a dark bar between every two teeth: braces (2026-11-11).
-ROOT_SHADE = 0.9
-EDGE_SHADE = 0.93
+ROOT_SHADE = 0.95
+EDGE_SHADE = 1.0
 EDGE_SHARE = 0.1
 # A lower molar moves 40 % of what an incisor moves when the jaw opens (it sits near the hinge); an upper tooth does not move at all.
 JAW_SHARE = 0.15

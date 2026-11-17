@@ -15,7 +15,8 @@ import numpy as np
 # Depth back from the front of the teeth (m) -> multiplier. The shade starts just behind the incisors: from 12 mm on the side teeth came out
 # brighter than the map already published and floated white in the dark (critic, #2896).
 TEETH_DEPTHS = (0.0, 0.004, 0.008, 0.012, 0.016, 0.025, 0.045)
-TEETH_SHADES = (1.0, 0.95, 0.82, 0.72, 0.58, 0.4, 0.24)
+# Round 88 (four judges, all eight: "cinza", "aparelho"): the front teeth whole to 8 mm back and then a slower fall; the molars stay dark.
+TEETH_SHADES = (1.0, 1.0, 0.96, 0.86, 0.72, 0.5, 0.28)
 # Gums are wet flesh behind the lip's shadow. Read off the painted pink in the map, not from the points: the arc behind the upper incisors
 # is shallow and stayed bright orange, read as braces (critic, #2896). Pink is red well above blue, in the map's own (sRGB) values.
 GUM_SHADE = 0.24

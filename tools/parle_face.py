@@ -1185,6 +1185,13 @@ def clean_face(body, added, job, env):
         for name in parle_tongue.ROUND_KEYS:
             if name in keys:
                 keys[name].data.foreach_set("co", (key_points(keys[name]) + hide).ravel())
+        # The lower row out of the smile too (`parle_tongue.smile_tuck`): the teeth had no smile shape and the lower row showed.
+        tuck = parle_tongue.smile_tuck(key_points(keys["jawOpen"]) - key_points(keys[0]), 0.5)
+        for name in parle_tongue.SMILE_TEETH_KEYS:
+            if name not in keys:
+                teeth.shape_key_add(name=name, from_mix=False)
+            keys = teeth.data.shape_keys.key_blocks
+            keys[name].data.foreach_set("co", (key_points(keys[0]) + tuck).ravel())
     # After the jaw is calmed: `mouthClose` is the final `jawOpen` backwards. Read before `calm_speech`, it took back the whole kit's
     # jaw while the body kept 0.6 to 0.9 of it, and pushed the lower lip 17 to 26 mm past the rest (2026-11-12). The lips close over
     # the open jaw in /p b m/, not the jaw (2026-11-11, thread of tooth in /m/).
