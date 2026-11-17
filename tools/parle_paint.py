@@ -312,12 +312,17 @@ def jaw_share(points, tip, eyes):
 # face. A texel darker than the face's skin past these shares of it, by its brightest channel (a lip's red does not count), is kept
 # through those paints as it was after the smoothing: the beard, and the hair painted on a scalp.
 KEPT_DARK = (0.7, 0.55)
+# Round 68 (both judges): the beard kept so had "borda em degraus", the teeth of the strands along its upper edge: its outline is
+# rounded, the kept share blurred over this many pixels of a 1024 map and cut again at its half.
+KEPT_DARK_ROUND_PX = 8
 
 
-def kept_dark(pixels, face_skin):
-    """How much of each texel of the map is kept through the paints of the face (0..1): the ones much darker than `face_skin`."""
+def kept_dark(pixels, face_skin, radius=0):
+    """How much of each texel of the map is kept through the paints of the face (0..1): the ones much darker than `face_skin`,
+    the outline rounded over `radius` pixels."""
     ratio = np.asarray(pixels, np.float32)[:, :, :3].max(axis=2) / max(float(np.max(face_skin)), 1e-6)
-    return smooth(KEPT_DARK[0], KEPT_DARK[1], ratio)
+    kept = smooth(KEPT_DARK[0], KEPT_DARK[1], ratio)
+    return smooth(0.35, 0.65, box_blur(kept[:, :, None], radius)[:, :, 0]) if radius >= 1 else kept
 
 
 # And the florist's face was a pale mask on a yellow head: the game's face is painted on the map lighter than the kit's skin about

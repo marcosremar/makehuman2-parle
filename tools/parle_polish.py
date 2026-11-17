@@ -379,13 +379,25 @@ def frames_on_face(meshes, body, balls):
                 if np.linalg.norm(move) > 1e-4:
                     warp(obj, lambda pts, move=move: pts + move)
                     done[obj.name] = "no cabelo, " + str(round(float(np.linalg.norm(move)) * 1000, 1)) + " mm"
+                done[obj.name + " hastes"] = arms_to_head(obj, surface)
             continue
         scale = parle_style.frame_scale(points, skin, eye_z)
         if scale < 1.0:
             middle = float(np.median(skin[:, 0]))
             warp(obj, lambda pts, scale=scale, middle=middle: np.column_stack([middle + (pts[:, 0] - middle) * scale, pts[:, 1], pts[:, 2]]))
             done[obj.name] = round(scale, 3)
+        hair = [rest_points(item) for item in meshes if item.type == "MESH" and "hair" in item.name.lower()]
+        head = np.concatenate([skin, *hair])
+        done[obj.name + " hastes"] = arms_to_head(obj, head[np.linalg.norm(head - rest_points(obj).mean(axis=0), axis=1) < 0.2])
     return done
+
+
+def arms_to_head(obj, surface):
+    """The arms of a frame laid along the head (`parle_style.arms_on_head`); how far the furthest point went (mm)."""
+    move = parle_style.arms_on_head(rest_points(obj), surface)
+    if np.abs(move).max() > 1e-5:
+        warp(obj, lambda pts, move=move: pts + move)
+    return round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1)
 
 
 

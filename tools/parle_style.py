@@ -443,7 +443,9 @@ FRAME_SETTLE_SHARE = 0.1
 # lie this high over the eyes stand HAT_CLEAR_M off the head or the hair under it.
 HAT_CLEAR_M = 0.003
 HAT_RIM_BAND_M = (0.02, 0.09)
-HAT_RIM_SHARE = 0.9
+# Round 68: at 0.9 a tenth of the rim went into the hair, which then stood out under the cap at the temples ("pecinhas escuras
+# saem das têmporas", both judges): the whole rim stays clear.
+HAT_RIM_SHARE = 1.0
 
 
 def hat_scale(rim, gaps, centre, clear=HAT_CLEAR_M):
@@ -455,6 +457,46 @@ def hat_scale(rim, gaps, centre, clear=HAT_CLEAR_M):
     reach = np.hypot(rim[:, 0] - centre[0], rim[:, 1] - centre[1])
     need = (reach - gaps + clear) / np.maximum(reach, 1e-9)
     return float(min(1.0, np.quantile(need, HAT_RIM_SHARE)))
+
+# The arms of a frame lie along the head (round 68: the market owner's stood 11 to 24 mm off it and ended in hooks in the air, the
+# young woman's sunglasses' ran straight back off her hair, both judges): from FRAME_ARM_FROM_M behind the front of the frame, each
+# slice of an arm FRAME_ARM_SLICE_M long goes whole towards the head till its nearest point is FRAME_ON_HAIR_M off it, fully from
+# FRAME_ARM_RAMP_M further back; the front of the frame stays.
+FRAME_ARM_FROM_M = 0.01
+FRAME_ARM_RAMP_M = 0.015
+FRAME_ARM_SLICE_M = 0.005
+
+
+def arms_on_head(frame, surface, clear=FRAME_ON_HAIR_M):
+    """The move (n x 3) of each point of a frame of glasses (`frame`, the face looking at -y) that lays its arms on the head
+    (`surface`, its points): slice by slice along each arm, as a whole, the slices' moves evened along it."""
+    frame = np.asarray(frame, float)
+    move = np.zeros_like(frame)
+    behind = frame[:, 1] - frame[:, 1].min()
+    middle = float(np.median(frame[:, 0]))
+    for side in (frame[:, 0] < middle, frame[:, 0] >= middle):
+        arm = side & (behind > FRAME_ARM_FROM_M)
+        if not arm.any():
+            continue
+        slices = np.floor((behind[arm] - FRAME_ARM_FROM_M) / FRAME_ARM_SLICE_M).astype(int)
+        distance, nearest = nearest_on(frame[arm], surface)
+        steps = np.zeros((slices.max() + 1, 3))
+        filled = np.zeros(len(steps), bool)
+        for index in np.unique(slices):
+            here = slices == index
+            filled[index] = True
+            gap = float(distance[here].min()) - clear
+            if gap > 0:
+                way = (nearest[here] - frame[arm][here]).mean(axis=0)
+                steps[index] = way / max(np.linalg.norm(way), 1e-9) * gap
+        # Each slice's move evened with its neighbours' (no further than its own, so no slice goes nearer than `clear`).
+        evened = np.zeros_like(steps)
+        for index in np.where(filled)[0]:
+            near = [other for other in range(max(index - 1, 0), min(index + 2, len(steps))) if filled[other]]
+            evened[index] = steps[near].mean(axis=0)
+            evened[index] *= min(1.0, np.linalg.norm(steps[index]) / max(np.linalg.norm(evened[index]), 1e-9))
+        move[arm] = evened[slices] * np.clip((behind[arm] - FRAME_ARM_FROM_M) / FRAME_ARM_RAMP_M, 0, 1)[:, None]
+    return move
 
 
 def nearest_on(points, surface, chunk=256):

@@ -169,3 +169,16 @@ assert parle_style.hat_scale(rim_pts, np.full(40, 0.002), (0.0, 0.0)) == 1.0, "a
 
 assert parle_style.HAIR_TUCK_ABOVE_M < 0, "the hair's edge at the temples goes onto the skin (round 66: a hole at each temple)"
 assert parle_style.STYLE["male-old"]["brow_inner"] == 0.0, "the old man's eyebrows go up at the inner end (round 66: a sad roof)"
+
+# The arms of a frame lie along the head (round 68: the market owner's stood 11 to 24 mm off it): an arm running straight back
+# 15 mm off the side of a head comes to FRAME_ON_HAIR_M of it, slice by slice and whole; the front of the frame stays.
+side_head = np.array([(0.07, y, z) for y in np.linspace(-0.1, 0.05, 60) for z in np.linspace(-0.02, 0.02, 9)])
+lens_pts = np.array([(x, -0.11, z) for x in np.linspace(-0.06, 0.06, 13) for z in (-0.01, 0.0, 0.01)])
+arm_pts = np.array([(0.085, y, z) for y in np.linspace(-0.105, 0.03, 28) for z in (-0.001, 0.001)])
+glasses_pts = np.concatenate([lens_pts, arm_pts])
+laid = glasses_pts + parle_style.arms_on_head(glasses_pts, side_head)
+assert np.allclose(laid[:len(lens_pts)], lens_pts), "the front of the frame moved"
+far_back = laid[len(lens_pts):][arm_pts[:, 1] > -0.07]
+gaps = parle_style.nearest_on(far_back, side_head)[0]
+assert np.all(gaps >= parle_style.FRAME_ON_HAIR_M - 1e-4) and gaps.max() < parle_style.FRAME_ON_HAIR_M + 0.002, f"the arm is not on the head: {gaps.max()}"
+assert np.allclose(np.ptp(laid[len(lens_pts):].reshape(-1, 2, 3)[:, :, 2], axis=1), 0.002), "an arm's slice lost its thickness"

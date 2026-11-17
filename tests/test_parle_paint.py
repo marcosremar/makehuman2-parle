@@ -141,3 +141,12 @@ dark_old = parle_paint.drawn_brow(brown, True)[0, 0, :3]
 grey_old = parle_paint.drawn_brow(np.concatenate([np.full((4, 4, 3), 0.55, np.float32), np.ones((4, 4, 1), np.float32)], axis=2), True)[0, 0, :3]
 assert np.abs(dark_old - np.array(parle_paint.BROW_OLD_GREY)).sum() > 0.3 and dark_old.mean() < 0.3, f"a dark-haired old person's eyebrow is grey: {dark_old}"
 assert np.abs(grey_old - np.array(parle_paint.BROW_OLD_GREY)).max() < 0.1, f"a grey-haired old person's eyebrow is not grey: {grey_old}"
+
+
+# Round 68: the kept beard's edge in steps (both judges): with its outline rounded, a toothed edge runs smooth.
+teeth = np.full((64, 64, 3), 0.95, np.float32)
+for column in range(64):
+    teeth[32 + (4 if (column // 4) % 2 else 0):, column] = 0.3
+rounded = parle_paint.kept_dark(teeth, face, 4) > 0.5
+edge_rows = rounded.argmax(axis=0)[8:56]
+assert np.abs(np.diff(edge_rows)).sum() < 0.5 * np.abs(np.diff((parle_paint.kept_dark(teeth, face) > 0.5).argmax(axis=0)[8:56])).sum(), "the beard's edge keeps its teeth"
