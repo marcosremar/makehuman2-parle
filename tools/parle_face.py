@@ -15,6 +15,7 @@ from pathlib import Path
 import bmesh
 import bpy
 import numpy as np
+import mathutils.geometry
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 from mathutils.kdtree import KDTree
@@ -1018,6 +1019,21 @@ def map_pixels(image):
     return pixels.reshape(height, width, 4)
 
 
+def skin_places(body, rest, loops, spots):
+    """Where each of `spots` (points about the head) is on the skin's map (n x 2, u and v): the nearest point of the skin, in
+    the triangle it falls in. A line laid so runs on the face of one island: its points are close together."""
+    triangles = [(polygon.loop_indices[0], second, third) for polygon in body.data.polygons for second, third in zip(polygon.loop_indices[1:], polygon.loop_indices[2:])]
+    corners = [[body.data.loops[index].vertex_index for index in triangle] for triangle in triangles]
+    tree = BVHTree.FromPolygons([tuple(point) for point in rest], corners)
+    places = np.zeros((len(spots), 2))
+    for number, spot in enumerate(spots):
+        at, _, index, _ = tree.find_nearest(Vector(spot))
+        first, second, third = (Vector(rest[corner]) for corner in corners[index])
+        weights = mathutils.geometry.barycentric_transform(at, first, second, third, Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1)))
+        places[number] = sum((np.array(loops[loop].uv[:]) * weight for loop, weight in zip(triangles[index], weights)), np.zeros(2))
+    return places
+
+
 # The shade under the jaw is evened with its neighbours along the mesh this many times before it is painted.
 JAW_SHADE_ROUNDS = 4
 
@@ -1067,6 +1083,13 @@ def paint_face(body, added, tip, balls, kind):
     mesh_edges = np.array([edge.vertices[:] for edge in body.data.edges])
     shade = parle_normals.smoothed_share(parle_paint.jaw_shade_share(rest, facing, tip, balls), mesh_edges, JAW_SHADE_ROUNDS) * parle_paint.JAW_SHADE
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(shade), face_skin * np.asarray(parle_paint.JAW_SHADE_TONE, np.float32))
+    # The lines of age of the old (`parle_paint.age_lines`), each point laid on the skin and found on the map.
+    marks = parle_paint.age_lines(tip, balls, kind)
+    if marks:
+        on_map = skin_places(body, rest, loops, [point for line in marks for point in line]) * (width, height)
+        ends = np.cumsum([0] + [len(line) for line in marks])
+        pixels[:, :, :3] = parle_paint.stroked(pixels[:, :, :3], [on_map[first:last] for first, last in zip(ends[:-1], ends[1:])],
+                                               face_skin * np.asarray(parle_paint.AGE_TONE, np.float32), parle_paint.AGE_LINE_PX * width / 1024)
     pixels[:, :, :3] = pixels[:, :, :3] * (1 - dark[:, :, None]) + held * dark[:, :, None]
     skin.pixels.foreach_set(pixels.ravel())
     skin.pack()

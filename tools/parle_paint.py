@@ -427,6 +427,76 @@ def jaw_shade_share(points, normals, tip, eyes):
     return smooth(JAW_SHADE_DOWN[0], JAW_SHADE_DOWN[1], -normals[:, 2]) * zone
 
 
+
+# The marks of age of the old (round 76, both judges on the four old of eight: "3 traços de pé de galinha de 6 mm em cada olho e
+# sulco nasolabial de 25 mm, pintados", "2 rugas na testa"; since round 66 "parece moça", "rosto de menina"). Drawn as thin lines
+# on the map, a warm shade of the skin's own colour (AGE_TONE) laid AGE_LINE strong and AGE_LINE_PX texels of a 1024 map wide,
+# fading out towards both ends: the series draws an old face's lines, it does not model them. Where each line runs, on the head
+# (`age_lines`): in radii of the eye globe from its middle (the crow's feet: three, fanned from the outer corner), and in distances
+# between the eyes from the nose tip (the fold from the nose's wing to beside the mouth) or from between the eyes (the forehead's
+# two, on the old men). Across, back (+y), up; the points between are laid on the skin.
+AGE_TONE = (0.72, 0.56, 0.52)
+AGE_LINE = 0.5
+AGE_LINE_PX = 1.6
+CROW_FROM = (1.5, 0.45, 0.0)
+CROW_TO = ((2.05, 0.75, 0.42), (2.15, 0.8, 0.0), (2.05, 0.75, -0.42))
+NOSE_FOLD = ((0.4, 0.3, 0.02), (0.5, 0.26, -0.12), (0.56, 0.24, -0.25), (0.58, 0.24, -0.38))
+BROW_LINES = (((-0.55, -0.02, 0.82), (-0.2, -0.1, 0.87), (0.2, -0.1, 0.87), (0.55, -0.02, 0.82)), ((-0.45, -0.02, 1.02), (0.0, -0.1, 1.06), (0.45, -0.02, 1.02)))
+
+
+def age_lines(tip, eyes, kind):
+    """The lines of age of an old face as lists of points on the head (not yet on the skin): the crow's feet and the folds from
+    the nose to the mouth, and on a man the two lines of the forehead. None for the young."""
+    if not kind.endswith("-old"):
+        return []
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    tip = np.asarray(tip, float)
+    between = (centres[0] + centres[1]) / 2
+    lines = []
+    for centre, radius in eyes:
+        side = 1.0 if np.asarray(centre, float)[0] > between[0] else -1.0
+        start = np.asarray(centre, float) + radius * np.array(CROW_FROM) * (side, 1, 1)
+        for end in CROW_TO:
+            stop = np.asarray(centre, float) + radius * np.array(end) * (side, 1, 1)
+            lines.append([start + (stop - start) * share for share in (0.0, 0.5, 1.0)])
+        lines.append([tip + unit * np.array(point) * (side, 1, 1) for point in NOSE_FOLD])
+    if kind.startswith("male"):
+        lines += [[between + unit * np.array(point) for point in line] for line in BROW_LINES]
+    return lines
+
+
+def stroked(pixels, lines, colour, width=AGE_LINE_PX, strength=AGE_LINE):
+    """The map's RGB (rows x columns x 3) with each line (a list of (column, row) texels) drawn `width` texels wide in `colour`
+    (one colour, or one per texel as the map), `strength` at its middle and fading to nothing at both ends."""
+    out = np.array(pixels, np.float32, copy=True)
+    rows, columns = out.shape[:2]
+    colour = np.asarray(colour, np.float32)
+    for line in lines:
+        line = np.asarray(line, float)
+        lengths = np.linalg.norm(np.diff(line, axis=0), axis=1)
+        whole = max(float(lengths.sum()), 1e-9)
+        done = 0.0
+        for first, second, length in zip(line[:-1], line[1:], lengths):
+            if length < 1e-9:
+                continue
+            low = np.maximum(np.floor(np.minimum(first, second) - width - 1).astype(int), 0)
+            high = np.minimum(np.ceil(np.maximum(first, second) + width + 2).astype(int), (columns, rows))
+            if (high <= low).any():
+                done += length
+                continue
+            xs, ys = np.meshgrid(np.arange(low[0], high[0]) + 0.5, np.arange(low[1], high[1]) + 0.5)
+            along = np.clip(((xs - first[0]) * (second[0] - first[0]) + (ys - first[1]) * (second[1] - first[1])) / length ** 2, 0, 1)
+            far = np.hypot(xs - (first[0] + along * (second[0] - first[0])), ys - (first[1] + along * (second[1] - first[1])))
+            fade = np.sin(np.pi * np.clip((done + along * length) / whole, 0, 1)) ** 0.5
+            weight = (np.clip(width / 2 + 0.5 - far, 0, 1) * fade * strength)[:, :, None]
+            region = out[low[1]:high[1], low[0]:high[0]]
+            tone = colour if colour.ndim == 1 else colour[low[1]:high[1], low[0]:high[0]]
+            region[:] = np.where(weight > 0, np.minimum(region, region * (1 - weight) + tone * weight), region)
+            done += length
+    return out
+
+
 def orbit_share(points, eyes):
     """How much each point about an eye gives up its colour to the skin's (0..ORBIT_TO_SKIN), in front of the globe."""
     points = np.asarray(points, float)

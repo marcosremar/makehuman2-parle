@@ -215,7 +215,9 @@ NOSE_ZONE = 0.55
 # under the tip) the face is this share as tall; the neck takes the move back over LOWER_NECK, and the whole width of the jaw
 # (LOWER_WIDE either side) goes with it.
 # Round 37 (5.5): with the crease gone, the chin still "quadrado" and long on all four: a little shorter.
-LOWER_FACE = {"male": 0.83, "male-old": 0.87, "female": 0.85, "female-old": 0.87}
+# Round 76 (both judges, all eight: "nariz–queixo 6 % mais curto", "crânio 5 % maior em relação ao rosto"): each 0.05 shorter
+# (0.83, 0.87, 0.85 and 0.87 until then).
+LOWER_FACE = {"male": 0.78, "male-old": 0.82, "female": 0.8, "female-old": 0.82}
 LOWER_CHIN = -1.3
 # Round 38: at 1.6 the lift reached a woman's collar and the throat came through it.
 LOWER_NECK = 1.1

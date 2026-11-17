@@ -184,3 +184,16 @@ turned = parle_paint.brow_band(strands, [(0.0, 1.0, False)])[0] > 0.5
 turned_cols = np.where(turned.any(axis=0))[0]
 turned_thick = turned[:, turned_cols].sum(axis=0)
 assert turned_thick[:4].max() <= 0.4 * turned_thick[-30:].max() and turned_thick[-3:].max() < turned_thick[-20:-8].max(), "the head is not at the end the mesh gives"
+
+
+# Round 76 (both judges, the four old: crow's feet, the fold from the nose to the mouth and, on the men, two lines on the
+# forehead, drawn): the old have their lines and the young none; a line darkens the texels it runs over, most at its middle, and
+# leaves the map 5 texels away.
+assert parle_paint.age_lines(tip, eyes, "female") == [] and parle_paint.age_lines(tip, eyes, "male") == []
+old_woman, old_man = parle_paint.age_lines(tip, eyes, "female-old"), parle_paint.age_lines(tip, eyes, "male-old")
+assert len(old_woman) == 8 and len(old_man) == 10, f"the lines of age: {len(old_woman)} on an old woman, {len(old_man)} on an old man"
+feet = [np.linalg.norm(np.asarray(line[-1]) - np.asarray(line[0])) for line in old_woman[:3]]
+assert all(0.004 < length < 0.012 for length in feet), f"the crow's feet are not some 6 mm long: {feet}"
+plain = np.full((40, 80, 3), 0.8, np.float32)
+lined_map = parle_paint.stroked(plain, [[(10.0, 20.0), (70.0, 20.0)]], np.array([0.5, 0.4, 0.4], np.float32))
+assert lined_map[20, 40, 0] < 0.7 and lined_map[20, 40, 0] < lined_map[20, 13, 0] and np.allclose(lined_map[27], 0.8) and np.allclose(lined_map[20, 75:], 0.8), "a line of age is not drawn, or runs over"
