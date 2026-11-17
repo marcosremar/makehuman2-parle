@@ -388,6 +388,43 @@ def frames_on_face(meshes, body, balls):
     return done
 
 
+
+def hats_on_head(meshes, body, balls):
+    """Each cap or hat narrowed across about the head's upright axis till its rim sits on the head or the hair under it
+    (`parle_style.hat_scale`), its peak and every part of it with it. How much."""
+    hats = [item for item in meshes if item.type == "MESH" and any(word in item.name.lower() for word in ("cap", "hat"))
+            and "scalp" not in item.name.lower()]
+    if not hats:
+        return {}
+    eye_z = float(np.mean([centre[2] for centre, _ in balls]))
+    skin = rest_points(body)
+    hair = [rest_points(item) for item in meshes if item.type == "MESH" and "hair" in item.name.lower()]
+    low, high = eye_z + parle_style.HAT_RIM_BAND_M[0], eye_z + parle_style.HAT_RIM_BAND_M[1]
+    head = skin[(skin[:, 2] > low) & (skin[:, 2] < high)]
+    if not len(head):
+        return {}
+    centre = (float(np.median(head[:, 0])), float((head[:, 1].min() + head[:, 1].max()) / 2))
+    surface = np.concatenate([head, *[part[(part[:, 2] > low - 0.02) & (part[:, 2] < high + 0.02)] for part in hair]])
+    rim = []
+    for obj in hats:
+        points = rest_points(obj)
+        count = {}
+        for polygon in obj.data.polygons:
+            for key in polygon.edge_keys:
+                count[key] = count.get(key, 0) + 1
+        edge = sorted({index for key, seen in count.items() if seen == 1 for index in key})
+        rim.extend(point for point in points[edge] if low < point[2] < high)
+    if not rim:
+        return {}
+    rim = np.array(rim)
+    scale = parle_style.hat_scale(rim, parle_style.nearest_on(rim, surface)[0], centre)
+    if scale >= 1.0:
+        return {}
+    for obj in hats:
+        warp(obj, lambda pts, scale=scale: np.column_stack([centre[0] + (pts[:, 0] - centre[0]) * scale, centre[1] + (pts[:, 1] - centre[1]) * scale, pts[:, 2]]))
+    return {obj.name: round(scale, 3) for obj in hats}
+
+
 def warp(obj, field, kept=None):
     """`field` takes world points; every key is absolute, so a stretched lid still closes all the way. A key whose name `kept` accepts
     keeps its move instead: its points follow the rest, where the field takes it, by the move they had."""
@@ -1874,6 +1911,7 @@ def natural_body(meshes, rig, height, sex, kit):
         print("CABEÇA: hair, clothes and worn things followed the skin:", follow_skin(meshes, before, rest_points(body)))
         print("CABEÇA: óculos na largura do rosto:", frames_on_face(meshes, body, balls))
         print("CABEÇA: borda do cabelo curto na pele:", hair_edges_on_skin(meshes, body, balls))
+        print("CABEÇA: boné ou chapéu na cabeça:", hats_on_head(meshes, body, balls))
     lined = lining_behind_skin(meshes)
     if lined:
         print("FORRO DA BOCA:", lined, "pontos de volta para trás da pele do rosto")
@@ -1889,10 +1927,13 @@ def natural_body(meshes, rig, height, sex, kit):
     for name, (wide, was, tall, share) in eyes_no_rounder(meshes, min(eye_round_most(sex), EYE_TALL_MOST_BY_KIND.get(str(body.get("parle_kind", sex)) if body is not None else sex, 1.0)), parle_style.EYE_TALL_LEAST_BY_KIND.get(str(body.get("parle_kind", sex)) if body is not None else sex, parle_style.EYE_TALL_LEAST)).items():
         print("OLHO", name, "abertura de", round(wide * 1000, 1), "por", round(was * 1000, 1), "mm; ficou com", round(tall * 1000, 1), "mm de altura,", round(share, 2), "da piscada")
     if opened is not None:
-        # The skin under the eyebrows went up with the lid's lift, evened out (LIFT_SPREAD_REACH): the eyebrows go with it.
+        # The skin under the eyebrows went up with the lid's lift, evened out (LIFT_SPREAD_REACH): the eyebrows go with it, the
+        # same across each (`parle_style.along_only`), so they bend with it and keep their thickness.
         lifted = parle_style.follow_field(opened, rest_points(body))
         for obj in [item for item in meshes if item.type == "MESH" and "eyebrow" in item.name]:
-            warp(obj, lifted)
+            points = rest_points(obj)
+            move = parle_style.along_only(points, lifted(points) - points)
+            warp(obj, lambda world, move=move: world + move)
     if body is not None:
         print("PELE lisa: relevo tirado de", matte_skin(body), "ligações")
     if body is not None:

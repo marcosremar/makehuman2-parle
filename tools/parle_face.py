@@ -1029,6 +1029,12 @@ def paint_face(body, added, tip, balls, kind):
     cheeks = parle_paint.blush_share(rest, tip, balls, kind) > 0.5 * parle_paint.BLUSH_SHARE[kind]
     cheek_canvas = canvas_of(cheeks.astype(float))
     face_skin = np.median(pixels[:, :, :3][np.nan_to_num(cheek_canvas) > 0.5], axis=0)
+    # A beard painted on the map and the hair painted on a scalp are kept through the paints below (`parle_paint.kept_dark`); the
+    # head's skin goes to one tone, the cheeks' (`parle_paint.evened`).
+    dark = parle_paint.kept_dark(pixels, face_skin)
+    held = pixels[:, :, :3].copy()
+    head = 1 - parle_paint.neck_share(rest, tip, balls)
+    pixels[:, :, :3] = parle_paint.evened(pixels[:, :, :3], canvas_of(head), covered, dark, face_skin, max(1, round(parle_paint.EVEN_TONE_PX * width / 1024)))
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.jaw_share(rest, tip, balls)), face_skin)
     unit = float(np.linalg.norm(np.asarray(balls[0][0]) - np.asarray(balls[1][0])))
     lowest = rest[:, 2] < np.asarray(tip)[2] - parle_paint.BODY_TONE_BELOW * unit
@@ -1038,6 +1044,7 @@ def paint_face(body, added, tip, balls, kind):
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls, parle_paint.LIP_TO_SKIN_WOMAN if kind.startswith("female") else parle_paint.LIP_TO_SKIN)), face_skin)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.orbit_share(rest, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.blushed(pixels[:, :, :3], canvas_of(parle_paint.blush_share(rest, tip, balls, kind)))
+    pixels[:, :, :3] = pixels[:, :, :3] * (1 - dark[:, :, None]) + held * dark[:, :, None]
     skin.pixels.foreach_set(pixels.ravel())
     skin.pack()
 

@@ -434,6 +434,24 @@ FRAME_SETTLE_ROUNDS = 8
 # Each step goes towards the hair along the mean way from this share of the frame's points nearest it.
 FRAME_SETTLE_SHARE = 0.1
 
+# A cap or a hat sits on the head (round 66: the ice-cream girl's cap, fitted to the game's head, stood 13 to 43 mm off the drawn one
+# at the forehead, a helmet): it is narrowed across about the head's upright axis until this share of the points of its rim that
+# lie this high over the eyes stand HAT_CLEAR_M off the head or the hair under it.
+HAT_CLEAR_M = 0.003
+HAT_RIM_BAND_M = (0.02, 0.09)
+HAT_RIM_SHARE = 0.9
+
+
+def hat_scale(rim, gaps, centre, clear=HAT_CLEAR_M):
+    """How much a hat is narrowed across (x and y) about the head's upright axis through `centre` for its `rim` points, each `gaps`
+    off the head, to stand `clear` off it: the narrowing that leaves HAT_RIM_SHARE of them clear, and 1 when it is not wider."""
+    rim, gaps = np.asarray(rim, float), np.asarray(gaps, float)
+    if not len(rim):
+        return 1.0
+    reach = np.hypot(rim[:, 0] - centre[0], rim[:, 1] - centre[1])
+    need = (reach - gaps + clear) / np.maximum(reach, 1e-9)
+    return float(min(1.0, np.quantile(need, HAT_RIM_SHARE)))
+
 
 def nearest_on(points, surface, chunk=256):
     """For each of `points`, its distance to the nearest of `surface`'s points, and that point."""
@@ -461,6 +479,27 @@ def settle_on(frame, surface, clear=FRAME_ON_HAIR_M):
         way = (nearest[close] - (frame + move)[close]).mean(axis=0)
         move += way / max(np.linalg.norm(way), 1e-9) * gap
     return move
+
+
+
+# An eyebrow follows the skin under it along its length, the same across it (round 66: the old man's lids lowered, the skin under
+# his eyebrows went down with them and took their lower edge and not their upper one, a tuft by the nose 3 cm tall). Each side's
+# move is fitted along the eyebrow by a polynomial of this degree.
+BROW_FOLLOW_DEGREE = 3
+
+
+def along_only(points, move, degree=BROW_FOLLOW_DEGREE):
+    """The move (n x 3) of an eyebrow's `points` (both eyebrows, side by side across x) made the same for every point at the same
+    place along it: each side's, fitted along x, so the eyebrow bends with the skin and keeps its thickness."""
+    points, move = np.asarray(points, float), np.asarray(move, float)
+    out = move.copy()
+    middle = points[:, 0].mean()
+    for side in (points[:, 0] < middle, points[:, 0] >= middle):
+        if side.sum() <= degree + 1:
+            continue
+        for axis in range(3):
+            out[side, axis] = np.polyval(np.polyfit(points[side, 0], move[side, axis], degree), points[side, 0])
+    return out
 
 
 def follow_field(before, after):

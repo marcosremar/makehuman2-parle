@@ -138,6 +138,15 @@ by_row = tuck[:, 1].reshape(len(rows_z), across).mean(axis=1)
 assert np.allclose(by_row[0], 0.007) and np.all(np.diff(by_row) <= 1e-9), f"the hair does not follow its edge evenly: {by_row}"
 assert np.allclose(by_row[rows_z > parle_style.HAIR_TUCK_FADE_M + 1e-9], 0), f"the top of the hair moved with its edge: {by_row}"
 assert 0 < by_row[2] < 0.007, f"the hair next to the edge did not follow it: {by_row}"
+# An eyebrow follows the skin the same across it (round 66: the old man's lower edge went down with his lowered lids and its upper
+# edge stayed, a tuft 3 cm tall by the nose): its thickness is kept, its bend along it followed.
+brow_pts = np.array([(sign * x, 0.0, 1.6 + 0.004 * edge) for sign in (-1, 1) for x in np.linspace(0.01, 0.05, 9) for edge in (-1, 1)])
+stretch = np.where(brow_pts[:, 2:] < 1.6, [0.0, 0.0, -0.003], 0.0) + np.column_stack([np.zeros(len(brow_pts)), np.zeros(len(brow_pts)), 0.02 * (np.abs(brow_pts[:, 0]) - 0.03) ** 2])
+kept = brow_pts + parle_style.along_only(brow_pts, stretch)
+tall = [np.ptp(kept[np.isclose(brow_pts[:, 0], x), 2]) for x in np.unique(brow_pts[:, 0])]
+assert np.allclose(tall, 0.008, atol=1e-6), f"the eyebrow's thickness went with the skin: {tall}"
+bent = 0.02 * (np.abs(brow_pts[:, 0]) - 0.03) ** 2
+assert np.allclose(parle_style.along_only(brow_pts, np.column_stack([0 * bent, 0 * bent, bent]))[:, 2], bent, atol=1e-9), "the bend is not followed"
 # The folds about the mouth fill (rounds 48 to 54): the skin in a ring about the lips takes part, the lips and the cheekbone do not.
 eyes_f = [(np.array([0.032, -0.06, 1.66]), 0.012), (np.array([-0.032, -0.06, 1.66]), 0.012)]
 tip_f = np.array([0.0, -0.1, 1.62])
@@ -150,3 +159,10 @@ assert weights_f[0] == 0 and weights_f[1] > 0.5 and weights_f[2] == 0, f"the fol
 under_lip = mouth_m + np.array([0.0, 0.0, -0.15 * 0.064])
 assert parle_style.simple_weight(np.array([under_lip]), tip_m, eyes_m)[0] > 0.02, "the smoothing stops at the lower lip's edge"
 print("ok")
+# A cap sits on the head (round 66: the ice-cream girl's stood 13 to 43 mm off her forehead): a rim 2 cm out on a head of 8 cm comes
+# in to HAT_CLEAR_M off it; a rim already on the head stays.
+around = np.linspace(0, 2 * np.pi, 40, endpoint=False)
+rim_pts = np.column_stack([0.1 * np.cos(around), 0.1 * np.sin(around), np.full(40, 1.5)])
+narrowed = parle_style.hat_scale(rim_pts, np.full(40, 0.02), (0.0, 0.0))
+assert abs(narrowed - (0.08 + parle_style.HAT_CLEAR_M) / 0.1) < 1e-6, f"the cap is not brought onto the head: {narrowed}"
+assert parle_style.hat_scale(rim_pts, np.full(40, 0.002), (0.0, 0.0)) == 1.0, "a cap on the head was narrowed"

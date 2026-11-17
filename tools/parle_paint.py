@@ -296,6 +296,38 @@ def jaw_share(points, tip, eyes):
     return JAW_TO_SKIN * share
 
 
+
+# Round 66 (owner, 2026-11-17: "verifica o que mais está feio"): on the bar's attendant the beard painted on the map (the cast's own,
+# `skin_style`, since 2026-11-09) came out a brown smudge behind the jaw, its front washed to the skin by the paints of the lower
+# face. A texel darker than the face's skin past these shares of it, by its brightest channel (a lip's red does not count), is kept
+# through those paints as it was after the smoothing: the beard, and the hair painted on a scalp.
+KEPT_DARK = (0.7, 0.55)
+
+
+def kept_dark(pixels, face_skin):
+    """How much of each texel of the map is kept through the paints of the face (0..1): the ones much darker than `face_skin`."""
+    ratio = np.asarray(pixels, np.float32)[:, :, :3].max(axis=2) / max(float(np.max(face_skin)), 1e-6)
+    return smooth(KEPT_DARK[0], KEPT_DARK[1], ratio)
+
+
+# And the florist's face was a pale mask on a yellow head: the game's face is painted on the map lighter than the kit's skin about
+# it, and the series' warmer skin turns that yellow-orange. The skin of the head goes this share of the way to the cheeks' tone,
+# its own light and shade kept: its tone is the map blurred over this many pixels of a 1024 map, the dark (`kept_dark`) and the
+# empty map left out. From NECK_FROM down, the neck goes on to the body's tone (`neck_share`).
+EVEN_TONE = 0.85
+EVEN_TONE_PX = 40
+
+
+def evened(pixels, canvas, covered, dark, colour, radius):
+    """The map's RGB with its tone (blurred over `radius` pixels, read off the `covered` texels that are not `dark`) moved to
+    `colour` by `canvas` (0..1, NaN = none) times EVEN_TONE, the detail on it kept; the dark texels keep theirs."""
+    pixels = np.asarray(pixels, np.float32)
+    dark = np.asarray(dark, np.float32)
+    tone = masked_blur(pixels, np.asarray(covered, bool) & (dark < 0.5), radius)
+    weight = (np.nan_to_num(np.asarray(canvas, np.float32)) * EVEN_TONE * (1 - dark))[:, :, None]
+    return pixels + weight * (np.asarray(colour, np.float32) - tone)
+
+
 def orbit_share(points, eyes):
     """How much each point about an eye gives up its colour to the skin's (0..ORBIT_TO_SKIN), in front of the globe."""
     points = np.asarray(points, float)

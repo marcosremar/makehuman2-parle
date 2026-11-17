@@ -114,3 +114,20 @@ assert parle_paint.blush_share(np.array([wide_point]), tip, eyes, "male-old")[0]
 mouth_point = tip + np.array(parle_paint.MOUTH_SPOT) * 0.064
 assert parle_paint.mouth_share(np.array([mouth_point]), tip, eyes, parle_paint.LIP_TO_SKIN_WOMAN)[0] > parle_paint.LIP_TO_SKIN, "a woman's photographed lip stays about her lips"
 print("ok")
+
+# Round 66 (owner, 2026-11-17: "verifica o que mais está feio"): a beard painted on the map is kept through the paints of the face
+# (the bar's attendant's came out a smudge behind the jaw), a lip's red is not; and the head goes to one tone (the florist's face was
+# a pale mask on a yellow head), its detail and its dark texels kept.
+face = np.array([0.95, 0.8, 0.7], np.float32)
+texels = np.array([[[0.3, 0.25, 0.2], [0.85, 0.45, 0.45], face]], np.float32)
+kept = parle_paint.kept_dark(texels, face)[0]
+assert kept[0] > 0.99 and kept[1] < 0.01 and kept[2] < 0.01, f"what is kept through the face's paints: {kept}"
+head_map = np.zeros((64, 64, 3), np.float32)
+head_map[:, :32], head_map[:, 32:] = face, [1.0, 0.75, 0.4]
+head_map[30:34, 40:44] -= 0.1
+head_map[:8, :8] = [0.3, 0.25, 0.2]
+dark_map = parle_paint.kept_dark(head_map, face)
+even = parle_paint.evened(head_map, np.ones((64, 64)), np.ones((64, 64), bool), dark_map, face, 6)
+assert np.abs(even[20:44, 50:60] - face).max() < 0.2 * np.abs(head_map[20:44, 50:60] - face).max() + 1e-3, "the head is not one tone"
+assert abs(float((even[31, 41] - even[31, 47]).mean()) - float((head_map[31, 41] - head_map[31, 47]).mean())) < 0.02, "the detail went"
+assert np.allclose(even[:4, :4], head_map[:4, :4]), "a dark texel (a beard) was moved to the skin's tone"
