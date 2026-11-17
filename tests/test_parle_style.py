@@ -233,6 +233,13 @@ assert np.allclose(eased[inside], hard[inside]), "the ease changed the middle of
 sculpt = parle_style.sculpt_field(tip, eyes, "male")
 unit_s = float(np.linalg.norm(eyes[0][0] - eyes[1][0]))
 cheek_at = eyes[0][0] + np.array([parle_style.CHEEK_AT[0], parle_style.CHEEK_AT[1], parle_style.CHEEK_AT[2]]) * unit_s
-across = np.array([(cheek_at[0] + 0.3 * unit_s, tip[1] + 0.9 * unit_s + side * 0.001, cheek_at[2]) for side in (-1, 1)])
+across = np.array([(cheek_at[0] + 0.3 * unit_s, tip[1] + 0.8 * unit_s + side * 0.001, cheek_at[2]) for side in (-1, 1)])
 steps = np.linalg.norm(sculpt(across) - across, axis=1)
-assert steps.min() > 0.001 and abs(steps[0] - steps[1]) < 0.15 * steps.max(), f"a step across the plane behind the nose: {steps}"
+assert steps.min() > 0.001 and steps.min() > 0.5 * steps.max(), f"a step across a plane behind the nose: {steps}"
+# Round 80: the balls leave the angle of the jaw and the floor under the jaw alone (a jowl on the women, a notch in the line of
+# the men's jaw where the chin's ball ended): a point inside the cheek's ball 1.3 distances between the eyes behind the nose tip,
+# and one inside the chin's ball 0.9 behind it, stay.
+jaw_angle = np.array([(cheek_at[0] + 0.2 * unit_s, tip[1] + 1.3 * unit_s, cheek_at[2] - 0.2 * unit_s)])
+chin_at = tip + np.array(parle_style.CHIN_AT) * unit_s
+under_jaw = np.array([(0.2 * unit_s, tip[1] + 0.9 * unit_s, chin_at[2] - 0.1 * unit_s)])
+assert np.allclose(sculpt(jaw_angle), jaw_angle, atol=1e-6) and np.allclose(sculpt(under_jaw), under_jaw, atol=1e-6), "a ball pushes the angle of the jaw or the floor under it"

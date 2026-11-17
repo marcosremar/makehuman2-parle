@@ -188,7 +188,12 @@ CHIN_AT = (0.0, 0.55, -1.25)
 REACH = 1.4
 # Where the cheeks' and the chin's balls stop taking the head, in distances between the eyes behind the nose tip: whole to the
 # first, none past the second (the ears stand some 1.9 behind it).
-FRONT_FADE = (0.9, 1.6)
+# Round 80: faded from 0.9 to 1.6, the back of the cheek's ball, which the old cut at 0.9 had hidden, pushed the angle of the
+# women's jaw out into a jowl, and the chin's ball still bulged under the jaw as far back as 1.05, a notch in the line of the jaw
+# where it ended (seen from the side on the men). The cheek fades about where the cut was; the chin's ball takes the front of
+# the chin only (CHIN_FADE).
+FRONT_FADE = (0.55, 1.15)
+CHIN_FADE = (0.45, 0.8)
 # How much of the way to the chin's ball a point goes (round 25: the young man's chin "recua muito" from the side).
 # Round 26: at 0.8 a crease stood under the lower lip of both men, where the chin's ball ended.
 CHIN_SHARE = 0.6
@@ -743,7 +748,8 @@ def sculpt_field(tip, eyes, kind):
         # The chin onto a ball.
         chin = tip + np.array(CHIN_AT) * unit
         radius = spec["chin"] * unit
-        points = points + forward * (onto_ball(points, chin, (radius * 1.1, radius, radius * 0.85), CHIN_SHARE, True, BALL_EASE) - points)
+        chin_front = smooth((tip[1] + CHIN_FADE[1] * unit - points[:, 1]) / ((CHIN_FADE[1] - CHIN_FADE[0]) * unit))[:, None]
+        points = points + chin_front * (onto_ball(points, chin, (radius * 1.1, radius, radius * 0.85), CHIN_SHARE, True, BALL_EASE) - points)
         # The nose onto a ball behind its tip, in the zone of the nose only.
         radii = np.array(spec["nose_ball"]) * unit
         # The ball stands a little above the tip, so the tip comes up into it: a nose shorter and round, not hanging (round 13).
