@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "tools"))
-from parle_tongue import LOWER_TEETH_TUCK, ROOT_SHARE, TIP_SHARE, carried, is_mouth_key, lower_teeth, tongue_share, tucked  # noqa: E402
+from parle_tongue import LOWER_TEETH_TUCK, ROOT_SHARE, ROUND_KEYS, TIP_SHARE, carried, hidden_in_round, is_mouth_key, lower_teeth, tongue_share, tucked  # noqa: E402
 
 tongue = np.array([[0, -0.05, 0], [0, -0.03, 0], [0, 0.0, 0]], dtype=float)
 share = tongue_share(tongue)
@@ -26,3 +26,8 @@ tuck = tucked(jaw)
 assert np.allclose(tuck[:2], LOWER_TEETH_TUCK) and np.allclose(tuck[2:], 0.0), f"the upper teeth moved, or the lower did not: {tuck}"
 assert LOWER_TEETH_TUCK[2] < 0 and LOWER_TEETH_TUCK[1] > 0, "the lower teeth go down and back"
 print("ok")
+# Round 70: no teeth in the rounded shapes ("o", "u": "um bico em anel com os dentes à mostra", both judges): there the upper row
+# goes up behind the upper lip and the lower one down, and no other shape is touched.
+hide = hidden_in_round(jaw)
+assert np.all(hide[:2, 2] < 0) and np.all(hide[2:, 2] > 0) and np.allclose(hide[:, :2], 0), f"the rows do not part behind the lips: {hide}"
+assert set(ROUND_KEYS) == {"viseme_O", "viseme_U"}, "the teeth hide in a shape that is not rounded"

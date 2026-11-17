@@ -41,9 +41,16 @@ LIP_CUT_SAME_M = 0.00005
 # read 70 of lightness where the game's published body has 24 (babylon-cinema `test/npcs/cast-mouth-dark.spec.ts`, "boca por
 # dentro escura", 2026-11-12). With the faces that look backwards left out, the roof, the floor and the sides of the lining were
 # still on the patch, up to 30 mm in.
+# Round 70 (owner, 2026-11-17: the mouth first; both judges, rounds 66 to 69, "um dente de tinta pende no meio do lábio de
+# baixo"): on the drawn head the lower lip rolls forward and its foot stands 6 to 9 mm behind its front, so the faces of its foot
+# were left off the patch, all but one or two that the uneven front of a strip let through: skin-coloured notches in the lower
+# lip, with a triangle of lip between them. A face that looks to the front by more than the fourth of these is skin of the
+# outside whatever its depth: the lining within reach of the lips (`parle_lips.FRONT_M` behind the line where they meet) looks up,
+# down or back.
 LIP_CUT_BACK = 0.2
 LIP_CUT_DEEP_M = 0.006
 LIP_CUT_STRIP_M = 0.003
+LIP_CUT_FACING = -0.5
 
 
 def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
@@ -69,10 +76,12 @@ def lips_with_an_edge(body, low=parle_lips.WOMAN_LIP_LOW_M):
     fronts = [lip[(lip[:, 0] >= start) & (lip[:, 0] < start + LIP_CUT_STRIP_M), 1].min() for start in filled]
 
     def outward(face):
-        """Whether a face is skin of the outside of the lips: not looking backwards, and no deeper than the front of the lips there."""
+        """Whether a face is skin of the outside of the lips: looking to the front (LIP_CUT_FACING), or not looking backwards and
+        no deeper than the front of the lips there."""
         middle = place_of @ face.calc_center_median()
         front = float(np.interp(middle.x, np.array(filled) + LIP_CUT_STRIP_M / 2, fronts)) if filled else middle.y
-        return (turn @ face.normal).y <= LIP_CUT_BACK and middle.y - front <= LIP_CUT_DEEP_M
+        ahead = (turn @ face.normal).y
+        return ahead <= LIP_CUT_FACING or ahead <= LIP_CUT_BACK and middle.y - front <= LIP_CUT_DEEP_M
 
     crossed = []
     for edge in bm.edges:

@@ -24,6 +24,22 @@ MOUTH_KEYS = ("viseme_", "jawOpen")
 # Round 54: the old woman's "a" still showed both rows ("dentes de baixo 50 % cobertos pelo lábio"): 4 mm.
 LOWER_TEETH_TUCK = (0.0, 0.0015, -0.004)
 
+# Round 70 (owner, 2026-11-17: the mouth first of what is ugly; both judges, rounds 66 to 69: the "o" "um bico em anel com os dentes à
+# mostra"): in the rounded shapes the series shows a small dark ring and no teeth. In those shapes the upper row goes up behind
+# the upper lip, back to where the kit had it (it sits `parle_face.TEETH_DOWN_M` lower to show in the "a"), and the lower row down
+# behind the lower lip.
+ROUND_KEYS = ("viseme_O", "viseme_U")
+ROUND_UPPER_UP_M = 0.0035
+ROUND_LOWER_DOWN_M = 0.002
+
+
+def hidden_in_round(jaw_moves):
+    """The move of each tooth in a rounded shape (ROUND_KEYS) that hides both rows behind the lips: the upper up, the lower down."""
+    lower = lower_teeth(jaw_moves)
+    move = np.zeros((len(lower), 3))
+    move[:, 2] = np.where(lower, -ROUND_LOWER_DOWN_M, ROUND_UPPER_UP_M)
+    return move
+
 
 def tongue_share(rest):
     """How much of the jaw each tongue point takes. The front is -y."""

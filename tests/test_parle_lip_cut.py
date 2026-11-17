@@ -25,9 +25,10 @@ SLIT_HALF = 0.02
 ALL_ZS = np.round(np.arange(-0.04, 0.0601, STEP), 6)
 
 
-def face(behind=None):
+def face(behind=None, roll=0.0):
     """The sheet of the face as a body with a jaw. `behind`, (how far behind it in metres, whether it looks backwards): another
-    sheet as wide and as tall behind the first, the lining of a mouth; its points come after the face's."""
+    sheet as wide and as tall behind the first, the lining of a mouth; its points come after the face's. `roll`: how far the
+    lower lip's first row under the slit stands in front of the sheet, a lip that rolls forward over its foot."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     points, number = [], {}
     for sheet, zs in (("low", LOW_ZS), ("up", UP_ZS)):
@@ -38,7 +39,8 @@ def face(behind=None):
                     number[(sheet, x, z)] = number[("low", x, z)]
                     continue
                 number[(sheet, x, z)] = len(points)
-                points.append((x, -0.02 if (x == 0 and abs(z - 0.032) < 1e-9) else 0.0, z))
+                rolled = -roll if sheet == "low" and abs(z + STEP) < 1e-9 and abs(x) < SLIT_HALF - 1e-9 else 0.0
+                points.append((x, -0.02 if (x == 0 and abs(z - 0.032) < 1e-9) else rolled, z))
     faces = [(number[(sheet, XS[i], zs[j])], number[(sheet, XS[i + 1], zs[j])], number[(sheet, XS[i + 1], zs[j + 1])], number[(sheet, XS[i], zs[j + 1])])
              for sheet, zs in (("low", LOW_ZS), ("up", UP_ZS)) for j in range(len(zs) - 1) for i in range(len(XS) - 1)]
     own = len(faces)
@@ -122,4 +124,21 @@ for behind, what in (((0.003, True), "a lining that looks backwards, close behin
     behind_faces = [polygon for polygon in lined_mesh.polygons if all(index >= count and index < len(lined_points) for index in polygon.vertices)]
     assert len(behind_faces) == len(lined_mesh.polygons) - cut_faces == (len(XS) - 1) * (len(ALL_ZS) - 1), f"{what}: its faces were cut or joined to the face ({len(behind_faces)} whole)"
     assert all(tuple(round(value, 6) for value in uv.data[index].uv) == (0.95, 0.5) for polygon in behind_faces for index in polygon.loop_indices), f"{what} was given the place of the lips on the map"
+# Round 70 (owner, 2026-11-17; both judges, rounds 66 to 69: "um dente de tinta pende no meio do lábio de baixo"): a lower lip
+# that rolls 8 mm forward over its foot. The faces of the foot look to the front, further behind the lip's front than
+# LIP_CUT_DEEP_M: they are lip all the same, none left off the patch (they were skin-coloured notches in the lower lip).
+rolled, rolled_mesh, _, _, _ = face(roll=0.008)
+parle_lip_cut.lips_with_an_edge(rolled, low=parle_lips.WOMAN_LIP_LOW_M)
+rest = parle_polish.read(rolled_mesh.shape_keys.key_blocks[0])
+rolled_mesh.calc_loop_triangles()
+rolled_line = parle_lips.mouth_line({"tri": np.array([triangle.vertices[:] for triangle in rolled_mesh.loop_triangles])}, rest)
+uv = rolled_mesh.uv_layers.active
+foot = 0
+for polygon in rolled_mesh.polygons:
+    corners = rest[list(polygon.vertices)]
+    middle = parle_lips.lip_place(rolled_line, corners.mean(axis=0)[None, :], parle_lips.WOMAN_LIP_LOW_M)[0][0]
+    if middle > 1e-4 and np.allclose(corners[:, 1], 0) and corners[:, 2].max() < -STEP:
+        foot += 1
+        assert all(on_patch(tuple(uv.data[index].uv)) for index in polygon.loop_indices), f"a face of the lower lip's foot is left off the patch, {middle * 1000:.2f} mm inside the lips"
+assert foot > 4, f"the test has {foot} faces of the lower lip's foot"
 print("ok")

@@ -184,7 +184,8 @@ BLINK_WHOLE_M = parle_polish.BLINK_WHOLE_M
 # big). The kit's own `faceLipVolume`, on the lip that follows the jaw and fading 4 mm around it: -1 on women, -0.5 on men; -2 creased.
 # Next to four reference heads (owner, 2026-11-09) thinning was the wrong way: their lips are two full forms and hers a thin band. The shape comes from `full_lips`.
 # Rounds 57 and 58, both judges: the men's lower lip "20 % mais cheio" ("hoje a boca é um risco"): half the thinning.
-LIP_THIN = {"female": 0.0, "male": -0.25}
+# Rounds 66 to 69, both judges on the four men of eight: "lábio de baixo visível, 20 a 30 % mais cheio", "a boca é só um sulco": none.
+LIP_THIN = {"female": 0.0, "male": 0.0}
 # The upper lip of the women, the lip the jaw does not carry: the kit's own `faceLipVolume` on it. Next to Sofia's, whose upper lip
 # is a form of its own with an edge, theirs was "thin and flat under a smear of colour that overshoots the form" to the judge by
 # sight (2026-11-12, rounds 13 to 15, the first fault of the face at rest in the last), and seen from the side the lower lip stood
@@ -1127,6 +1128,13 @@ def clean_face(body, added, job, env):
     calm_speech(speaking, SPEECH_OPEN[sex])
     mixed_speech(speaking, SPEECH_MIX)
     mixed_speech(speaking, SMILE_MIX)
+    # No teeth in the rounded shapes (`parle_tongue.hidden_in_round`), read off the jaw after the mixes above.
+    for teeth in [obj for obj in speaking if "teeth" in obj.name and "jawOpen" in obj.data.shape_keys.key_blocks]:
+        keys = teeth.data.shape_keys.key_blocks
+        hide = parle_tongue.hidden_in_round(key_points(keys["jawOpen"]) - key_points(keys[0]))
+        for name in parle_tongue.ROUND_KEYS:
+            if name in keys:
+                keys[name].data.foreach_set("co", (key_points(keys[name]) + hide).ravel())
     # After the jaw is calmed: `mouthClose` is the final `jawOpen` backwards. Read before `calm_speech`, it took back the whole kit's
     # jaw while the body kept 0.6 to 0.9 of it, and pushed the lower lip 17 to 26 mm past the rest (2026-11-12). The lips close over
     # the open jaw in /p b m/, not the jaw (2026-11-11, thread of tooth in /m/).

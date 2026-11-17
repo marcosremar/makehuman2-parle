@@ -76,7 +76,8 @@ LIP_TO_SKIN_WOMAN = 0.7
 # Round 52: the women's lips "com cor mais perto da pele" (judge B, the young and the old woman): 0.72. Round 55, both judges: "a
 # boca é um risco fino", "15 % mais rosada": 0.55. Round 59: "25 % mais saturados que a pele": 0.45. Round 61: "lábio só 1 tom
 # acima da pele" (judge B): 0.55.
-LIP_PATCH_TO_SKIN = 0.55
+# Rounds 66 to 69, both judges on every woman of eight: "placa pálida sem contorno", "cor 15 % mais rosada e escura que a pele": 0.45.
+LIP_PATCH_TO_SKIN = 0.45
 # The kit's photograph darkens the skin about each eye (round 29: "anel cinza-escuro da órbita, que lê como olheira"): from
 # the rim out to ORBIT_OUT radii of the globe it goes ORBIT_TO_SKIN of the way to the face's skin.
 # Round 40 (two judges): "anel escuro em volta do olho", the eye sunk with dark circles: the dark line the photograph paints at
