@@ -163,3 +163,13 @@ assert man.max() <= face.max() + 1e-6, "a man's lip is lighter than his skin som
 # A woman's lip gives up its colour towards the corners ("faixa rosa larga de canto a canto"): the middle keeps the common share.
 ends = parle_paint.lip_ends_share(across, parle_paint.LIP_PATCH_TO_SKIN)[0]
 assert abs(ends[20] - parle_paint.LIP_PATCH_TO_SKIN) < 1e-6 and ends[0] > 0.99 and ends[-1] > 0.99 and np.all(np.diff(ends[20:]) >= -1e-9), f"a woman's lip towards the corners: {ends}"
+
+# Round 75 (both judges: seen from the side "não há ângulo entre o queixo e o pescoço"): the floor under the chin is shaded, a
+# warm shade; the cheek, the under side of the nose, the hollow under the lips and the nape are not.
+unit = float(np.linalg.norm(eyes[0][0] - eyes[1][0]))
+spots = tip + unit * np.array([(0.0, 0.8, -1.4), (0.5, 1.0, -0.6), (0.0, 0.3, -0.1), (0.0, 0.4, -0.75), (0.0, 3.0, -1.6), (0.0, 0.8, -1.4)])
+facing = np.array([(0, 0, -1.0), (0, -1.0, 0), (0, 0, -1.0), (0, -0.6, -0.8), (0, 0.6, -0.8), (0, -1.0, 0)])
+shaded = parle_paint.jaw_shade_share(spots, facing, tip, eyes)
+assert shaded[0] > 0.99 and np.all(shaded[1:] < 0.01), f"what is shaded under the jaw: {shaded}"
+tone = np.array(parle_paint.JAW_SHADE_TONE)
+assert tone[0] > tone[1] > tone[2] and 0.5 < tone.mean() < 0.85 and 0 < parle_paint.JAW_SHADE <= 0.8, "the shade under the jaw is not a warm, light one"

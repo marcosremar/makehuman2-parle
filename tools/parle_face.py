@@ -1016,6 +1016,10 @@ def map_pixels(image):
     return pixels.reshape(height, width, 4)
 
 
+# The shade under the jaw is evened with its neighbours along the mesh this many times before it is painted.
+JAW_SHADE_ROUNDS = 4
+
+
 def paint_face(body, added, tip, balls, kind):
     """The paint of a drawn face (`parle_paint`): the skin map smoothed, the painted lip gone to the skin, blush on the cheeks and the nose."""
     # The eyebrows are painted last, in `parle_polish.drawn_paint`: the cast dyes them in the hair's colour after this.
@@ -1056,6 +1060,11 @@ def paint_face(body, added, tip, balls, kind):
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.mouth_share(rest, tip, balls, parle_paint.LIP_TO_SKIN_WOMAN if kind.startswith("female") else parle_paint.LIP_TO_SKIN)), face_skin)
     pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(parle_paint.orbit_share(rest, balls)), face_skin)
     pixels[:, :, :3] = parle_paint.blushed(pixels[:, :, :3], canvas_of(parle_paint.blush_share(rest, tip, balls, kind)))
+    # The shade under the jaw (`parle_paint.jaw_shade_share`), evened along the mesh so it has no edge; a beard keeps its own.
+    facing = np.array([vertex.normal[:] for vertex in body.data.vertices])
+    mesh_edges = np.array([edge.vertices[:] for edge in body.data.edges])
+    shade = parle_normals.smoothed_share(parle_paint.jaw_shade_share(rest, facing, tip, balls), mesh_edges, JAW_SHADE_ROUNDS) * parle_paint.JAW_SHADE
+    pixels[:, :, :3] = parle_paint.toward(pixels[:, :, :3], canvas_of(shade), face_skin * np.asarray(parle_paint.JAW_SHADE_TONE, np.float32))
     pixels[:, :, :3] = pixels[:, :, :3] * (1 - dark[:, :, None]) + held * dark[:, :, None]
     skin.pixels.foreach_set(pixels.ravel())
     skin.pack()

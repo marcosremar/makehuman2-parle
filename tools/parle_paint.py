@@ -376,6 +376,36 @@ def lip_ends_share(across, most):
     return most + (1 - most) * smooth(LIP_COLOUR_ENDS[0], LIP_COLOUR_ENDS[1], from_middle)
 
 
+
+# The shade under the jaw (round 75, both judges, one of them on all eight: seen from the side "não há ângulo entre o queixo e o
+# pescoço", "a mandíbula some no pescoço"). The angle is in the mesh (a level floor under the chin, then the throat down), but the
+# normals of that floor look forward (`parle_normals`, 2026-11-10, for the grey band it had in the player), so it takes the
+# face's light and nothing tells it from the cheek or the throat. The skin that faces down under the jaw is painted this share of
+# the way to its own colour times JAW_SHADE_TONE, a warm shade and not a grey one: from JAW_SHADE_BELOW distances between the eyes
+# under the nose tip (under the lips' hollow) to the foot of the neck, behind the front of the chin, not round the nape.
+JAW_SHADE = 0.7
+JAW_SHADE_TONE = (0.78, 0.66, 0.62)
+JAW_SHADE_BELOW = (1.0, 1.2)
+JAW_SHADE_FOOT = (2.4, 3.0)
+JAW_SHADE_BEHIND = (0.2, 0.5)
+JAW_SHADE_NAPE = (2.0, 2.6)
+JAW_SHADE_DOWN = (0.15, 0.6)
+
+
+def jaw_shade_share(points, normals, tip, eyes):
+    """How much each point of the skin is shaded as the under side of the jaw (0..1): by how far it faces down (`normals`, n x 3,
+    z up), under the chin and in front of the nape."""
+    points, normals = np.asarray(points, float), np.asarray(normals, float)
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    tip = np.asarray(tip, float)
+    below = (tip[2] - points[:, 2]) / unit
+    behind = (points[:, 1] - tip[1]) / unit
+    zone = smooth(JAW_SHADE_BELOW[0], JAW_SHADE_BELOW[1], below) * smooth(JAW_SHADE_FOOT[1], JAW_SHADE_FOOT[0], below)
+    zone = zone * smooth(JAW_SHADE_BEHIND[0], JAW_SHADE_BEHIND[1], behind) * smooth(JAW_SHADE_NAPE[1], JAW_SHADE_NAPE[0], behind)
+    return smooth(JAW_SHADE_DOWN[0], JAW_SHADE_DOWN[1], -normals[:, 2]) * zone
+
+
 def orbit_share(points, eyes):
     """How much each point about an eye gives up its colour to the skin's (0..ORBIT_TO_SKIN), in front of the globe."""
     points = np.asarray(points, float)
