@@ -25,7 +25,9 @@ STYLE = {
     # Round 66 (owner, 2026-11-17: "melhora a sobrancelha"): at 2.5 his eyebrow stood 3 cm tall by the nose, a grey block over the
     # glasses, as thick at the temple as by the nose: thinner, and to `brow_outer` of that at its outer end (the series' old man's
     # are bushy by the nose and thin out to the temple). The young's keep `parle_face.BROW_OUTER`.
-    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 1.9, "brow_outer": 0.65, "eye": 1.25 / 1.1, "skin": 1.55},
+    # Round 66 (both judges): his eyebrows a roof, "a ponta de dentro alta deixa a cara triste": the inner end does not go up
+    # (`parle_face.BROW_INNER_UP_M`, asked for the young man's angry slope).
+    "male-old": {"forward": 1.3, "nose": 2.0, "tip": 1.65, "brow": 1.9, "brow_outer": 0.65, "brow_inner": 0.0, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 48 (5.7): both judges, three rounds running, asked the young woman's nose a third smaller, a button ("hoje é nariz de
     # homem"), and the old woman's tip shorter.
     # Round 53: both judges asked the women's and the old man's eyebrows a half to twice as thick; the young woman's stays under
@@ -383,8 +385,10 @@ HAIR_TUCK_FADE_M = 0.03
 HAIR_TUCK_ROUNDS = 60
 # A hair that ends above the eyes less this much is short; below it (long hair to the shoulders) its edge is left. Only the edge
 # below the eyes plus HAIR_TUCK_ABOVE_M and this far behind them goes (not a fringe on the forehead).
+# Round 66: up to 3 cm over the eyes, the edge at the temples went in too and the young man showed a light hole at each temple
+# (both judges): only the edge 1.5 cm or more below the eyes, the nape and behind the ears.
 HAIR_SHORT_M = 0.1
-HAIR_TUCK_ABOVE_M = 0.03
+HAIR_TUCK_ABOVE_M = -0.015
 HAIR_TUCK_BEHIND_M = 0.04
 
 

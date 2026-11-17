@@ -25,6 +25,12 @@ BROW_YOUNG_DARKEN = 0.6
 # Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey. Round 55: still "cinza-claro, some na pele": darker.
 BROW_OLD_GREY = (0.46, 0.43, 0.4)
 BROW_OLD_SHARE = 0.85
+# Round 66 (both judges): on the old women with dark brown hair the grey eyebrow "não combina com o cabelo escuro", "castanho-escuro
+# com fios cinza". An old person's eyebrow goes BROW_OLD_SHARE to the grey when its own colour (the hair's) is grey, light and with
+# little colour, and only this share, darkened as a young person's, when it is dark or coloured.
+BROW_OLD_SHARE_DARK_HAIR = 0.3
+BROW_GREY_CHROMA = (0.1, 0.04)
+BROW_GREY_VALUE = (0.25, 0.4)
 # Box blur of the skin map, in pixels of a 1024 map (scaled to the map), three passes: the pores and grain of the kit's photograph go.
 SKIN_BLUR_PX = 9
 # The blush: a warm red-orange (sRGB) laid over the skin on each cheek and on the nose tip, most at the middle, fading with a
@@ -102,7 +108,8 @@ BROW_THICK_DEGREE = 3
 BROW_TAIL = 0.3
 BROW_SOFT_PX = 1.0
 # The old's grey goes this much darker towards its lower edge: one flat light grey read as a smudge on the skin (rounds 49 to 65).
-BROW_OLD_UNDER = 0.3
+# Round 66: at 0.3 "sombra escura embaixo", "parece adesivo de pelúcia" (judge B), where judge A asked a darker base: less.
+BROW_OLD_UNDER = 0.15
 
 
 def brow_islands(solid):
@@ -157,7 +164,10 @@ def drawn_brow(pixels, old):
     colour = solid_mean(pixels)
     out = np.empty_like(pixels)
     if old:
-        tone = colour * (1 - BROW_OLD_SHARE) + np.asarray(BROW_OLD_GREY, np.float32) * BROW_OLD_SHARE
+        grey_hair = float(smooth(*BROW_GREY_CHROMA, float(colour.max() - colour.min())) * smooth(*BROW_GREY_VALUE, float(colour.max())))
+        share = BROW_OLD_SHARE_DARK_HAIR + (BROW_OLD_SHARE - BROW_OLD_SHARE_DARK_HAIR) * grey_hair
+        own = colour * (BROW_YOUNG_DARKEN + (1 - BROW_YOUNG_DARKEN) * grey_hair)
+        tone = own * (1 - share) + np.asarray(BROW_OLD_GREY, np.float32) * share
         shade = 1 - BROW_OLD_UNDER * smooth(-0.2, 1.0, across)
     else:
         tone, shade = colour * BROW_YOUNG_DARKEN, np.ones(alpha.shape, np.float32)

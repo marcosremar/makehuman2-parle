@@ -51,7 +51,7 @@ grown = parle_paint.box_blur(strands.astype(np.float32)[..., None], 3, passes=1)
 assert not (solid & ~grown).any(), "the eyebrow is drawn off where the kit's was"
 across = parle_paint.brow_band(strands)[1]
 upper, lower = solid & (across < -0.5), solid & (across > 0.5)
-assert drawn[..., :3][lower].mean() < drawn[..., :3][upper].mean() * 0.85, "the old's eyebrow is one flat grey"
+assert drawn[..., :3][lower].mean() < drawn[..., :3][upper].mean() * 0.93, "the old's eyebrow is one flat grey"
 
 rng = np.random.default_rng(1)
 skin = 0.6 + 0.1 * rng.standard_normal((64, 64, 3)).astype(np.float32)
@@ -131,3 +131,13 @@ even = parle_paint.evened(head_map, np.ones((64, 64)), np.ones((64, 64), bool), 
 assert np.abs(even[20:44, 50:60] - face).max() < 0.2 * np.abs(head_map[20:44, 50:60] - face).max() + 1e-3, "the head is not one tone"
 assert abs(float((even[31, 41] - even[31, 47]).mean()) - float((head_map[31, 41] - head_map[31, 47]).mean())) < 0.02, "the detail went"
 assert np.allclose(even[:4, :4], head_map[:4, :4]), "a dark texel (a beard) was moved to the skin's tone"
+
+
+# Round 66: an old woman with dark brown hair had a light grey eyebrow (both judges: "não combina com o cabelo escuro"): with dark
+# hair the old's eyebrow stays near its own colour; with grey hair it goes to the mid grey.
+brown = np.zeros((4, 4, 4), np.float32)
+brown[:, :, :3], brown[:, :, 3] = (0.24, 0.16, 0.1), 1.0
+dark_old = parle_paint.drawn_brow(brown, True)[0, 0, :3]
+grey_old = parle_paint.drawn_brow(np.concatenate([np.full((4, 4, 3), 0.55, np.float32), np.ones((4, 4, 1), np.float32)], axis=2), True)[0, 0, :3]
+assert np.abs(dark_old - np.array(parle_paint.BROW_OLD_GREY)).sum() > 0.3 and dark_old.mean() < 0.3, f"a dark-haired old person's eyebrow is grey: {dark_old}"
+assert np.abs(grey_old - np.array(parle_paint.BROW_OLD_GREY)).max() < 0.1, f"a grey-haired old person's eyebrow is not grey: {grey_old}"

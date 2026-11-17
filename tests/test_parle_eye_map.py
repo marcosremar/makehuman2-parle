@@ -73,3 +73,8 @@ for name, colour in eye.IRISES.items():
             assert value <= BROWN_VALUE_CEILING, f"{name} eye {index}: brown value {value:.2f}, over {BROWN_VALUE_CEILING}: a light brown reads orange"
 
 print("ok")
+
+
+# Round 66: at the owner's opening of the lids the iris filled the eye from corner to corner (95 % of its width; the series' 55 to
+# 60 %): it stays under 0.16 of the map.
+assert eye.IRIS_RADIUS < 0.16, f"the iris fills the eye: {eye.IRIS_RADIUS}"

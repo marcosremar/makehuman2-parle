@@ -166,3 +166,6 @@ rim_pts = np.column_stack([0.1 * np.cos(around), 0.1 * np.sin(around), np.full(4
 narrowed = parle_style.hat_scale(rim_pts, np.full(40, 0.02), (0.0, 0.0))
 assert abs(narrowed - (0.08 + parle_style.HAT_CLEAR_M) / 0.1) < 1e-6, f"the cap is not brought onto the head: {narrowed}"
 assert parle_style.hat_scale(rim_pts, np.full(40, 0.002), (0.0, 0.0)) == 1.0, "a cap on the head was narrowed"
+
+assert parle_style.HAIR_TUCK_ABOVE_M < 0, "the hair's edge at the temples goes onto the skin (round 66: a hole at each temple)"
+assert parle_style.STYLE["male-old"]["brow_inner"] == 0.0, "the old man's eyebrows go up at the inner end (round 66: a sad roof)"

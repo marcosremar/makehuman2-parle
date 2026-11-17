@@ -32,7 +32,10 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # Round 41 (5.0): both judges asked the iris 10 to 15 % bigger within the same eye: between.
 # Round 47 (5.4): both judges asked the iris a fifth bigger within the same eye, white about it "no limite do esbugalhado".
 # Round 50: with the eyes back to the owner's sizes, both again "íris 20 % maior sem aumentar o olho".
-IRIS_RADIUS = 0.172
+# Round 66 (two judges, eight of the cast): with the lids back at the owner's opening (round 60), the iris filled the eye from
+# corner to corner, about 95 % of its width where the series' fills 55 to 60, "olho só íris, sem branco"; one judge asked it 40 %
+# smaller, the other 20: 0.14.
+IRIS_RADIUS = 0.14
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 # Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
 # it: at 0.2 the upper lid still lay across the top of the pupil. With the lids as they are now (`parle_face.FAIR_LOOK`), at 0.3
@@ -41,7 +44,8 @@ GAZE_DOWN = 0.3
 # Pupil as a share of the iris radius. Light-adapted pupils under interior light are about 0.25 to 0.33 of the iris (10 to 100 cd/m2,
 # Watson & Yellott 2012, "A unified formula for light-adapted pupil size", Journal of Vision 12(10):12, DOI 10.1167/12.10.12). 0.36 sits
 # just above that range and is chosen by eye in the player's bust shots (2026-11-09): 0.48 read as a dilated eye, 0.42 still did on a dark iris.
-PUPIL_SHARE = 0.36
+# Round 66: "pupila 30 % menor" (a judge by sight against the series): 0.30, inside that range.
+PUPIL_SHARE = 0.30
 LIMBUS_SHARE = 0.90
 # BGR, 0-1. Measured on the player's iris for the middle one, then 20% lighter with a darker limbus and a whiter sclera: next to her and Rafa the eye read as dull (owner, 2026-11-08).
 # Honey was then too bright in the game (value 0.82: an orange disc with a dot, an owl's eye at game size, 2026-11-09). The owner chose
