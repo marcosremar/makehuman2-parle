@@ -201,3 +201,13 @@ abrupt[:10, 2] = 0.004
 opened = parle_style.creases_out(abrupt, chain)
 assert np.abs(np.diff(opened[:, 2])).max() < 0.5 * 0.004, f"the crease is still a step: {np.abs(np.diff(opened[:, 2])).max()}"
 assert opened[:5, 2].min() > 0.9 * 0.004 and np.allclose(opened[15:], 0, atol=2e-4), f"the shape went with its crease: {opened[:, 2]}"
+# Round 74: the folds under the jaw (both judges, all eight: "quina dura da mandíbula até o pescoço", "vinco sob o queixo"). The
+# skin under the chin and down the front of the throat is smoothed again; the lips, the cheeks, the collar and the nape are left.
+unit = 0.064
+spots = tip + unit * np.array([(0.0, 0.5, -1.5), (0.5, 0.9, -1.8), (0.0, 0.1, -0.62), (0.6, 0.6, -0.3), (0.0, 0.8, -3.0), (0.0, 2.6, -1.6)])
+under = parle_style.jaw_neck_weight(spots, tip, eyes)
+assert under[0] > 0.99 and under[1] > 0.9, f"under the chin and the side of the throat are not smoothed: {under}"
+assert np.all(under[2:] < 0.01), f"the lips, the cheek, the collar or the nape are smoothed with the jaw: {under}"
+fold = np.array([(x, 0.0, abs(x) * 0.6) for x in np.linspace(-0.02, 0.02, 21)])
+eased = parle_style.smoothed(fold, np.array([(index, index + 1) for index in range(20)]), np.r_[0.0, np.ones(19), 0.0], parle_style.JAW_NECK_ROUNDS)
+assert eased[10, 2] > 0.0005 and np.allclose(eased[[0, 20]], fold[[0, 20]]), f"a fold is not opened, or its ends moved: {eased[10]}"

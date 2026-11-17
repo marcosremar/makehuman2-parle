@@ -273,6 +273,33 @@ def simple_weight(points, tip, eyes):
     return weight
 
 
+
+# Under the jaw (round 74, both judges on all eight, since round 66: "quina dura da mandíbula até o pescoço", "vinco sob o queixo",
+# "costura serrilhada sob o queixo"): the face is made shorter after it is smoothed (`lower_face_field`), and the floor under the
+# chin, lifted more at the front than at the back, met the jaw and the throat in folds of 20 to 35 degrees. The skin from just
+# over the chin (JAW_NECK_FROM distances between the eyes under the nose tip) down the throat (to JAW_NECK_TO), at the front and
+# the sides of the neck (no further back than JAW_NECK_BACK behind the tip), is smoothed again for JAW_NECK_ROUNDS; the lips are
+# left as in `simple_weight`.
+JAW_NECK_FROM = (0.8, 1.05)
+JAW_NECK_TO = (2.3, 2.7)
+JAW_NECK_BACK = (1.5, 2.3)
+JAW_NECK_ROUNDS = 20
+
+
+def jaw_neck_weight(points, tip, eyes):
+    """How much each point of the skin is smoothed again under the jaw (0..1), the face looking at -y."""
+    points = np.asarray(points, float)
+    centres = [np.asarray(centre, float) for centre, _ in eyes]
+    unit = float(np.linalg.norm(centres[0] - centres[1]))
+    tip = np.asarray(tip, float)
+    below = (tip[2] - points[:, 2]) / unit
+    behind = (points[:, 1] - tip[1]) / unit
+    weight = smooth((below - JAW_NECK_FROM[0]) / (JAW_NECK_FROM[1] - JAW_NECK_FROM[0])) * smooth((JAW_NECK_TO[1] - below) / (JAW_NECK_TO[1] - JAW_NECK_TO[0]))
+    weight *= smooth((JAW_NECK_BACK[1] - behind) / (JAW_NECK_BACK[1] - JAW_NECK_BACK[0]))
+    off = (points - (tip + np.array(SIMPLE_MOUTH) * unit)) / unit
+    return weight * smooth((np.hypot(off[:, 0] / SIMPLE_MOUTH_WIDE[0], off[:, 2] / SIMPLE_MOUTH_WIDE[1]) - 1.0) / SIMPLE_MOUTH_RAMP)
+
+
 def orbit_weight(points, tip, eyes):
     """How much each point of the skin takes part in filling the hollow between the upper lid and the eyebrow (0..1), the face
     looking at -y."""

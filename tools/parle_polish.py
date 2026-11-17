@@ -1934,6 +1934,13 @@ def natural_body(meshes, rig, height, sex, kit):
         short = parle_style.lower_face_field(tip, balls, kind)
         for obj in [body, *(item for item in meshes if item.type == "MESH" and ("teeth" in item.name or "tongue" in item.name))]:
             warp(obj, short)
+        # The folds the shorter face left under the jaw opened (`parle_style.jaw_neck_weight`), every key with it.
+        rest = rest_points(body)
+        under = parle_style.jaw_neck_weight(rest, tip, balls)
+        under[np.unique(edges[sides < 2])] = 0.0
+        eased = parle_style.smoothed(rest, edges, under, parle_style.JAW_NECK_ROUNDS) - rest
+        warp(body, lambda points: points + eased, kept=lambda name: True)
+        print("CABEÇA: debaixo da mandíbula alisado, o ponto que mais andou,", round(float(np.linalg.norm(eased, axis=1).max()) * 1000, 1), "mm")
         print("CABEÇA em volumes simples: o ponto que mais andou,", round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1), "mm")
         print("CABEÇA: hair, clothes and worn things followed the skin:", follow_skin(meshes, before, rest_points(body)))
         print("CABEÇA: óculos na largura do rosto:", frames_on_face(meshes, body, balls))
