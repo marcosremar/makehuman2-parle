@@ -319,6 +319,15 @@ SPEECH_MIX = {
     "viseme_CH": {"viseme_CH": 0.67, "viseme_U": 0.82, "jawOpen": -0.18},
     "viseme_aa": {"viseme_aa": 1.0, "viseme_U": 0.4},
 }
+# Round 72: on the men the "o", now as narrow as the kit's pucker, closed to a slit under their thin lips (the women's is a small
+# round ring): theirs takes more of its own opening and gives back less of the jaw, a ring a few millimetres open, far under the
+# peak of speech the owner holds (Rafa's 14 mm, `tests/test_parle_speech.py`). The pucker stays over twice the opening.
+SPEECH_MIX_MEN = {"viseme_O": {"viseme_O": 0.5, "viseme_U": 1.05, "jawOpen": -0.1}}
+
+
+def speech_mix(sex):
+    """The mixes of the rounded shapes of speech for a sex: SPEECH_MIX, with the men's own "o"."""
+    return {**SPEECH_MIX, **(SPEECH_MIX_MEN if sex == "male" else {})}
 # Seen as the player frames her (front, eye level), the women's mouth still read as a pout: it was short and the lips round. The
 # kit's own faceMouthWidth +0.8 lengthens it; thinning the lips further opened a gap between them (owner, 2026-11-08, pharmacy).
 # At +0.8 it read as a long flat band next to photographs (owner, 2026-11-09): +0.4.
@@ -1127,7 +1136,7 @@ def clean_face(body, added, job, env):
     # Last: the steps above tell the lips, the lining and the gums apart by how far the open jaw carries them.
     speaking = list(dict.fromkeys([body, *(obj for obj in added if obj.type == "MESH" and obj.data.shape_keys)]))
     calm_speech(speaking, SPEECH_OPEN[sex])
-    mixed_speech(speaking, SPEECH_MIX)
+    mixed_speech(speaking, speech_mix(sex))
     mixed_speech(speaking, SMILE_MIX)
     narrow_round(body, MOUTH_WIDE[sex])
     creases_opened(body)
