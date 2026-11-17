@@ -226,3 +226,21 @@ assert np.allclose(pad[2, 2], [0.4, 0.2, 0.2]) and np.allclose(pad[20, 36], [0.4
 assert np.allclose(parle_paint.padded(map_colours, island, 0), map_colours), "no reach, and the map changed"
 assert parle_paint.MAP_PAD_PX >= 8, "the margin about the islands is under 8 texels: the smaller copies of the map read past it"
 print("ok margem")
+
+# Round 89 (four judges of four, seven of eight: the hair "fio fino e ruído", the series "mechas grandes lisas", and "bordas serrilhadas"):
+# a map of thin strands two texels apart, with a frayed end. Drawn: the colour of the solid part is even (no strand grain), the strands
+# join into one lock, the frayed end becomes a round edge, and the map far from the hair stays see-through.
+strands_map = np.zeros((48, 48, 4), np.float32)
+strands_map[:, :, :3] = 0.3
+for column in range(8, 40, 3):
+    strands_map[6:40, column:column + 2, :3] = (0.5, 0.35, 0.2) if column % 2 else (0.3, 0.2, 0.1)
+    strands_map[6:40 + (column % 5), column:column + 2, 3] = 1.0
+lock = parle_paint.drawn_hair(strands_map, 4, 3)
+inner = lock[14:32, 12:36]
+assert inner[:, :, 3].min() > 0.9, "the strands did not join into one lock"
+assert inner[:, :, :3].std(axis=(0, 1)).max() < 0.5 * strands_map[14:32, 12:36, :3][strands_map[14:32, 12:36, 3] > 0.5].std(axis=0).max(), "the strands keep their grain"
+assert lock[2, 2, 3] < 0.05 and lock[45, 45, 3] < 0.05, "the map far from the hair is no longer see-through"
+ends = (lock[36:46, 10:38, 3] > 0.5).sum(axis=0)
+raw_ends = (strands_map[36:46, 10:38, 3] > 0.5).sum(axis=0)
+assert np.abs(np.diff(ends)).max() < np.abs(np.diff(raw_ends)).max(), "the frayed end of the hair is as ragged as before"
+print("ok cabelo")

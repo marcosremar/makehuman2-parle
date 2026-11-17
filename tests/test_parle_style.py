@@ -273,3 +273,6 @@ assert rim[0] > 0.9 and rim[1] < 0.2, f"the rim of the jaw at the side is left o
 inside = tip + np.array([0.0, 1.4 * 0.064, -0.72 * 0.064])
 assert parle_style.jaw_neck_weight(inside[None], tip, eyes, deep_lips=True)[0] < 0.05, "the inside of the mouth is smoothed with the jaw on a body with no lining known"
 assert parle_style.jaw_neck_weight(side_rim[None], tip, eyes, deep_lips=True)[0] < 0.5, "deep_lips no longer keeps the oval's depth"
+
+# Round 89: the teeth lit from their own map a little, less than the eye.
+assert 0.2 <= parle_style.TEETH_GLOW < parle_style.EYE_GLOW, f"the teeth glow: {parle_style.TEETH_GLOW}"

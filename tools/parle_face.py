@@ -1150,6 +1150,11 @@ def clean_face(body, added, job, env):
                     material.node_tree.links.remove(link)
                 set_map(obj, teeth_map)
                 teeth_atlas(obj)
+                shader = material.node_tree.nodes.get("Principled BSDF")
+                texture = next((node for node in material.node_tree.nodes if node.type == "TEX_IMAGE"), None)
+                if shader is not None and texture is not None:
+                    material.node_tree.links.new(texture.outputs["Color"], shader.inputs["Emission Color"])
+                    shader.inputs["Emission Strength"].default_value = parle_style.TEETH_GLOW
     wine = body_wine(body)
     shade_mouth([obj for obj in added if obj.type == "MESH" and obj.data.shape_keys], wine)
     teeth_for_inside = next((obj for obj in added if obj.type == "MESH" and "teeth" in obj.name), None)

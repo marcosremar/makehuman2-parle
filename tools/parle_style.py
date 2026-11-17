@@ -82,6 +82,10 @@ EYE_TALL_LEAST_BY_KIND = {"male": 0.40, "female": 0.46, "male-old": 0.30, "femal
 # Round 56, judge B on all four: "esclera branca e limpa, cerca de 70 % menos da sombra cinza da pálpebra sobre o branco". Round 61:
 # still "de cinza para branco-marfim, só a cor" (judge B): 0.65.
 EYE_GLOW = 0.65
+# The teeth lit from their own map a little (round 89; four judges of four on round 86: grey teeth, "aparelho"; round 88 made them
+# one warm colour and they still read grey in the shade of the upper lip). The map carries the depth shade (`parle_mouth`), so the
+# molars stay dark; under the eye's.
+TEETH_GLOW = 0.4
 SKIN_WARM = 0.012
 # The nose's reach about its tip, in metres; below the tip it is shorter (NOSE_BELOW), so the upper lip stays where it was, and up
 # the bridge longer (NOSE_ABOVE). The middle it grows about stands NOSE_BACK behind the tip, a little above it.

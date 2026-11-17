@@ -211,6 +211,14 @@ def drawn_brow(pixels, old, heads=()):
 # showed as a pale frayed band along the hairline (rounds 36 to 44). They take the colour of the strands about them, out to this
 # many pixels of a 1024 map.
 HAIR_BLEED_PX = 24
+# The hair drawn as the series draws it (round 89; four judges of four on round 86, seven of eight: "fio fino, pelo e ruído
+# pontilhado" where the series has "poucas mechas grandes esculpidas, lisas e foscas", and "bordas serrilhadas" at the hairline,
+# the temples and the ends). The kit's hair is cards with a photograph of strands: the colour of the solid texels is blurred over
+# HAIR_MASS_PX texels of a 1024 map (the grain of single strands goes, the darker roots and lighter lumps stay), and the alpha
+# over HAIR_EDGE_PX and cut again at a half (`drawn_hair`), so a frayed edge becomes a round one and strands a few texels apart
+# join into a lock.
+HAIR_MASS_PX = 7
+HAIR_EDGE_PX = 4
 # How far a scalp cap painted with a skin map goes to the colour of the strands over it.
 SCALP_TO_HAIR = 0.9
 
@@ -229,6 +237,24 @@ def solid_mean(pixels):
     pixels = np.asarray(pixels, np.float32)
     solid = pixels[:, :, 3] >= 0.5
     return pixels[:, :, :3][solid].mean(axis=0) if solid.any() else pixels[:, :, :3].reshape(-1, 3).mean(axis=0)
+
+
+def drawn_hair(pixels, mass=HAIR_MASS_PX, edge=HAIR_EDGE_PX):
+    """A hair map (rows x columns x RGBA, 0..1) drawn as masses: the colour of its solid texels blurred over `mass` texels (weighted by
+    the alpha, so the see-through colour does not bleed in), and its alpha blurred over `edge` texels and cut again at a half with a
+    soft edge of about a texel."""
+    pixels = np.asarray(pixels, np.float32)
+    out = pixels.copy()
+    solid = (pixels[:, :, 3] >= 0.5).astype(np.float32)[:, :, None]
+    if mass >= 1:
+        # Every texel near the hair takes the blurred colour of the solid ones, the gaps between strands too: the alpha below joins
+        # them into the lock, and with their own colour they would draw the strands again.
+        total, weight = box_blur(pixels[:, :, :3] * solid, mass), box_blur(solid, mass)
+        out[:, :, :3] = np.where(weight > 1e-3, total / np.maximum(weight, 1e-6), pixels[:, :, :3])
+    if edge >= 1:
+        soft = box_blur(pixels[:, :, 3:4], edge)[:, :, 0]
+        out[:, :, 3] = smooth(0.42, 0.58, soft)
+    return out
 
 
 def bled(pixels, radius):
