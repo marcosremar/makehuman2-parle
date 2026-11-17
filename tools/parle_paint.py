@@ -22,7 +22,9 @@ BROW_EDGE = (0.42, 0.62)
 # Round 63: "castanho-médio como o cabelo (hoje quase preta)" (judge B): 0.6.
 # Round 83 (measured on the portraits against the series): the series' eyebrow is always darker than the hair, 5 to 15 L* under dark
 # hair and 20 to 30 under mid brown; the cast's was as light as the hair or lighter (10 to 19 L* short): 0.4.
-BROW_YOUNG_DARKEN = 0.4
+# Round 87 (four judges on the portraits of round 86, seven of eight): at 0.4 the eyebrows read "preto puro" over brown hair; the
+# measure of round 83 stands (darker than the hair), so half way back.
+BROW_YOUNG_DARKEN = 0.5
 # Rounds 49 to 52: both judges asked the old's eyebrows "cinza médio em vez de branco".
 # Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey. Round 55: still "cinza-claro, some na pele": darker.
 BROW_OLD_GREY = (0.46, 0.43, 0.4)
@@ -480,11 +482,14 @@ AGE_TONE = (0.72, 0.56, 0.52)
 # Round 78, seen on the portraits: the lines came out as scratches, thin, dark and wobbling from one triangle of the map to the
 # next, and the crow's feet stood at the temple, 15 mm from the eye. Each line is now laid on the skin at AGE_POINTS points and
 # evened on the map (`evened_line`), drawn wider and fainter, and the crow's feet start at the corner of the eye.
-AGE_LINE = 0.38
-AGE_LINE_PX = 2.2
+# Round 87 (four judges of four on the portraits of round 86, the four old): the lines still "riscos finos e escuros", and the crow's
+# feet, a "<" at the temple, "parecem cicatriz"; they ask a soft furrow two to three millimetres wide with little contrast. The
+# lines are fainter and wider (0.38 and 2.2 before), and the crow's feet are not drawn (CROW_TO empty).
+AGE_LINE = 0.26
+AGE_LINE_PX = 3.2
 AGE_POINTS = 9
 CROW_FROM = (1.18, 0.15, 0.0)
-CROW_TO = ((1.7, 0.42, 0.34), (1.8, 0.48, 0.0), (1.7, 0.42, -0.34))
+CROW_TO = ()
 NOSE_FOLD = ((0.4, 0.3, 0.02), (0.5, 0.26, -0.12), (0.56, 0.24, -0.25), (0.58, 0.24, -0.38))
 BROW_LINES = (((-0.55, -0.02, 0.82), (-0.2, -0.1, 0.87), (0.2, -0.1, 0.87), (0.55, -0.02, 0.82)), ((-0.45, -0.02, 1.02), (0.0, -0.1, 1.06), (0.45, -0.02, 1.02)))
 

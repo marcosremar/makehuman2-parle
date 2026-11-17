@@ -74,7 +74,7 @@ for kind in ("female", "female-old"):
     assert woman[1] < woman[0], f"the tip of a woman's nose is redder than her cheek: {kind} {woman}"
 assert parle_paint.BLUSH_SHARE["female-old"] < 0.6 < parle_paint.BLUSH_SHARE["male-old"], "the old women blush as the old man"
 assert parle_paint.CHEEK_SPOT_BY_KIND["male"][0] > parle_paint.CHEEK_SPOT[0] and parle_paint.CHEEK_SPOT_BY_KIND["male"][2] < parle_paint.CHEEK_SPOT[2], "the young man's blush is not lower and further out"
-assert parle_paint.BROW_YOUNG_DARKEN <= 0.45, "a young person's eyebrow is as light as the hair"
+assert 0.45 <= parle_paint.BROW_YOUNG_DARKEN <= 0.55, "a young person's eyebrow is as light as the hair, or pure black over brown hair"
 red = parle_paint.blushed(np.full((1, 1, 3), 0.6, np.float32), np.ones((1, 1)))
 assert red[0, 0, 0] > red[0, 0, 2], "the blush is not warm"
 # The blur of the skin keeps to the covered map (round 34): the empty map next to an island does not darken its edge.
@@ -199,18 +199,19 @@ assert turned_thick[:4].max() <= 0.4 * turned_thick[-30:].max() and turned_thick
 # leaves the map 5 texels away.
 assert parle_paint.age_lines(tip, eyes, "female") == [] and parle_paint.age_lines(tip, eyes, "male") == []
 old_woman, old_man = parle_paint.age_lines(tip, eyes, "female-old"), parle_paint.age_lines(tip, eyes, "male-old")
-assert len(old_woman) == 8 and len(old_man) == 10, f"the lines of age: {len(old_woman)} on an old woman, {len(old_man)} on an old man"
+# Round 87: the crow's feet read as a scar at the temple (four judges of four) and are not drawn; the folds by the nose and the
+# man's two lines on the forehead stay.
+assert len(old_woman) == 2 and len(old_man) == 4, f"the lines of age: {len(old_woman)} on an old woman, {len(old_man)} on an old man"
+assert parle_paint.AGE_LINE <= 0.3 and parle_paint.AGE_LINE_PX >= 3.0, "the lines of age are thin dark scratches again"
 assert all(len(line) == parle_paint.AGE_POINTS for line in old_man), "a line of age is not laid at its points"
 wobbly = np.column_stack([np.arange(9.0), np.array([0, 1, -1, 1, -1, 1, -1, 1, 0.0])])
 calm = parle_paint.evened_line(wobbly)
 assert np.abs(calm[1:-1, 1]).max() < 0.5 and np.allclose(calm[[0, -1]], wobbly[[0, -1]]), "a line of age keeps its wobble, or its ends moved"
-corner = np.linalg.norm(np.asarray(old_woman[0][0]) - eyes[0][0]) / eyes[0][1]
-assert 1.0 < corner < 1.35, f"the crow's feet do not start at the corner of the eye: {corner:.2f} radii from its middle"
-feet = [np.linalg.norm(np.asarray(line[-1]) - np.asarray(line[0])) for line in old_woman[:3]]
-assert all(0.004 < length < 0.012 for length in feet), f"the crow's feet are not some 6 mm long: {feet}"
+fold = np.asarray(old_woman[0])
+assert fold[0, 2] > fold[-1, 2] and abs(fold[0, 0] - tip[0]) > 0.01, f"the first line of an old woman is not the fold from the nose's wing down: {fold[[0, -1]]}"
 plain = np.full((40, 80, 3), 0.8, np.float32)
 lined_map = parle_paint.stroked(plain, [[(10.0, 20.0), (70.0, 20.0)]], np.array([0.5, 0.4, 0.4], np.float32))
-assert lined_map[20, 40, 0] < 0.7 and lined_map[20, 40, 0] < lined_map[20, 13, 0] and np.allclose(lined_map[27], 0.8) and np.allclose(lined_map[20, 75:], 0.8), "a line of age is not drawn, or runs over"
+assert lined_map[20, 40, 0] < 0.76 and lined_map[20, 40, 0] < lined_map[20, 13, 0] and np.allclose(lined_map[27], 0.8) and np.allclose(lined_map[20, 75:], 0.8), "a line of age is not drawn, or runs over"
 
 # Round 86 (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"): the empty map about an island kept the kit's
 # photograph and showed as a dark mark under the angle of the jaw. An island of one colour on a map of another, with a notch in
