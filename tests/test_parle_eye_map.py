@@ -78,3 +78,6 @@ print("ok")
 # Round 66: at the owner's opening of the lids the iris filled the eye from corner to corner (95 % of its width; the series' 55 to
 # 60 %): it stays under 0.16 of the map.
 assert eye.IRIS_RADIUS < 0.16, f"the iris fills the eye: {eye.IRIS_RADIUS}"
+# Round 83 (measured): at 0.14 the cast showed a quarter of the white the series shows; under 0.10 the iris is shorter than the
+# opening of the lids and white shows all about it (the stare the owner faults).
+assert 0.10 < eye.IRIS_RADIUS <= 0.12, f"the iris hides the white, or leaves white all about it: {eye.IRIS_RADIUS}"

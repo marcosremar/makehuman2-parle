@@ -61,12 +61,20 @@ assert abs(smoothed.mean() - skin.mean()) < 0.01, "the blur changes the skin's c
 
 eyes = [(np.array([0.032, -0.06, 1.66]), 0.012), (np.array([-0.032, -0.06, 1.66]), 0.012)]
 tip = np.array([0.0, -0.1, 1.62])
-cheek = eyes[0][0] + np.array(parle_paint.CHEEK_SPOT) * 0.064
+cheek = eyes[0][0] + np.array(parle_paint.CHEEK_SPOT_BY_KIND["male"]) * 0.064
 forehead, back = np.array([0.0, -0.08, 1.75]), np.array([0.0, 0.08, 1.66])
 share = parle_paint.blush_share(np.array([cheek, tip, forehead, back]), tip, eyes, "male")
 assert share[0] > 0.8 * parle_paint.BLUSH_SHARE["male"] and share[1] > 0.6 * parle_paint.BLUSH_SHARE["male"], "no blush on the cheek or the nose"
 assert share[2] < 0.02 and share[3] < 0.001, "the forehead or the back of the head blush"
 assert parle_paint.BLUSH_SHARE["male-old"] > parle_paint.BLUSH_SHARE["male"], "the old blush less than the young"
+# Round 83 (measured against the series): the women's nose tip is no redder than their cheek, the old women's blush under the old man's,
+# the young man's spot lower and further out than the others', and a young person's eyebrow darker than its hair.
+for kind in ("female", "female-old"):
+    woman = parle_paint.blush_share(np.array([eyes[0][0] + np.array(parle_paint.CHEEK_SPOT) * 0.064, tip]), tip, eyes, kind)
+    assert woman[1] < woman[0], f"the tip of a woman's nose is redder than her cheek: {kind} {woman}"
+assert parle_paint.BLUSH_SHARE["female-old"] < 0.6 < parle_paint.BLUSH_SHARE["male-old"], "the old women blush as the old man"
+assert parle_paint.CHEEK_SPOT_BY_KIND["male"][0] > parle_paint.CHEEK_SPOT[0] and parle_paint.CHEEK_SPOT_BY_KIND["male"][2] < parle_paint.CHEEK_SPOT[2], "the young man's blush is not lower and further out"
+assert parle_paint.BROW_YOUNG_DARKEN <= 0.45, "a young person's eyebrow is as light as the hair"
 red = parle_paint.blushed(np.full((1, 1, 3), 0.6, np.float32), np.ones((1, 1)))
 assert red[0, 0, 0] > red[0, 0, 2], "the blush is not warm"
 # The blur of the skin keeps to the covered map (round 34): the empty map next to an island does not darken its edge.

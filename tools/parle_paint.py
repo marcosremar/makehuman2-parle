@@ -20,7 +20,9 @@ BROW_EDGE = (0.42, 0.62)
 # Round 57, both judges: the young woman's eyebrows "castanha como o cabelo (hoje quase preta)": a young person's eyebrow is its
 # own colour (the cast dyes it in the hair's) made darker, no longer one near-black for all.
 # Round 63: "castanho-médio como o cabelo (hoje quase preta)" (judge B): 0.6.
-BROW_YOUNG_DARKEN = 0.6
+# Round 83 (measured on the portraits against the series): the series' eyebrow is always darker than the hair, 5 to 15 L* under dark
+# hair and 20 to 30 under mid brown; the cast's was as light as the hair or lighter (10 to 19 L* short): 0.4.
+BROW_YOUNG_DARKEN = 0.4
 # Rounds 49 to 52: both judges asked the old's eyebrows "cinza médio em vez de branco".
 # Round 54: "sem o tom azulado, 20 % mais escura" (judge B): a warm mid grey. Round 55: still "cinza-claro, some na pele": darker.
 BROW_OLD_GREY = (0.46, 0.43, 0.4)
@@ -40,7 +42,10 @@ BLUSH = (0.86, 0.38, 0.28)
 # Round 48: both judges asked the old woman's and the old man's nose tip and cheeks a quarter redder, as the series' old man.
 # Round 52: both judges asked the nose tip and the cheeks of all four "25 a 30 % mais vermelhos": a seventh more.
 # Round 56: the old's nose tip and cheeks "+25 a 30 % de saturação, como o idoso da série" (judge B).
-BLUSH_SHARE = {"female": 0.4, "female-old": 0.74, "male": 0.52, "male-old": 0.82}
+# Round 83 (measured, CIELAB a* of the cheek and of the nose's tip over the skin's): the old women's cheek up to 1.5 times the
+# series' young woman's and the tip of their nose 3 to 6 times the series', where its women have none; the young women's cheek as
+# the series'. The old women's blush and nose down (NOSE_SHARE_BY_KIND), the young women's nose a third down.
+BLUSH_SHARE = {"female": 0.4, "female-old": 0.5, "male": 0.52, "male-old": 0.82}
 # Round 56: the young woman's blush reached the mouth and the chin ("tirar as manchas rosadas em volta da boca", judge B): the spot
 # a little higher on the cheek.
 # Round 57: the young woman's blush "na lateral, até a borda do rosto" (judge B), "40 % mais fraco, sem as duas manchas" (judge A):
@@ -48,6 +53,9 @@ BLUSH_SHARE = {"female": 0.4, "female-old": 0.74, "male": 0.52, "male-old": 0.82
 # Round 61, both judges: at -0.56 the young woman's blush reached the chin and the low cheek, "o rosa que borra em volta da boca";
 # the series' sits "no alto das maçãs", just under the eye.
 CHEEK_SPOT = (0.1, -0.25, -0.42)
+# Round 83 (measured): the young men's spot sat at 0.38 to 0.58 of the way from the pupils to the base of the nose, the series' young
+# men's at 0.75 and its grown man's at 0.56 to 0.60, and nearer the nose than theirs: lower and further out. The others keep theirs.
+CHEEK_SPOT_BY_KIND = {"male": (0.18, -0.25, -0.55)}
 CHEEK_WIDE = 0.34
 NOSE_SPOT_WIDE = 0.22
 # Round 54: both judges, the tip of the nose "15 a 25 % mais vermelha" on all four.
@@ -60,7 +68,7 @@ CHEEK_WIDE_BY_KIND = {"male-old": 0.64, "female-old": 0.5, "female": 0.3}
 # Round 52: with the cheek's part weaker one judge read the old paler; round 53, both judges: "trocar os dois discos vermelhos por um
 # avermelhado difuso 40 % mais fraco" on the old man, "blush 30 % mais fraco e espalhado" on the old woman.
 CHEEK_PART_BY_KIND = {"male-old": 0.6, "female-old": 0.7}
-NOSE_SHARE_BY_KIND = {"male-old": 1.3, "female-old": 1.25}
+NOSE_SHARE_BY_KIND = {"male-old": 1.3, "female-old": 0.5, "female": 0.65}
 # The lips: the series draws no lip, the mouth is a cut with curled corners (round 21: "a série não desenha lábio"). The skin about
 # the mouth goes this share of the way to the face's own skin colour, so the painted lip of the kit's photograph goes.
 MOUTH_SPOT = (0.0, -0.05, -0.62)
@@ -273,9 +281,10 @@ def blush_share(points, tip, eyes, kind):
     middle_x = (centres[0][0] + centres[1][0]) / 2
     share = np.zeros(len(points))
     wide, part = CHEEK_WIDE_BY_KIND.get(kind, CHEEK_WIDE), CHEEK_PART_BY_KIND.get(kind, 1.0)
+    spot = CHEEK_SPOT_BY_KIND.get(kind, CHEEK_SPOT)
     for centre in centres:
         side = np.sign(centre[0] - middle_x)
-        at = centre + np.array([side * CHEEK_SPOT[0], CHEEK_SPOT[1], CHEEK_SPOT[2]]) * unit
+        at = centre + np.array([side * spot[0], spot[1], spot[2]]) * unit
         far = np.linalg.norm(points - at, axis=1) / (wide * unit)
         share = np.maximum(share, part * np.exp(-far * far))
     far = np.linalg.norm(points - np.asarray(tip, float), axis=1) / (NOSE_SPOT_WIDE * unit)

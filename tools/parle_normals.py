@@ -15,10 +15,16 @@ FRONT_OF_NECK_M = 0.02
 # The zone fades over 2 cm instead of stopping at a box wall, and each point's turn is averaged with its neighbours along the mesh edges: a box wall and a
 # per-point weight let a neck crease alternate turned and plain points, and the player showed dark teeth at the corner of the jaw (2026-11-11).
 FADE_M = 0.02
-SMOOTH_ROUNDS = 8
-DOWN_FROM = -0.15
-DOWN_FULL = -0.55
-TURN = 0.85
+# Round 83 of the drawn heads (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"): drawn with the file's
+# normals against the surface's own, the wavy line along the base of the jaw was this turn, not the form: at 0.85, from -0.15
+# to -0.55 and 8 rounds, the normals under the jaw stood up to 90 degrees off the surface (the 95th percentile 59), a lit wedge
+# under the chin whose edge followed each point's own normal and ended at a line across the throat. The turn is weaker, comes
+# in over a wider span of the normal and is averaged over more neighbours: the under side keeps a soft shade of its own, as
+# the series draws it, and the drawn heads paint that shade warm (`parle_paint.JAW_SHADE`). Not proved in the player.
+SMOOTH_ROUNDS = 30
+DOWN_FROM = 0.0
+DOWN_FULL = -0.8
+TURN = 0.6
 AHEAD = np.array((0.0, -1.0, 0.05))
 
 

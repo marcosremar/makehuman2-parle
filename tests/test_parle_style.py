@@ -19,7 +19,10 @@ except ValueError:
     pass
 men, old = parle_style.STYLE["male"], parle_style.STYLE["male-old"]
 assert men["nose"] > parle_style.STYLE["female"]["nose"] and old["nose"] > men["nose"], "the series' men have the bigger nose, the old the biggest"
-assert old["brow"] > men["brow"] > parle_style.STYLE["female"]["brow"], "the eyebrows of the kinds are not in the series' order"
+assert old["brow"] > men["brow"], "the old man's eyebrows are no bushier than the young man's"
+# Round 83 (measured): the young man's eyebrow was 80 to 95 % thicker than the series' at its head, its tail as the series': the
+# head under the kit's own thickness, the tail no thinner than it was at 1.4 all along.
+assert men["brow"] < 1.0 and 1.2 < men["brow"] * men["brow_outer"] < 1.5, f"the young man's eyebrow is a block again, or its tail thinned: {men}"
 # Round 66 (owner, 2026-11-17: "melhora a sobrancelha"): the old's eyebrows were a block (2.5 times the kit's, as thick at the
 # temple as by the nose): under twice the kit's, and thinning to the temple.
 for kind in ("male-old", "female-old"):
@@ -58,8 +61,8 @@ neck = tip + np.array([0.0, 0.06, -0.12])
 weight = parle_style.simple_weight(np.array([rim, lips, neck]), tip, eyes)
 assert weight[0] < 0.01 and weight[1] < 0.01 and weight[2] > 0.9, f"the smoothing takes the eye or the lips, or leaves the neck: {weight}"
 # The lower face shorter (round 31): the chin comes up most, the mouth part of the way, and nothing above the nose tip nor far down
-# the neck moves.
-short = parle_style.lower_face_field(tip, eyes, "male")
+# the neck moves. On a young woman: the young man's is no longer shortened (round 83).
+short = parle_style.lower_face_field(tip, eyes, "female")
 probe = np.array([[0.0, -0.09, tip[2] - 0.083], [0.0, -0.09, tip[2] - 0.04], [0.0, -0.1, tip[2] + 0.01], [0.0, -0.05, 1.4]])
 up = (short(probe) - probe)[:, 2]
 assert up[0] > up[1] > 0.002 and abs(up[2]) < 1e-9 and abs(up[3]) < 1e-9, f"the lower face is not shortened as it should be: {up}"
@@ -216,7 +219,11 @@ assert eased[10, 2] > 0.0005 and np.allclose(eased[[0, 20]], fold[[0, 20]]), f"a
 # cheekbones. Their cheeks are narrower across than the men's, and their face is shortened less under the nose.
 for old_or_young in ("", "-old"):
     assert parle_style.SCULPT["female" + old_or_young]["cheek_wide"] < 0.9 and "cheek_wide" not in parle_style.SCULPT["male" + old_or_young], "the women's cheeks are as wide as the men's"
-    assert parle_style.LOWER_FACE["female" + old_or_young] > parle_style.LOWER_FACE["male" + old_or_young] + 0.05, "the women's face is as short under the nose as the men's"
+# Round 83: shortened under the nose, the young man's chin was a block with a flat base, half as tall as the series' young men's
+# (measured); no kind's lower face is shortened by more than a twelfth, and his not at all.
+assert parle_style.LOWER_FACE["male"] >= 0.98 and min(parle_style.LOWER_FACE.values()) >= 0.92, f"the face is short under the nose again: {parle_style.LOWER_FACE}"
+flat = parle_style.lower_face_field(tip, eyes, "male")(np.array([[0.0, -0.06, 1.52], [0.02, -0.05, 1.5]]))
+assert np.allclose(flat, [[0.0, -0.06, 1.52], [0.02, -0.05, 1.5]]), "the young man's chin is lifted"
 
 # The owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas". (1) A ball's rim: a flat sheet through a ball is
 # pushed out inside it; with the ease, the sheet leaves the ball with no crease (the push next to the rim is a small share of

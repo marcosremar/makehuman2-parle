@@ -35,7 +35,11 @@ CENTRES = ((0.703, 0.273), (0.296, 0.676))
 # Round 66 (two judges, eight of the cast): with the lids back at the owner's opening (round 60), the iris filled the eye from
 # corner to corner, about 95 % of its width where the series' fills 55 to 60, "olho só íris, sem branco"; one judge asked it 40 %
 # smaller, the other 20: 0.14.
-IRIS_RADIUS = 0.14
+# Round 83 (measured on the portraits of round 81 against the series, a finder and a sceptic): the cast showed a quarter of the
+# white the series' eye shows (0.11 of the opening against 0.46) and its iris was 1.4 times the series' (0.39 of the distance
+# between the pupils against 0.28). 0.10 would be the series' size, as tall as the opening of the lids: a little over it, so
+# the lids still lie across the top and the foot of the iris and no white shows about it (the stare of rounds 21 and 25).
+IRIS_RADIUS = 0.115
 # The cast has no eye bones and the globe rests looking slightly up: without this the pupil touches the upper lid.
 # Measured on a woman of the cast (2026-11-12), the lids opened from 5 to 8 degrees above the middle of the iris to 21 to 27 below
 # it: at 0.2 the upper lid still lay across the top of the pupil. With the lids as they are now (`parle_face.FAIR_LOOK`), at 0.3
@@ -45,7 +49,9 @@ GAZE_DOWN = 0.3
 # Watson & Yellott 2012, "A unified formula for light-adapted pupil size", Journal of Vision 12(10):12, DOI 10.1167/12.10.12). 0.36 sits
 # just above that range and is chosen by eye in the player's bust shots (2026-11-09): 0.48 read as a dilated eye, 0.42 still did on a dark iris.
 # Round 66: "pupila 30 % menor" (a judge by sight against the series): 0.30, inside that range.
-PUPIL_SHARE = 0.30
+# Round 83: with the iris smaller the pupil keeps the size it had on the ball (0.14 x 0.30); the series' is 0.45 of its iris, over
+# the ceiling the test holds for the player's bust shots (0.38).
+PUPIL_SHARE = 0.36
 LIMBUS_SHARE = 0.90
 # BGR, 0-1. Measured on the player's iris for the middle one, then 20% lighter with a darker limbus and a whiter sclera: next to her and Rafa the eye read as dull (owner, 2026-11-08).
 # Honey was then too bright in the game (value 0.82: an orange disc with a dot, an owl's eye at game size, 2026-11-09). The owner chose

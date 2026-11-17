@@ -22,7 +22,10 @@ STYLE = {
     # The eyes (2026-11-16, round 49): grown 1.25 on the men and 1.12 on the women for the series, the skin round them kept under a
     # third of its room (0.36 on the men, 0.22 on the women: the bags under the eyes the judges asked away, the women past the 1.3
     # the owner's test holds, `tests/test_parle_eyes.py`). The women's eyes back to 1.3 of the kit's, the men's to 1.25.
-    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 1.4, "eye": 1.25 / 1.1, "skin": 1.55},
+    # Round 83 (measured against the series on the portraits of round 81, a finder and a sceptic): the young man's eyebrow was 80 to 95 %
+    # thicker than the series' at its head (0.105 of the face's width against 0.055) and its tail as the series' (0.036): the head
+    # thinner, and `brow_outer` over one so the tail keeps the thickness it had (1.4 before, at every point).
+    "male": {"forward": 1.25, "nose": 1.6, "tip": 1.5, "brow": 0.85, "brow_outer": 1.6, "eye": 1.25 / 1.1, "skin": 1.55},
     # Round 41: the old man's eyebrow a flat white patch over the glasses (2.8) and his eye white all about the iris (`lid` in SCULPT lower).
     # Round 66 (owner, 2026-11-17: "melhora a sobrancelha"): at 2.5 his eyebrow stood 3 cm tall by the nose, a grey block over the
     # glasses, as thick at the temple as by the nose: thinner, and to `brow_outer` of that at its outer end (the series' old man's
@@ -37,10 +40,13 @@ STYLE = {
     # Round 63, both judges asked the young woman's eyebrows thicker; at 1.55 (round 64) both "30 a 40 % mais finas": back to 1.35.
     # Round 76 (both judges, seven of eight: the eyebrow "em vírgula, mais grossa na cabeça e afinando até a ponta"): a woman's
     # thins to 0.6 of its head at the temple (`parle_face.BROW_OUTER` 0.75 until then).
-    "female": {"forward": 0.8, "nose": 1.15, "tip": 1.1, "brow": 1.35, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
+    # Round 83 (measured): the young women's nose 20 to 36 % wider than the series' young women's, the old women's 8 to 11 % wider
+    # than its widest woman's; the faces the owner approved have it wider than the series (`parle_beauty.LIKED`), so less than
+    # half of the way: a twelfth and a twentieth narrower (with the balls in SCULPT).
+    "female": {"forward": 0.8, "nose": 1.06, "tip": 1.1, "brow": 1.35, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
     # Rounds 54 and 58: the old woman's nose "20 % menor, ... hoje parece nariz de homem" (both judges).
     # Round 66: at 2.4 the old woman's eyebrow was a flat grey slab over the eye: thinner, and thinning to the temple.
-    "female-old": {"forward": 0.85, "nose": 1.3, "tip": 1.2, "brow": 1.7, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
+    "female-old": {"forward": 0.85, "nose": 1.24, "tip": 1.2, "brow": 1.7, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.
@@ -164,8 +170,8 @@ def warmer(rgb, amount):
 SCULPT = {
     "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.66, "cheek_share": 0.76, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
     "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.735, "cheek_share": 0.92, "chin": 0.45, "lid": -0.32, "ridge": 0.0},
-    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.62, "cheek_wide": 0.86, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
-    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.7, "cheek_wide": 0.86, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
+    "female": {"nose_ball": (0.2, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.62, "cheek_wide": 0.86, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
+    "female-old": {"nose_ball": (0.275, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.7, "cheek_wide": 0.86, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
@@ -233,7 +239,14 @@ NOSE_ZONE = 0.55
 # of round 77 (`parle_beauty`, the owner, 2026-11-17: "deve melhorar o maxilar"), the women's faces were already wider than tall
 # (width over height 1.01 to 1.09; the series' women 0.91, the faces the owner approved 0.90) and the men's as wide as his (0.83
 # to 0.89 against 0.83; the series' men 0.77). Back for the men; the women's face is left longer under the nose.
-LOWER_FACE = {"male": 0.83, "male-old": 0.87, "female": 0.93, "female-old": 0.93}
+# Round 83 (owner, 2026-11-17: "o maxilar do homem e da mulher ainda está com falhas"): the steps of the head saved one by one and
+# drawn outside Blender, the young man's chin was a round U before this step and a block with a flat base and two corners after
+# it; measured on the portraits against the series (a finder and a sceptic), his chin had 50 to 55 % of the height of the
+# series' young men's (0.19 of the face's width against 0.33 to 0.35), the old men's a little short (0.035 of the width), the
+# old women's 0.02 to 0.04 distances between the eyes, the young women's as the series'. The series' faces are long under the
+# nose, not short: the judge of round 31 read it by sight and the ruler says the opposite. The young man's face is left its own
+# length, the old's almost.
+LOWER_FACE = {"male": 1.0, "male-old": 0.95, "female": 0.93, "female-old": 0.955}
 # A trial of another share for the lower face, for every kind, without touching this file: a QA door, not a mode of the cast.
 LOWER_FACE_TRIAL = "PARLE_LOWER_FACE"
 LOWER_CHIN = -1.3
