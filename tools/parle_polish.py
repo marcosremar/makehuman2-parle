@@ -1941,7 +1941,7 @@ def natural_body(meshes, rig, height, sex, kit):
         rest = rest_points(body)
         under = parle_style.jaw_neck_weight(rest, tip, balls)
         under[np.unique(edges[sides < 2])] = 0.0
-        eased = parle_style.smoothed(rest, edges, under, parle_style.JAW_NECK_ROUNDS) - rest
+        eased = parle_style.relaxed(parle_style.smoothed(rest, edges, under, parle_style.JAW_NECK_ROUNDS), edges, under, parle_style.JAW_NECK_RELAX) - rest
         warp(body, lambda points: points + eased, kept=lambda name: True)
         print("CABEÇA: debaixo da mandíbula alisado, o ponto que mais andou,", round(float(np.linalg.norm(eased, axis=1).max()) * 1000, 1), "mm")
         print("CABEÇA em volumes simples: o ponto que mais andou,", round(float(np.linalg.norm(move, axis=1).max()) * 1000, 1), "mm")

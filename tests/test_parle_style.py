@@ -243,3 +243,10 @@ jaw_angle = np.array([(cheek_at[0] + 0.2 * unit_s, tip[1] + 1.3 * unit_s, cheek_
 chin_at = tip + np.array(parle_style.CHIN_AT) * unit_s
 under_jaw = np.array([(0.2 * unit_s, tip[1] + 0.9 * unit_s, chin_at[2] - 0.1 * unit_s)])
 assert np.allclose(sculpt(jaw_angle), jaw_angle, atol=1e-6) and np.allclose(sculpt(under_jaw), under_jaw, atol=1e-6), "a ball pushes the angle of the jaw or the floor under it"
+# Round 81: the fold under the men's chin stayed through the smoothing that keeps the volume. Relaxed, a fold along a chain is
+# under half as deep, and its pinned ends stay.
+vee = np.array([(x, 0.0, abs(x)) for x in np.linspace(-0.02, 0.02, 21)])
+calm_vee = parle_style.relaxed(vee, np.array([(index, index + 1) for index in range(20)]), np.r_[0.0, np.ones(19), 0.0], parle_style.JAW_NECK_RELAX)
+bend = lambda line: abs(line[9, 2] - 2 * line[10, 2] + line[11, 2])
+assert bend(calm_vee) < 0.5 * bend(vee) and np.allclose(calm_vee[[0, 20]], vee[[0, 20]]), f"a fold is not rounded: {bend(calm_vee)} of {bend(vee)}"
+assert parle_style.JAW_NECK_FROM[1] <= 0.9, "the fold under the chin is half out of the zone that is smoothed"

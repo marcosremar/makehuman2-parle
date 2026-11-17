@@ -316,7 +316,12 @@ def simple_weight(points, tip, eyes):
 # over the chin (JAW_NECK_FROM distances between the eyes under the nose tip) down the throat (to JAW_NECK_TO), at the front and
 # the sides of the neck (no further back than JAW_NECK_BACK behind the tip), is smoothed again for JAW_NECK_ROUNDS; the lips are
 # left as in `simple_weight`.
-JAW_NECK_FROM = (0.8, 1.05)
+# Round 81: the fold where the floor under the men's chin meets the throat stayed, over 25 degrees and in a zigzag, with the
+# edges of the larynx under it (a notch in the line of the jaw, seen from the side; lines down the throat, seen from the front):
+# the smoothing above keeps the volume and so the edge. It starts higher (0.7 to 0.9; 0.8 to 1.05 left the fold half out of
+# it), and after it the same skin is relaxed for JAW_NECK_RELAX rounds (`relaxed`), which rounds a fold into a curve.
+JAW_NECK_FROM = (0.7, 0.9)
+JAW_NECK_RELAX = 10
 JAW_NECK_TO = (2.3, 2.7)
 JAW_NECK_BACK = (1.5, 2.3)
 # Round 76: at 20 rounds a small step stayed under the men's chin in profile ("uma ondulação mole no meio", "dobra dupla").
@@ -410,6 +415,25 @@ def smoothed(points, edges, weight, rounds=None):
             np.add.at(total, edges[:, 0], points[edges[:, 1]])
             np.add.at(total, edges[:, 1], points[edges[:, 0]])
             points = points + step * weight * (total / count - points)
+    return points
+
+
+
+def relaxed(points, edges, weight, rounds):
+    """The points (n x 3) by their `edges` (m x 2), each going `weight` of half the way to the mean of its neighbours, `rounds`
+    times: a fold becomes a curve (unlike `smoothed`, the volume is not kept, so it is for a narrow zone)."""
+    points = np.asarray(points, float).copy()
+    edges = np.asarray(edges, int)
+    count = np.zeros(len(points))
+    np.add.at(count, edges[:, 0], 1)
+    np.add.at(count, edges[:, 1], 1)
+    count = np.maximum(count, 1)[:, None]
+    weight = np.asarray(weight, float)[:, None]
+    for _ in range(rounds):
+        total = np.zeros_like(points)
+        np.add.at(total, edges[:, 0], points[edges[:, 1]])
+        np.add.at(total, edges[:, 1], points[edges[:, 0]])
+        points = points + 0.5 * weight * (total / count - points)
     return points
 
 
