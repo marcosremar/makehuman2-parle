@@ -127,7 +127,7 @@ REST_SMILE = {"female": 0.06, "male": 0.08}
 FAIR_LOOK = {
     # faceCheek: 0.9 for the series' full cheeks went past half of a trait, the test's bound (`tests/test_parle_fair_look.py`);
     # the fullness goes to the cheek's ball of the sculpture (`parle_style.SCULPT`) instead.
-    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.2, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": -0.1, "faceCheek": 0.5,
+    "female": {"faceNoseWidth": -0.3, "faceNoseLength": -0.2, "noseShape-curto": 0.3, "noseShape-ponta-arredondada": 0.3, "faceJaw": 0.0, "faceCheek": 0.3,
                "faceEyeSpacing": 0.4, "faceBrowHeight": 0.2, "faceChin": 0.25, "faceEyeOpen": 0.0, "eyeWideLeft": 0.5, "eyeWideRight": 0.5, "faceEyeTilt": 0.3,
                "mouthSmileLeft": REST_SMILE["female"], "mouthSmileRight": REST_SMILE["female"]},
     # The series' men have round eyes with white showing (2026-11-15): the lids open half again, as the women's.

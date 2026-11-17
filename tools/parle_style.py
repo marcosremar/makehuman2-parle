@@ -162,8 +162,8 @@ def warmer(rgb, amount):
 SCULPT = {
     "male": {"nose_ball": (0.41, 0.42, 0.33), "nose_share": 0.95, "cheek": 0.66, "cheek_share": 0.76, "chin": 0.5, "lid": 0.1, "ridge": 0.0},
     "male-old": {"nose_ball": (0.44, 0.46, 0.38), "nose_share": 0.95, "cheek": 0.735, "cheek_share": 0.92, "chin": 0.45, "lid": -0.32, "ridge": 0.0},
-    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.65, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
-    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.735, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
+    "female": {"nose_ball": (0.22, 0.22, 0.19), "nose_share": 0.9, "cheek": 0.62, "cheek_wide": 0.86, "cheek_share": 0.82, "chin": 0.36, "lid": -0.02, "ridge": 0.0},
+    "female-old": {"nose_ball": (0.29, 0.29, 0.25), "nose_share": 0.9, "cheek": 0.7, "cheek_wide": 0.86, "cheek_share": 0.92, "chin": 0.38, "lid": -0.08, "ridge": 0.0},
 }
 # Where the forms stand, in distances between the eyes from the middle of the eye globe of that side (cheeks) or from the nose tip
 # (the nose ball behind it, the chin under it): across, back (+y), up.
@@ -175,6 +175,10 @@ SCULPT = {
 # nariz"): the balls lower and a little further out, and a twentieth bigger (SCULPT). Lower more than out: the owner faults a
 # wide face over a narrow jaw (2026-11-12, `parle_face.FAIR_LOOK`).
 CHEEK_AT = (0.14, 0.62, -0.64)
+# Round 78 (owner, 2026-11-17: "deve melhorar o maxilar"): on the women the cheeks' balls made the face a wide round over a
+# narrow jaw, the jaw 0.77 to 0.79 of the width at the cheekbones where the series' women have 0.82 and the faces he approved
+# 0.80 (he faults "queixo fino e rosto largo", 2026-11-12). Their balls are narrower across (`cheek_wide` in SCULPT), and back
+# to the size they had before round 77.
 # Round 55: "boca e queixo muito atrás da ponta do nariz" in profile (judge A): 3 mm forward in round 57; the crease under the young
 # man's lower lip came back where the chin's ball ends ("uma segunda boca", round 60), as in round 26: back.
 CHIN_AT = (0.0, 0.55, -1.25)
@@ -215,9 +219,11 @@ NOSE_ZONE = 0.55
 # under the tip) the face is this share as tall; the neck takes the move back over LOWER_NECK, and the whole width of the jaw
 # (LOWER_WIDE either side) goes with it.
 # Round 37 (5.5): with the crease gone, the chin still "quadrado" and long on all four: a little shorter.
-# Round 76 (both judges, all eight: "nariz–queixo 6 % mais curto", "crânio 5 % maior em relação ao rosto"): each 0.05 shorter
-# (0.83, 0.87, 0.85 and 0.87 until then).
-LOWER_FACE = {"male": 0.78, "male-old": 0.82, "female": 0.8, "female-old": 0.82}
+# Round 78 made each 0.05 shorter for the judges by sight ("nariz–queixo 6 % mais curto"): measured with the ruler on the portraits
+# of round 77 (`parle_beauty`, the owner, 2026-11-17: "deve melhorar o maxilar"), the women's faces were already wider than tall
+# (width over height 1.01 to 1.09; the series' women 0.91, the faces the owner approved 0.90) and the men's as wide as his (0.83
+# to 0.89 against 0.83; the series' men 0.77). Back for the men; the women's face is left longer under the nose.
+LOWER_FACE = {"male": 0.83, "male-old": 0.87, "female": 0.93, "female-old": 0.93}
 LOWER_CHIN = -1.3
 # Round 38: at 1.6 the lift reached a woman's collar and the throat came through it.
 LOWER_NECK = 1.1
@@ -711,7 +717,7 @@ def sculpt_field(tip, eyes, kind):
             side = np.sign(centre[0] - (centres[0][0] + centres[1][0]) / 2)
             at = np.asarray(centre, float) + np.array([side * CHEEK_AT[0], CHEEK_AT[1], CHEEK_AT[2]]) * unit
             radius = spec["cheek"] * unit
-            points[front] = onto_ball(points[front], at, (radius, radius, radius * 0.9), spec["cheek_share"], True)
+            points[front] = onto_ball(points[front], at, (radius * spec.get("cheek_wide", 1.0), radius, radius * 0.9), spec["cheek_share"], True)
         # The chin onto a ball.
         chin = tip + np.array(CHIN_AT) * unit
         radius = spec["chin"] * unit

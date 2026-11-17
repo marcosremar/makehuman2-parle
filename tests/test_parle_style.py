@@ -211,3 +211,9 @@ assert np.all(under[2:] < 0.01), f"the lips, the cheek, the collar or the nape a
 fold = np.array([(x, 0.0, abs(x) * 0.6) for x in np.linspace(-0.02, 0.02, 21)])
 eased = parle_style.smoothed(fold, np.array([(index, index + 1) for index in range(20)]), np.r_[0.0, np.ones(19), 0.0], parle_style.JAW_NECK_ROUNDS)
 assert eased[10, 2] > 0.0005 and np.allclose(eased[[0, 20]], fold[[0, 20]]), f"a fold is not opened, or its ends moved: {eased[10]}"
+
+# Round 78 (owner, 2026-11-17: "deve melhorar o maxilar"): the women's faces measured wider than tall, the jaw narrow against the
+# cheekbones. Their cheeks are narrower across than the men's, and their face is shortened less under the nose.
+for old_or_young in ("", "-old"):
+    assert parle_style.SCULPT["female" + old_or_young]["cheek_wide"] < 0.9 and "cheek_wide" not in parle_style.SCULPT["male" + old_or_young], "the women's cheeks are as wide as the men's"
+    assert parle_style.LOWER_FACE["female" + old_or_young] > parle_style.LOWER_FACE["male" + old_or_young] + 0.05, "the women's face is as short under the nose as the men's"
