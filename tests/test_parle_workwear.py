@@ -65,6 +65,23 @@ assert bend > 0.003, "the patch was crumpled"
 assert np.linalg.svd(plate - plate.mean(axis=0), compute_uv=False)[2] < 1e-5, "the badge lies on one plane"
 assert min(surface.find_nearest(vertex.co, 0.1)[3] for vertex in badge.data.vertices) > parle_workwear.BADGE_GAP_M - 1e-4, "off the shirt"
 
+# Cut out of a dress through its triangles the badge's edge came out torn: its border is snapped to a rectangle.
+torn = sheet("torn", size=0.06, cells=6, y=-0.02, seed=9)
+rng = np.random.default_rng(11)
+for vertex in torn.data.vertices:
+    border_point = abs(abs(vertex.co.x) - 0.03) < 1e-6 or abs(abs(vertex.co.z) - 0.03) < 1e-6
+    vertex.co.x *= 1.75  # 7 by 4 cm, like the badge
+    if border_point:
+        vertex.co.x += float(rng.uniform(-0.004, 0.004))
+        vertex.co.z += float(rng.uniform(-0.004, 0.004))
+parle_workwear.rigid_badge(torn, [shirt], [])
+edge = np.array([tuple(vertex.co) for vertex in torn.data.vertices])
+ring = [index for index, vertex in enumerate(torn.data.vertices) if index % 7 in (0, 6) or index // 7 in (0, 6)]
+xs_, zs_ = edge[ring, 0] - edge[:, 0].mean(), edge[ring, 2] - edge[:, 2].mean()
+half_x, half_z = np.abs(edge[:, 0] - edge[:, 0].mean()).max(), np.abs(edge[:, 2] - edge[:, 2].mean()).max()
+off_side = np.minimum(np.abs(half_x - np.abs(xs_)), np.abs(half_z - np.abs(zs_)))
+assert off_side.max() < 1e-3, f"the badge's border is a rectangle ({off_side.max():.5f})"
+
 # One pleat down the middle of the skirt: the middle comes forward (to -y), the sides of it go back, the bib above stays.
 skirt = sheet("skirt", size=0.3, cells=30, y=-0.05)
 parle_workwear.pleat(skirt, waist_z=0.05, middle_x=0.0)

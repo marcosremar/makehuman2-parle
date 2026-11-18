@@ -46,6 +46,8 @@ PLEAT_HALF_M = 0.035
 PLEAT_FADE_M = 0.08
 # The badge: a flat plate, this far over the cloth under it at its closest point.
 BADGE_GAP_M = 0.006
+# The rectangle the badge's border is snapped to: this percentile of its points' reach on each axis (the torn tips stay outside it).
+BADGE_EDGE_PERCENTILE = 90
 
 
 def _twins(obj):
@@ -235,6 +237,30 @@ def follow_inner(piece, inner, waist_z):
     return moved
 
 
+def square_outline(obj, flat, middle, across, up):
+    """The patch's points on its plane with the open border snapped to a rectangle and the inside kept within it: cut out of a
+    dress through its triangles, the badge's edge came out torn, like a scrap of paper (player, 2026-11-18)."""
+    twin, _ = _twins(obj)
+    faces = [tuple(twin[list(polygon.vertices)]) for polygon in obj.data.polygons]
+    count = {}
+    for face in faces:
+        for first, second in zip(face, face[1:] + face[:1]):
+            key = (min(first, second), max(first, second))
+            count[key] = count.get(key, 0) + 1
+    border_twins = {index for key, seen in count.items() if seen == 1 for index in key}
+    border = np.array([twin[vertex] in border_twins for vertex in range(len(flat))])
+    u, v = (flat - middle) @ across, (flat - middle) @ up
+    half_u, half_v = np.percentile(np.abs(u), BADGE_EDGE_PERCENTILE), np.percentile(np.abs(v), BADGE_EDGE_PERCENTILE)
+    u_in, v_in = np.clip(u, -half_u, half_u), np.clip(v, -half_v, half_v)
+    # A border point goes to the nearest side of the rectangle.
+    to_side_u, to_side_v = half_u - np.abs(u_in), half_v - np.abs(v_in)
+    snap_u = border & (to_side_u <= to_side_v)
+    snap_v = border & ~snap_u
+    u_in = np.where(snap_u, np.sign(u_in + 1e-12) * half_u, u_in)
+    v_in = np.where(snap_v, np.sign(v_in + 1e-12) * half_v, v_in)
+    return middle + np.outer(u_in, across) + np.outer(v_in, up)
+
+
 def rigid_badge(badge, under, inner):
     """The badge as a flat plate over the clothes, moving as one piece with the point of the clothes under its middle."""
     world = _world(badge)
@@ -247,6 +273,7 @@ def rigid_badge(badge, under, inner):
         if location is not None and np.dot(normal, np.array(outward)) < 0:
             normal = -normal
     flat = world - np.outer((world - middle) @ normal, normal)
+    flat = square_outline(badge, flat, middle, turn[0], turn[1])
     if tree is not None:
         lift = 0.0
         for point in flat:
