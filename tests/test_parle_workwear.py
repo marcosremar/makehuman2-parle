@@ -77,8 +77,9 @@ for vertex in torn.data.vertices:
 parle_workwear.rigid_badge(torn, [shirt], [])
 edge = np.array([tuple(vertex.co) for vertex in torn.data.vertices])
 ring = [index for index, vertex in enumerate(torn.data.vertices) if index % 7 in (0, 6) or index // 7 in (0, 6)]
-xs_, zs_ = edge[ring, 0] - edge[:, 0].mean(), edge[ring, 2] - edge[:, 2].mean()
-half_x, half_z = np.abs(edge[:, 0] - edge[:, 0].mean()).max(), np.abs(edge[:, 2] - edge[:, 2].mean()).max()
+centre_x, centre_z = (edge[:, 0].max() + edge[:, 0].min()) / 2, (edge[:, 2].max() + edge[:, 2].min()) / 2
+xs_, zs_ = edge[ring, 0] - centre_x, edge[ring, 2] - centre_z
+half_x, half_z = (edge[:, 0].max() - edge[:, 0].min()) / 2, (edge[:, 2].max() - edge[:, 2].min()) / 2
 off_side = np.minimum(np.abs(half_x - np.abs(xs_)), np.abs(half_z - np.abs(zs_)))
 assert off_side.max() < 1e-3, f"the badge's border is a rectangle ({off_side.max():.5f})"
 
