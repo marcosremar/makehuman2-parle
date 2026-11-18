@@ -306,9 +306,40 @@ def skin_tree(body):
     return BVHTree.FromPolygons([tuple(body.matrix_world @ vertex.co) for vertex in body.data.vertices], [tuple(polygon.vertices) for polygon in body.data.polygons])
 
 
-def wears_from_game(name, earrings, glasses=True):
-    """Men of the cast wear no earrings (owner, 2026-11-06). Glasses of the game body stay unless the look says otherwise (Renata, owner, 2026-11-07)."""
-    return (earrings or "Earring" not in name) and (glasses or not name.startswith(("Glasses", "Aviator")))
+GAME_HATS = ("Cap", "Straw_Hat", "Straw_Band", "Turban_Band")
+# The glasses of the game body come over rigid, scaled by the span of the eyes, and our head is narrower than the game's behind the
+# eyes: the shoe seller's temples stood out of her head like antennas (vision critic of the shop interiors, cycle 3, 2026-11-18).
+# Behind the frame the temples are laid along the side of the head, this far off the skin, fading in over the first centimetres.
+TEMPLE_FROM_M = 0.01
+TEMPLE_FADE_M = 0.025
+TEMPLE_GAP_M = 0.003
+TEMPLE_REACH_M = 0.2
+
+
+def fit_glasses(points, skin, middle_x, eye_y):
+    """The points of a pair of glasses (world, the face looking at -y) with the temples on the side of the head `skin` (a BVH tree)."""
+    fitted = []
+    for point in points:
+        share = min(1.0, max(0.0, (point.y - eye_y - TEMPLE_FROM_M) / TEMPLE_FADE_M))
+        if share <= 0:
+            fitted.append(point)
+            continue
+        side = 1.0 if point.x >= middle_x else -1.0
+        axis = Vector((middle_x, point.y, point.z))
+        hit = skin.ray_cast(axis, Vector((side, 0.0, 0.0)), TEMPLE_REACH_M)[0]
+        if hit is None:
+            fitted.append(point)
+            continue
+        target_x = hit.x + side * TEMPLE_GAP_M
+        fitted.append(Vector((point.x + (target_x - point.x) * share, point.y, point.z)))
+    return fitted
+
+
+def wears_from_game(name, earrings, glasses=True, hats=True):
+    """Men of the cast wear no earrings (owner, 2026-11-06). Glasses of the game body stay unless the look says otherwise (Renata, owner, 2026-11-07).
+    A hat or cap of the game body stays unless the look says otherwise: the stationer wore a beach straw hat behind her counter (vision critic of
+    the shop interiors, cycle 3, 2026-11-17)."""
+    return (earrings or "Earring" not in name) and (glasses or not name.startswith(("Glasses", "Aviator"))) and (hats or not name.startswith(GAME_HATS))
 
 
 def trim_forehead_hair(obj, body, mine, band_z=None):

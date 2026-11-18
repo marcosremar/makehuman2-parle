@@ -17,6 +17,13 @@ FRONT_UP_TO_CM = 7.0
 CELLS_PER_CM = 40
 FADE_MM = 3.0
 RAGGED_MM = 1.0
+# On the cheek the border thins out over a centimetre instead of 3 mm: the barman's and the gym instructor's beards ended in a hard
+# line, «a brown stain climbing the cheek like mud» (vision critic of the shop interiors, cycle 3, 2026-11-18). The moustache and the
+# mouth keep the short fade, or the moustache, a band of a few millimetres, would fade out. The soft fade grows in between these
+# distances from the middle of the face.
+CHEEK_FADE_MM = 10.0
+CHEEK_RAGGED_MM = 2.5
+CHEEK_FROM_CM = (2.5, 4.0)
 # The sideburn thins out into the hair instead of ending in a line.
 SIDEBURN_FADE_CM = (2.0, 4.5)
 # Under the jaw it thins out on the neck: an outline there came out as notches where the mesh folds under the chin.
@@ -109,6 +116,12 @@ def strands(size):
     return np.clip(lines / max(float(lines.std()), 1e-6) / 2, -1, 1)
 
 
+def cheek_share(side_cm):
+    """How much of the cheek's soft border a texel gets, from 0 by the moustache to 1 on the cheek, by its distance from the middle."""
+    share = np.clip((np.nan_to_num(side_cm) - CHEEK_FROM_CM[0]) / (CHEEK_FROM_CM[1] - CHEEK_FROM_CM[0]), 0, 1)
+    return share * share * (3 - 2 * share)
+
+
 def beard_shape(data, lips, size):
     """How much beard each texel has, from 0 to 1."""
     place = position_map(data, size)
@@ -120,7 +133,9 @@ def beard_shape(data, lips, size):
     cheek = np.where(side > SIDE_FROM_CM, signed_mm(SIDE_OUTLINE, depth, height), -99.0)
     front = np.where(depth < FRONT_UP_TO_CM, signed_mm(FRONT_OUTLINE, side, height), -99.0)
     inside = np.maximum(cheek, front)
-    shape = np.clip((inside + RAGGED_MM * strands(size)) / FADE_MM, 0, 1) * known
+    soft = cheek_share(side)
+    fade, ragged = FADE_MM + (CHEEK_FADE_MM - FADE_MM) * soft, RAGGED_MM + (CHEEK_RAGGED_MM - RAGGED_MM) * soft
+    shape = np.clip((inside + ragged * strands(size)) / fade, 0, 1) * known
     shape *= np.clip((SIDEBURN_FADE_CM[1] - np.nan_to_num(height)) / (SIDEBURN_FADE_CM[1] - SIDEBURN_FADE_CM[0]), 0, 1)
     shape *= np.clip((np.nan_to_num(height) - NECK_FADE_CM[1]) / (NECK_FADE_CM[0] - NECK_FADE_CM[1]), 0, 1)
     parting = np.exp(-((np.nan_to_num(side) / PARTING_CM) ** 2)) * (np.nan_to_num(height) > -3.5)
