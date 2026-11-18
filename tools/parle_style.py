@@ -43,10 +43,11 @@ STYLE = {
     # Round 83 (measured): the young women's nose 20 to 36 % wider than the series' young women's, the old women's 8 to 11 % wider
     # than its widest woman's; the faces the owner approved have it wider than the series (`parle_beauty.LIKED`), so less than
     # half of the way: a twelfth and a twentieth narrower (with the balls in SCULPT).
-    "female": {"forward": 0.8, "nose": 1.06, "tip": 1.1, "brow": 1.35, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
+    # Rounds 86 and 90 (four judges of four, both rounds): the women's eyebrows "+20 a +30 % na cabeça", thinning to the temple.
+    "female": {"forward": 0.8, "nose": 1.06, "tip": 1.1, "brow": 1.5, "brow_outer": 0.55, "eye": 1.0, "skin": 1.55},
     # Rounds 54 and 58: the old woman's nose "20 % menor, ... hoje parece nariz de homem" (both judges).
     # Round 66: at 2.4 the old woman's eyebrow was a flat grey slab over the eye: thinner, and thinning to the temple.
-    "female-old": {"forward": 0.85, "nose": 1.24, "tip": 1.2, "brow": 1.7, "brow_outer": 0.6, "eye": 1.0, "skin": 1.55},
+    "female-old": {"forward": 0.85, "nose": 1.24, "tip": 1.2, "brow": 1.85, "brow_outer": 0.55, "eye": 1.0, "skin": 1.55},
 }
 # Round 3 of the loop judged by sight against the series (2026-11-15, 3.1 in 10) asked first for eyes about a third bigger and round,
 # with white showing and a highlight; then warmer, more saturated skin; a bulb at the tip of the nose; eyebrows half as thick again.

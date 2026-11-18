@@ -1089,7 +1089,8 @@ def paint_face(body, added, tip, balls, kind):
         on_map = skin_places(body, rest, loops, [point for line in marks for point in line]) * (width, height)
         ends = np.cumsum([0] + [len(line) for line in marks])
         pixels[:, :, :3] = parle_paint.stroked(pixels[:, :, :3], [parle_paint.evened_line(on_map[first:last]) for first, last in zip(ends[:-1], ends[1:])],
-                                               face_skin * np.asarray(parle_paint.AGE_TONE, np.float32), parle_paint.AGE_LINE_PX * width / 1024)
+                                               face_skin * np.asarray(parle_paint.AGE_TONE, np.float32), parle_paint.AGE_LINE_PX * width / 1024,
+                                               parle_paint.AGE_LINE * (parle_paint.AGE_LINE_WOMAN if kind.startswith("female") else 1.0))
     pixels[:, :, :3] = pixels[:, :, :3] * (1 - dark[:, :, None]) + held * dark[:, :, None]
     # Last, the empty map about the islands takes their colour (`parle_paint.padded`): it kept the kit's photograph, which showed
     # as a dark mark under each angle of the jaw, where the edge of the neck's island runs in a zigzag.

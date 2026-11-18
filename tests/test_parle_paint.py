@@ -248,3 +248,7 @@ print("ok cabelo")
 # Round 90: the hair blur made a helmet of long hair (four judges of four): it is off, and with no blur the map is unchanged.
 assert parle_paint.HAIR_MASS_PX == 0 and parle_paint.HAIR_EDGE_PX == 0, "the hair blur is on again"
 assert np.allclose(parle_paint.drawn_hair(strands_map, 0, 0), strands_map), "with no blur the hair map changed"
+
+# Round 91: a woman's lines of age are drawn fainter than a man's, and the young man's blush is wider than the young woman's.
+assert parle_paint.AGE_LINE_WOMAN <= 0.5, "the old women's folds are as dark as the men's"
+assert parle_paint.CHEEK_WIDE_BY_KIND["male"] > parle_paint.CHEEK_WIDE_BY_KIND["female"], "the young man's blush is two small balls again"

@@ -66,7 +66,8 @@ NOSE_SHARE = 1.0
 # nose is the reddest of his face (both judges, round 51). By kind: the width of the cheek's spot, how much of the blush the cheek
 # takes and how much the nose's tip takes.
 # Round 61: the old man's blush still "em círculo de borda dura" (judge B): wider.
-CHEEK_WIDE_BY_KIND = {"male-old": 0.64, "female-old": 0.5, "female": 0.3}
+# Round 91 (four judges of four on round 90): the young man's blush "duas bolas rosa", to be "mais quente e de borda difusa": wider.
+CHEEK_WIDE_BY_KIND = {"male-old": 0.64, "female-old": 0.5, "female": 0.3, "male": 0.36}
 # Round 52: with the cheek's part weaker one judge read the old paler; round 53, both judges: "trocar os dois discos vermelhos por um
 # avermelhado difuso 40 % mais fraco" on the old man, "blush 30 % mais fraco e espalhado" on the old woman.
 CHEEK_PART_BY_KIND = {"male-old": 0.6, "female-old": 0.7}
@@ -516,6 +517,9 @@ AGE_TONE = (0.72, 0.56, 0.52)
 # Round 90 (four judges of four on round 89, the four old: "rugas pintadas apagadas ou trocadas por sombra macia"): fainter and wider.
 AGE_LINE = 0.17
 AGE_LINE_PX = 4.6
+# Round 91 (four judges of four on round 90, the old women: the dark folds by the nose "tirar a cor, baixar 60 a 70 %"): on a woman
+# the lines are drawn at this share of AGE_LINE.
+AGE_LINE_WOMAN = 0.4
 AGE_POINTS = 9
 CROW_FROM = (1.18, 0.15, 0.0)
 CROW_TO = ()
