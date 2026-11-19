@@ -26,6 +26,14 @@ BROWN_SATURATION_CEILING = 0.55
 BROWN_VALUE_CEILING = 0.43
 # The two browns must be two colours: CIELAB delta E between them. At L* 26 / 24.5 they were 1.6 apart (2026-11-11), the same brown.
 BROWN_DELTA_E_FLOOR = 5.0
+# Honey read orange in the player's close-up too (2026-11-19, the baker Seu Jorge, loop of references cycle 3): painted at saturation
+# 0.48 and value 0.66, the game drew it at HSV hue 29, saturation 0.71, an orange disc with a black dot, where the dark brown of the
+# pharmacist (painted 0.42 / 0.35) came out at saturation 0.58. Under the game's light the painted saturation grows about half again:
+# honey stays at or under 0.40 painted and under the old 0.55 of a light brown in value, still lighter than the light brown and a
+# colour of its own beside it.
+HONEY_SATURATION_CEILING = 0.40
+HONEY_VALUE_CEILING = 0.55
+HONEY_DELTA_E_FLOOR = 5.0
 
 
 def lab(bgr):
@@ -41,6 +49,9 @@ def lab(bgr):
 
 delta_e = np.linalg.norm(lab(eye.IRISES["castanho"]) - lab(eye.IRISES["castanho-escuro"]))
 assert delta_e > BROWN_DELTA_E_FLOOR, f"castanho and castanho-escuro are delta E {delta_e:.1f} apart, not over {BROWN_DELTA_E_FLOOR}"
+honey_e = np.linalg.norm(lab(eye.IRISES["mel"]) - lab(eye.IRISES["castanho"]))
+assert honey_e > HONEY_DELTA_E_FLOOR, f"mel and castanho are delta E {honey_e:.1f} apart, not over {HONEY_DELTA_E_FLOOR}: one brown"
+assert lab(eye.IRISES["mel"])[0] > lab(eye.IRISES["castanho"])[0], "mel is no longer lighter than castanho"
 
 for name, colour in eye.IRISES.items():
     image = eye.paint(colour).astype(float) / 255
@@ -71,6 +82,11 @@ for name, colour in eye.IRISES.items():
             saturation = 1 - mean.min() / mean.max()
             assert saturation <= BROWN_SATURATION_CEILING, f"{name} eye {index}: saturation {saturation:.2f}, over {BROWN_SATURATION_CEILING}: it reads orange"
             assert value <= BROWN_VALUE_CEILING, f"{name} eye {index}: brown value {value:.2f}, over {BROWN_VALUE_CEILING}: a light brown reads orange"
+        if name == "mel":
+            mean = image[ring].mean(axis=0)
+            saturation = 1 - mean.min() / mean.max()
+            assert saturation <= HONEY_SATURATION_CEILING, f"mel eye {index}: saturation {saturation:.2f}, over {HONEY_SATURATION_CEILING}: it reads orange"
+            assert value <= HONEY_VALUE_CEILING, f"mel eye {index}: value {value:.2f}, over {HONEY_VALUE_CEILING}: an orange disc with a dot"
 
 print("ok")
 
