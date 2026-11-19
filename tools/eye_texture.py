@@ -78,10 +78,19 @@ LIMBUS_SHARE = 0.90
 # 2026-11-16: at 1.15 the light brown passed the value the owner's test holds (0.48 against 0.43, `tests/test_parle_eye_map.py`: a
 # light brown reads orange in the player, 34 of 42 bodies on 2026-11-11): the browns as the owner chose them.
 IRIS_LIGHTER = 1.0
+# Honey read orange in the player as the browns had (2026-11-19, the baker Seu Jorge in the bakery close-up, loop of references
+# cycle 3): at L* 54, a* 12, b* 29 (h_ab 68, chroma 32, HSV saturation 0.52) the game drew an orange disc, HSV hue 29 and saturation
+# 0.71, where the brown of the pharmacist came out at 0.58. The series the owner chose has dark, clean eyes, and glasses never
+# change their colour. Honey now keeps its place between the light brown and the old honey: L* 44, over the light brown's 31 and
+# the measured light-brown range (23.7 to 32.9, Li et al. 2026 above), so it still reads lighter; a* 8, b* 16, hue h_ab 63, more
+# yellow than the browns' 45 because honey is the yellow end of the browns (the intermediate colours sit between brown and green,
+# Sturm & Larsson 2009, "Genetics of human iris colour and patterns", Pigment Cell & Melanoma Research 22(5):544-562,
+# DOI 10.1111/j.1755-148X.2009.00606.x); chroma 18, under the browns' 20, because the game's light adds about half again to the
+# painted saturation. Lightness and chroma are a choice by eye on the player's close-up, to be judged.
 IRISES = {name: tuple(min(1.0, value * IRIS_LIGHTER) for value in colour) for name, colour in {
     "castanho-escuro": (0.16, 0.2, 0.316),
     "castanho": (0.202, 0.251, 0.393),
-    "mel": (0.307, 0.47, 0.64),
+    "mel": (0.306, 0.387, 0.494),
 }.items()}
 LIMBUS = np.array((0.09, 0.07, 0.03))
 PUPIL = np.array((0.0, 0.0, 0.0))
