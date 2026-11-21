@@ -1086,13 +1086,43 @@ def drop_custom_normals(obj):
     mesh.update()
 
 
+GARMENT_PIECES = ("Outfit_Top", "Outfit_Bottom")
+
+
+def join_garment_pieces(meshes):
+    """Each garment back into one object with one material: one draw call for the top and one for the bottom. A suit is split into its
+    loose islands to tell the shirt from the trousers (`cast-assemble.split_suit`), and each island kept its own object and its own copy
+    of the material (`Roupa_top`, `Roupa_top.001`, ..., one colour): a shop clerk taken out of her bikini into a blouse and trousers
+    cost seven more draw calls than in the bikini (2026-11-21, the clothes of who serves inside a shop; a cost the phone pays, the game's
+    rule 27). The pieces share the armature and carry no shape keys, so the join changes nothing the game draws but the number of calls.
+    Returns the meshes left."""
+    left = list(meshes)
+    for prefix in GARMENT_PIECES:
+        parts = [obj for obj in left if obj.type == "MESH" and obj.name.startswith(prefix) and len(obj.data.polygons)]
+        if len(parts) < 2:
+            continue
+        keep, joined = parts[0], {id(part) for part in parts[1:]}
+        material = keep.material_slots[0].material if keep.material_slots else None
+        with bpy.context.temp_override(active_object=keep, object=keep, selected_objects=parts, selected_editable_objects=parts):
+            bpy.ops.object.join()
+        if material is not None:
+            keep.data.materials.clear()
+            keep.data.materials.append(material)
+            keep.data.polygons.foreach_set("material_index", [0] * len(keep.data.polygons))
+            keep.data.update()
+        keep.name = prefix
+        left = [obj for obj in left if id(obj) not in joined]
+    return left
+
+
 def garment_normals(meshes):
     """The normals of the clothes worked out again on their final shape, the same at each place two points share (a seam of the
     texture, or the seam of a sleeve to the body of a top, which is two pieces). The clothes come from a glTF with its normals, and
     every step after (the fit, the build, the bust, the hems) moved the points and left those normals as they were: lit by them, the
     pharmacist's T-shirt had a hollow on the back at rest and the gym man's shorts a lump in front and a hole behind, none of them in
-    the mesh (2026-11-15: gone with the file's normals taken away, `drop_custom_normals`). Run last, on the rest shape the game plays.
-    Returns how many pieces."""
+    the mesh (2026-11-15: gone with the file's normals taken away, `drop_custom_normals`). Run last, on the rest shape the game plays,
+    after the pieces of each garment are one object again (`join_garment_pieces`). Returns how many pieces."""
+    meshes = join_garment_pieces(meshes)
     pieces = [obj for obj in meshes if obj.name.startswith(("Outfit_", "Footwear")) and len(obj.data.polygons)]
     if not pieces:
         return 0

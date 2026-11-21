@@ -34,8 +34,11 @@ def piece(name, x0):
 
 left, right = piece("Outfit_Top", 0.0), piece("Outfit_Top.001", 2.0)
 skin = piece("Body", 10.0)
-assert parle_polish.garment_normals([left, right, skin]) == 2
-for obj in (left, right):
+# The two pieces of the top are one object again before their normals are made (`join_garment_pieces`, 2026-11-21).
+assert parle_polish.garment_normals([left, right, skin]) == 1
+top = bpy.data.objects["Outfit_Top"]
+assert len(top.data.polygons) == 4
+for obj in (top,):
     normals = np.empty(len(obj.data.loops) * 3)
     obj.data.corner_normals.foreach_get("vector", normals)
     assert np.allclose(normals.reshape(-1, 3), (0, 0, 1), atol=1e-4), normals.reshape(-1, 3)[:3]
